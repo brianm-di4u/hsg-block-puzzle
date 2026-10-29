@@ -1,4 +1,4 @@
-// M2: pointer drag, touch tap-select/tap-place, keyboard play (AC14–AC16)
+// M2: pointer drag, touch drag (default) and tap-select/tap-place (setting), keyboard play (AC14–AC16)
 const EMPTY = () => new Array(81).fill(0);
 
 async function setup(t, tray) {
@@ -51,10 +51,63 @@ export const tests = [
     },
   },
   {
+    name: 'touch drag is the default',
+    viewports: ['mobile'],
+    async run(t) {
+      const L = await setup(t, [{ id: 'i5v' }, { id: 'o1' }, { id: 'i2h' }]);
+      const b = L.board, cell = b.cell;
+      const cdp = await t.page.context().newCDPSession(t.page);
+      const touch = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+      // the finger point that puts a w×h piece's top-left at (r, c): the piece floats with its bottom 3/4 cell above the finger
+      const fingerFor = (w, h, r, c) => [b.gx + c * cell + w * cell / 2, b.gy + r * cell + h * cell + cell * 0.75];
+      async function drag(k, [ex, ey], mid) {
+        const [ax, ay] = slotCenter(L, k);
+        await touch('touchStart', ax, ay);
+        for (let i = 1; i <= 10; i++) await touch('touchMove', ax + (ex - ax) * i / 10, ay + (ey - ay) * i / 10);
+        if (mid) await mid();
+        await touch('touchEnd', ex, ey);
+      }
+      // a tap on a tray piece hints at dragging instead of selecting; a board tap does nothing
+      const [sx, sy] = slotCenter(L, 1);
+      await t.page.touchscreen.tap(sx, sy);
+      let s = await t.state();
+      t.equal(s.sel, -1, 'tray tap does not select');
+      t.expect(await t.page.evaluate(() => document.getElementById('toast').classList.contains('on')), 'drag hint shown');
+      await t.game('act', 'hideToast');
+      const [cx, cy] = cellCenter(L, 4, 4);
+      await t.page.touchscreen.tap(cx, cy); await t.page.touchscreen.tap(cx, cy);
+      s = await t.state();
+      t.equal(s.board.filter(Boolean).length, 0, 'board taps place nothing');
+      // a tall piece stays clear of the finger and lands where its ghost shows
+      await drag(0, fingerFor(1, 5, 1, 2), async () => {
+        await t.page.evaluate(() => new Promise(r => requestAnimationFrame(() => r()))); // pointermoves arrive once per frame
+        const m = await t.state();
+        t.expect(m.ghost && m.ghost.valid && m.ghost.r === 1 && m.ghost.c === 2, 'i5v ghost at 1,2 above the finger: ' + JSON.stringify(m.ghost));
+        await t.game('act', 'freezeFx');
+        await t.shot('34-touch-drag');
+        await t.game('act', 'unfreezeFx');
+      });
+      s = await t.state();
+      t.equal([1, 2, 3, 4, 5].map(r => s.board[r * 9 + 2] > 0), [true, true, true, true, true], 'i5v placed at 1,2');
+      // snap assist: a drop 0.4 cell off an open spot, next to a blocked one, takes the open spot
+      const board = EMPTY(); board[2 * 9 + 3] = 1;
+      await t.game('setState', { board, tray: [{ id: 'o1' }, { id: 'o4' }, { id: 'i2h' }] });
+      await drag(0, fingerFor(1, 1, 2, 3.4));
+      s = await t.state();
+      t.expect(s.tray[0] === null && s.board[2 * 9 + 4] > 0, 'o1 snapped to the open cell 2,4');
+      // a small overhang past the board edge is pulled back in
+      await drag(2, fingerFor(2, 1, 6, -0.55));
+      s = await t.state();
+      t.expect(s.tray[2] === null && s.board[54] > 0 && s.board[55] > 0, 'i2h hanging off the left edge lands at 6,0');
+      await t.checkLayout();
+    },
+  },
+  {
     name: 'touch tap select and place',
     viewports: ['mobile'],
     async run(t) {
       const L = await setup(t, [{ id: 'o4' }, { id: 'o1' }, { id: 'i3v' }]);
+      await t.game('act', 'setting', 'tapPlace', true);
       const [sx, sy] = slotCenter(L, 0);
       await t.page.touchscreen.tap(sx, sy);
       let s = await t.state();
@@ -74,7 +127,7 @@ export const tests = [
       const cdp = await t.page.context().newCDPSession(t.page);
       const touch = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
       await touch('touchStart', ax, ay);
-      const lift = L.board.cell * 1.6;
+      const lift = L.board.cell * (3 / 2 + 0.75); // i3v is 3 tall: half its height plus 3/4 cell
       const ex = tgt[0], ey = tgt[1] + lift;
       for (let k = 1; k <= 10; k++) await touch('touchMove', ax + (ex - ax) * k / 10, ay + (ey - ay) * k / 10);
       s = await t.state();

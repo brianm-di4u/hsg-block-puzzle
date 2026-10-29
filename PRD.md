@@ -121,7 +121,8 @@ phrase at game over, a bright arpeggio on wins. Default volume 70%, mute toggle.
 
 - Portrait layout: HUD, heat bar, board (full width minus 16 px), tray below.
 - Touch targets ≥ 44 px; tray slots are at least 110 × 100 px on a 390 px wide phone.
-- Dragged pieces float above the finger; tap-select then tap-place as an alternative.
+- Drag is the touch default: dragged pieces float clear above the finger and snap forgivingly. Tap-select then
+  tap-place is an opt-in "Tap to place" setting (off by default), after testers found two-tap placement fiddly.
 - No page scrolling or zoom during play (`touch-action: none` on the canvas).
 
 ## 11. Performance budgets
@@ -153,7 +154,7 @@ Settings, bests, daily scores, trail progress, lifetime stats and an in-progress
 | AC12 | No-moves cue | Tray pieces that cannot fit are dimmed while the game continues |
 | AC13 | Undo | Undo restores the board, score and tray; the per-round budget is enforced; setting 0 disables it |
 | AC14 | Drag | A real pointer drag from a tray slot to the board places the piece with a snapped ghost |
-| AC15 | Tap-place | Touch: tap a piece, tap the board (ghost appears), tap again to place |
+| AC15 | Tap-place | Touch, with the Tap to place setting on: tap a piece, tap the board (ghost appears), tap again to place |
 | AC16 | Keyboard | A full turn can be played with 1/2/3, arrows and Enter; Esc pauses |
 | AC17 | High score | Bests persist across reloads via localStorage; the game still runs if storage throws |
 | AC18 | Daily | The daily layout and pieces are identical for the same date and differ for another date |
