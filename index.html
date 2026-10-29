@@ -1,0 +1,1804 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Thermal Blocks · Hot Springs Games</title>
+<meta name="description" content="Thermal Blocks: a 9×9 block-placement puzzle on a Hot Springs bathhouse tile floor. MIT licensed, part of Hot Springs Games.">
+<!--
+  Thermal Blocks — Hot Springs Games (MIT License).
+  One self-contained file: inline CSS, inline script, procedural canvas art, WebAudio synthesis.
+  Facts come from research/ (see games/block-puzzle/research/town-content.md).
+  All hex colors are estimates copied from shared/design/tokens.* ; "derived" marks shades made here.
+-->
+<style>
+:root{
+  --color-bg:#F2EFE8; --color-surface:#E6D7B5; --color-text:#1F2A24; --color-muted:#574A37;
+  --color-primary:#8E3622; --color-on-primary:#FFFFFF; --color-accent:#355E41; --color-on-accent:#FFFFFF;
+  --color-success:#2E6A3C; --color-danger:#9A2A1C; --color-highlight:#D9A23A; --color-border:#CDBF9F;
+  --panel:#F2EFE8; --scrim:rgba(20,18,31,.55);
+  --font-serif-victorian:"Palatino Linotype","Book Antiqua",Palatino,Georgia,"Times New Roman",serif;
+  --font-sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --font-mono:"Courier New",Courier,ui-monospace,Menlo,Consolas,monospace;
+  --radius-md:6px; --radius-lg:12px; --hud-h:60px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not(.theme-light){
+    --color-bg:#14121F; --color-surface:#1F1C2E; --color-text:#D8CFBD; --color-muted:#9A95A0;
+    --color-primary:#D4AF37; --color-on-primary:#14121F; --color-accent:#FF5A5A; --color-on-accent:#14121F;
+    --color-success:#5FD38A; --color-danger:#FF6B6B; --color-highlight:#4FC3FF; --color-border:#3A3550;
+    --panel:#1F1C2E; --scrim:rgba(0,0,0,.6);
+  }
+}
+:root.theme-dark{
+  --color-bg:#14121F; --color-surface:#1F1C2E; --color-text:#D8CFBD; --color-muted:#9A95A0;
+  --color-primary:#D4AF37; --color-on-primary:#14121F; --color-accent:#FF5A5A; --color-on-accent:#14121F;
+  --color-success:#5FD38A; --color-danger:#FF6B6B; --color-highlight:#4FC3FF; --color-border:#3A3550;
+  --panel:#1F1C2E; --scrim:rgba(0,0,0,.6);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--color-bg);color:var(--color-text);font-family:var(--font-sans);font-size:16px;-webkit-text-size-adjust:100%}
+:root.big body{font-size:20px}
+#cv{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
+#cv:focus-visible{box-shadow:inset 0 0 0 3px var(--color-highlight)}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer;min-height:44px;min-width:44px;border-radius:var(--radius-md);border:2px solid var(--color-border);background:var(--color-bg);color:var(--color-text);padding:8px 14px;line-height:1.2}
+button:hover{border-color:var(--color-primary)}
+button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(--color-highlight);outline-offset:2px}
+button:disabled{opacity:.55;cursor:not-allowed}
+button.primary{background:var(--color-primary);color:var(--color-on-primary);border-color:var(--color-primary);font-weight:700}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* HUD */
+#hud{position:fixed;left:0;right:0;top:0;height:var(--hud-h);display:none;align-items:center;gap:8px;padding:8px max(8px,env(safe-area-inset-left));background:var(--panel);border-bottom:2px solid var(--color-border);z-index:5}
+#hud.on{display:flex}
+#hud .mid{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:16px}
+#hud .stat{display:flex;flex-direction:column;align-items:center;line-height:1.05;min-width:0}
+#hud .lbl{font-size:.72em;color:var(--color-muted);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+#hud .num{font-family:var(--font-mono);font-weight:700;font-size:1.35em}
+#hud .mode{font-family:var(--font-serif-victorian);font-size:.95em;color:var(--color-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#hud button{display:flex;align-items:center;justify-content:center;gap:4px;padding:6px 8px}
+#hud svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+#b-undo .cnt{font-family:var(--font-mono);font-weight:700}
+@media (max-width:520px){ #hud .mode{display:none} #hud .mid{gap:12px} }
+
+/* Screens */
+.screen{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:16px;overflow:auto;z-index:10}
+.screen.on{display:flex}
+.screen.overlay{background:var(--scrim)}
+.panel{background:var(--panel);color:var(--color-text);border:2px solid var(--color-border);border-radius:var(--radius-lg);padding:20px;width:min(560px,100%);max-height:100%;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.35);margin:auto}
+.panel h2{font-family:var(--font-serif-victorian);margin:0 0 12px;font-size:1.6em;color:var(--color-primary)}
+.panel h3{margin:16px 0 6px;font-size:1.05em}
+.panel p,.panel li{line-height:1.45}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.row>button{flex:1 1 140px}
+.row.col{flex-direction:column}
+.row.col>button{flex:0 0 auto}
+.muted{color:var(--color-muted)}
+
+/* Title */
+#sc-title .panel{text-align:center;width:min(520px,100%)}
+.emblem{width:96px;height:52px;display:block;margin:0 auto}
+.logo{font-family:var(--font-serif-victorian);font-size:2.6em;margin:4px 0 0;color:var(--color-primary);letter-spacing:.02em;line-height:1.05}
+.logo small{display:block;font-size:.38em;letter-spacing:.3em;text-transform:uppercase;color:var(--color-muted);margin-top:6px;font-family:var(--font-sans)}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+.modes button{text-align:left;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.modes b{font-size:1.05em}
+.modes span{font-size:.82em;color:var(--color-muted)}
+.links{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:12px}
+.links button{flex:1 1 45%;font-size:.95em}
+.ticker{margin:14px 0 0;font-size:.9em;color:var(--color-muted);min-height:2.9em}
+@media (max-width:420px){ .logo{font-size:2.1em} .modes{grid-template-columns:1fr} }
+
+/* Summary */
+.big-score{font-family:var(--font-mono);font-size:3em;font-weight:700;text-align:center;margin:4px 0}
+.newbest{text-align:center;color:var(--color-success);font-weight:700;min-height:1.4em}
+.grid2{display:grid;grid-template-columns:1fr auto;gap:6px 16px;margin:12px 0}
+.grid2 dt{color:var(--color-muted)}
+.grid2 dd{margin:0;font-family:var(--font-mono);font-weight:700;text-align:right}
+
+/* Trail + cards */
+.levels{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.levels button{display:flex;flex-direction:column;align-items:flex-start;text-align:left;min-height:64px}
+.levels .st{font-size:.8em;color:var(--color-muted)}
+.levels .done .st{color:var(--color-success)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.card{border:2px solid var(--color-border);border-radius:var(--radius-md);padding:12px;background:var(--color-bg)}
+.card h4{margin:0 0 4px;font-family:var(--font-serif-victorian);font-size:1.1em;color:var(--color-primary)}
+.card .yr{font-family:var(--font-mono);font-size:.85em;color:var(--color-muted)}
+.card ul{margin:6px 0;padding-left:18px}
+.card .src{font-size:.78em;color:var(--color-muted)}
+.card.locked{opacity:.8;border-style:dashed}
+
+/* Settings */
+.set{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--color-border);min-height:52px}
+.set select{min-height:44px;border-radius:var(--radius-md);border:2px solid var(--color-border);background:var(--color-bg);padding:4px 8px}
+.set input[type=checkbox]{width:28px;height:28px;accent-color:var(--color-primary)}
+.set input[type=range]{width:160px;min-height:44px;accent-color:var(--color-primary)}
+kbd{font-family:var(--font-mono);border:1px solid var(--color-border);border-radius:4px;padding:0 4px;background:var(--color-bg)}
+table.keys{border-collapse:collapse;width:100%}
+table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertical-align:top}
+
+/* Toast */
+#toast{position:fixed;left:50%;top:calc(var(--hud-h) + 10px);transform:translateX(-50%);max-width:min(520px,calc(100% - 32px));background:var(--panel);color:var(--color-text);border:2px solid var(--color-highlight);border-radius:var(--radius-lg);padding:10px 14px;z-index:8;display:none;box-shadow:0 6px 20px rgba(0,0,0,.3);text-align:center;font-size:.95em}
+#toast.on{display:block}
+#toast b{font-family:var(--font-serif-victorian);color:var(--color-primary);display:block;font-size:1.1em}
+</style>
+</head>
+<body>
+<canvas id="cv" tabindex="0" role="application" aria-label="Thermal Blocks board. Keys: 1 2 3 pick a piece, arrows move, Enter places, U undoes, Escape pauses."></canvas>
+
+<header id="hud" aria-label="Game status">
+  <button id="b-pause" aria-label="Pause"><svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg></button>
+  <div class="mid">
+    <div class="stat"><span class="lbl">Score</span><span class="num" id="h-score">0</span></div>
+    <div class="stat"><span class="lbl" id="h-best-lbl">Best</span><span class="num" id="h-best">0</span></div>
+    <div class="mode" id="h-mode">Classic</div>
+  </div>
+  <button id="b-undo" aria-label="Undo"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg><span class="cnt" id="h-undo">1</span></button>
+  <button id="b-sound" aria-label="Sound on" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path id="snd-wave" d="M16 9a4 4 0 010 6M18.5 6.5a8 8 0 010 11"/></svg></button>
+</header>
+
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="live" class="sr" aria-live="polite"></div>
+
+<section class="screen" id="sc-title" aria-label="Title">
+  <div class="panel">
+    <svg class="emblem" viewBox="0 0 120 64" aria-hidden="true">
+      <defs><linearGradient id="gz" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7FC8B8"/><stop offset="1" stop-color="#1F5F6B"/></linearGradient>
+        <linearGradient id="gr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D9805F"/><stop offset="1" stop-color="#7E2F1F"/></linearGradient>
+        <linearGradient id="gb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F0CB6A"/><stop offset="1" stop-color="#9C7A2A"/></linearGradient></defs>
+      <path d="M38 22c-6-6 6-10 0-18M60 20c-6-6 6-10 0-18M82 22c-6-6 6-10 0-18" fill="none" stroke="#9CC3BE" stroke-width="4" stroke-linecap="round" opacity=".8"/>
+      <rect x="22" y="30" width="30" height="30" rx="6" fill="url(#gr)" stroke="#5a2216"/>
+      <rect x="45" y="26" width="30" height="30" rx="6" fill="url(#gz)" stroke="#123c44"/>
+      <rect x="68" y="30" width="30" height="30" rx="6" fill="url(#gb)" stroke="#6b5216"/>
+      <path d="M53 41l7 7 7-7" fill="none" stroke="#F4F2EC" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <h1 class="logo">Thermal Blocks<small>Hot Springs, Arkansas</small></h1>
+    <div class="row" style="justify-content:center"><button class="primary" id="b-continue" style="display:none;flex:0 1 260px">Continue game</button></div>
+    <div class="modes">
+      <button data-mode="classic"><b>Classic</b><span>Endless. Climb through seven eras.</span></button>
+      <button data-mode="daily"><b>Daily Soak</b><span id="daily-sub">Same board and pieces for everyone today.</span></button>
+      <button data-mode="springs"><b>Springs</b><span>Tap 47 hot-spring vents.</span></button>
+      <button data-go="trail"><b>Spring Trail</b><span id="trail-sub">12 puzzles named for real places.</span></button>
+    </div>
+    <div class="links">
+      <button data-go="cards">Fact cards</button><button data-go="records">Records</button>
+      <button data-go="help">How to play</button><button data-go="settings">Settings</button>
+    </div>
+    <p class="ticker" id="ticker"></p>
+  </div>
+</section>
+
+<section class="screen overlay" id="sc-pause" aria-label="Paused">
+  <div class="panel" style="width:min(380px,100%)">
+    <h2>Paused</h2>
+    <div class="row col">
+      <button class="primary" id="b-resume">Resume</button>
+      <button id="b-restart">Restart</button>
+      <button data-go="help">How to play</button>
+      <button data-go="settings">Settings</button>
+      <button id="b-quit">Quit to menu</button>
+    </div>
+  </div>
+</section>
+
+<section class="screen overlay" id="sc-over" aria-label="Game over">
+  <div class="panel" style="width:min(420px,100%)">
+    <h2 id="ov-title">No room left</h2>
+    <p class="muted" id="ov-sub" style="margin:0"></p>
+    <div class="big-score" id="ov-score">0</div>
+    <div class="newbest" id="ov-new"></div>
+    <dl class="grid2" id="ov-stats"></dl>
+    <div class="row"><button class="primary" id="b-again">Play again</button><button id="b-ovundo" style="display:none">Undo last move</button><button id="b-menu1">Menu</button></div>
+  </div>
+</section>
+
+<section class="screen overlay" id="sc-win" aria-label="Puzzle solved">
+  <div class="panel" style="width:min(460px,100%)">
+    <h2 id="win-title">Puzzle solved</h2>
+    <p class="muted" id="win-sub" style="margin:0 0 8px"></p>
+    <div id="win-card"></div>
+    <div class="row"><button class="primary" id="b-next">Next puzzle</button><button id="b-trail2">Spring Trail</button><button id="b-menu2">Menu</button></div>
+  </div>
+</section>
+
+<section class="screen overlay" id="sc-trail" aria-label="Spring Trail">
+  <div class="panel" style="width:min(720px,100%)">
+    <h2>Spring Trail</h2>
+    <p class="muted" style="margin-top:0">Twelve puzzles named for Hot Springs places. Each has a fixed set of pieces and one goal. Solve one to collect its fact card and open the next.</p>
+    <div class="levels" id="levels"></div>
+    <div class="row"><button data-back>Back</button></div>
+  </div>
+</section>
+
+<section class="screen overlay" id="sc-cards" aria-label="Fact cards">
+  <div class="panel" style="width:min(820px,100%)">
+    <h2>Fact cards</h2>
+    <p class="muted" style="margin-top:0" id="cards-sub"></p>
+    <div class="cards" id="cards"></div>
+    <div class="row"><button data-back>Back</button></div>
+  </div>
+</section>
+
+<section class="screen overlay" id="sc-records" aria-label="Records">
+  <div class="panel" style="width:min(460px,100%)">
+    <h2>Records</h2>
+    <dl class="grid2" id="rec-stats"></dl>
+    <p id="rec-age"></p>
+    <div class="row"><button data-back>Back</button></div>
+  </div>
+</section>
+
+<section class="screen overlay" id="sc-help" aria-label="How to play">
+  <div class="panel" style="width:min(640px,100%)">
+    <h2>How to play</h2>
+    <p>Drag a tile piece from the tray onto the 9×9 bathhouse floor. Pieces never rotate. Fill a whole <b>row</b>, <b>column</b> or one of the nine <b>3×3 pools</b> and it clears in a burst of steam.</p>
+    <p>Each round deals three pieces. Place all three to get three more. The game ends when none of your pieces fits. A piece that has no room is dimmed in the tray.</p>
+    <h3>Scoring and heat</h3>
+    <ul>
+      <li>+1 for each tile you place.</li>
+      <li>Clearing 1 group scores 18, 2 at once 72, 3 at once 162 (18 × groups²), times the heat multiplier.</li>
+      <li>Every clear heats the water. A placement that clears nothing cools it a step. Heat multiplies clear points up to ×4 at 143°F, the springs' average temperature (NPS). At the top the meter reads "Boiling", after William Dunbar's 1804 name for them: "the boiling springs".</li>
+      <li>Empty the whole floor with a clear for a +300 clear-spring bonus.</li>
+    </ul>
+    <h3>Modes</h3>
+    <ul>
+      <li><b>Classic</b>: endless. Score carries you through the town's seven eras.</li>
+      <li><b>Daily Soak</b>: everyone gets the same tufa stones and the same pieces today.</li>
+      <li><b>Springs</b>: vents sit on the floor. Clear a vent's row, column or pool to tap it (+40 × the heat multiplier). Tap 47 to win. Hot Springs is usually said to have 47 springs; one source says 43 still flow, and NPS says "about four dozen".</li>
+      <li><b>Spring Trail</b>: hand-made puzzles with a goal and a fixed set of pieces. Undo is unlimited there.</li>
+    </ul>
+    <h3>Controls</h3>
+    <table class="keys">
+      <tr><td>Mouse</td><td>Drag a piece and drop it. Or click a piece, then click the board.</td></tr>
+      <tr><td>Touch</td><td>Drag (the piece floats above your finger). Or tap a piece, tap the board to preview, and tap the preview to place.</td></tr>
+      <tr><td>Keyboard</td><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> or <kbd>Tab</kbd> pick a piece · arrows move · <kbd>Enter</kbd>/<kbd>Space</kbd> place · <kbd>U</kbd> undo · <kbd>M</kbd> mute · <kbd>Esc</kbd> cancel or pause</td></tr>
+    </table>
+    <p class="muted">Undo: one per round by default (change it in Settings).</p>
+    <div class="row"><button data-back class="primary">Back</button></div>
+  </div>
+</section>
+
+<section class="screen overlay" id="sc-settings" aria-label="Settings">
+  <div class="panel" style="width:min(480px,100%)">
+    <h2>Settings</h2>
+    <label class="set"><span>Sound</span><input type="checkbox" id="s-sound"></label>
+    <label class="set"><span>Volume</span><input type="range" id="s-volume" min="0" max="100" step="5"></label>
+    <label class="set"><span>Motion</span><select id="s-motion"><option value="system">Follow system</option><option value="full">Full</option><option value="reduced">Reduced</option></select></label>
+    <label class="set"><span>Tile patterns (colorblind aid)</span><input type="checkbox" id="s-patterns"></label>
+    <label class="set"><span>Undos per round</span><select id="s-undo"><option value="0">0</option><option value="1">1</option><option value="3">3</option></select></label>
+    <label class="set"><span>Large text</span><input type="checkbox" id="s-big"></label>
+    <label class="set"><span>Menu theme</span><select id="s-theme"><option value="system">Follow system</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
+    <div class="row"><button data-back class="primary">Done</button></div>
+  </div>
+</section>
+
+<script>
+'use strict';
+/*RULES-START*/
+// ===================================================================== DATA
+const ERAS = [ // ids, names and ranges: research/timeline.json; score thresholds are game design
+  { id:'ancient',    name:'Ancient Valley',    years:'before 1804', at:0,     pal:'ouachita-forest',
+    cap:'Steam off the springs gave the valley its old nickname: the Valley of Vapors.' },
+  { id:'frontier',   name:'Frontier Springs',  years:'1804–1874',   at:400,   pal:'frontier-valley',
+    cap:'1804: William Dunbar writes Thomas Jefferson about "the boiling springs."' },
+  { id:'gilded-spa', name:'Gilded Spa',        years:'1875–1920',   at:1000,  pal:'gilded-spa',
+    cap:'Brick bathhouses rise along Bathhouse Row. The Hale (1892–93) is the oldest one still standing.' },
+  { id:'roaring',    name:'Roaring Spa Town',  years:'1921–1946',   at:2000,  pal:'deco-neon',
+    cap:'March 4, 1921: the reservation becomes Hot Springs National Park, the nation’s 18th.' },
+  { id:'midcentury', name:'Midcentury Vapors', years:'1947–1967',   at:3500,  pal:'motor-hotel',
+    cap:'Bathing peaked in 1946, then declined. The Fordyce was the first Row bathhouse to close, in 1962.' },
+  { id:'revival',    name:'Revival Years',     years:'1968–1999',   at:5500,  pal:'nps-rustic',
+    cap:'1982: NPS creates the Thermal Water Cascade. 1989: the Fordyce reopens as the park visitor center.' },
+  { id:'modern',     name:'Modern Spa City',   years:'2000–2026',   at:8000, pal:'lake-life',
+    cap:'Today the Buckstaff still gives traditional baths, and the Superior pours beer as a brewery.' },
+];
+
+// Piece table (original set). Each orientation is its own piece; a shape family keeps one color (1..6).
+const PIECE_DEFS = [
+  ['o1',3,1,['#']],
+  ['i2h',5,2,['##']], ['i2v',5,2,['#','#']],
+  ['i3h',4,3,['###']], ['i3v',4,3,['#','#','#']],
+  ['c3a',3,4,['##','#.']], ['c3b',3,4,['##','.#']], ['c3c',3,4,['#.','##']], ['c3d',3,4,['.#','##']],
+  ['i4h',3,5,['####']], ['i4v',3,5,['#','#','#','#']],
+  ['o4',4,6,['##','##']],
+  ['l4a',1.2,1,['#.','#.','##']], ['l4b',1.2,1,['###','#..']], ['l4c',1.2,1,['##','.#','.#']], ['l4d',1.2,1,['..#','###']],
+  ['j4a',1.2,2,['.#','.#','##']], ['j4b',1.2,2,['#..','###']], ['j4c',1.2,2,['##','#.','#.']], ['j4d',1.2,2,['###','..#']],
+  ['t4a',1.2,3,['###','.#.']], ['t4b',1.2,3,['.#.','###']], ['t4c',1.2,3,['#.','##','#.']], ['t4d',1.2,3,['.#','##','.#']],
+  ['s4h',1,4,['.##','##.']], ['s4v',1,4,['#.','##','.#']], ['z4h',1,4,['##.','.##']], ['z4v',1,4,['.#','##','#.']],
+  ['i5h',1.4,5,['#####']], ['i5v',1.4,5,['#','#','#','#','#']],
+  ['v5a',1.1,6,['###','#..','#..']], ['v5b',1.1,6,['###','..#','..#']], ['v5c',1.1,6,['#..','#..','###']], ['v5d',1.1,6,['..#','..#','###']],
+  ['r6h',1.1,2,['###','###']], ['r6v',1.1,2,['##','##','##']],
+  ['o9',0.7,3,['###','###','###']],
+  ['x5',0.6,1,['.#.','###','.#.']],
+  ['u5a',0.6,4,['#.#','###']], ['u5b',0.6,4,['###','#.#']],
+];
+const PIECES = {};
+for (const [id, w, color, rows] of PIECE_DEFS) {
+  const cells = [];
+  rows.forEach((row, r) => [...row].forEach((ch, c) => { if (ch === '#') cells.push([r, c]); }));
+  PIECES[id] = { id, w, color, cells, h: rows.length, wd: rows[0].length, n: cells.length };
+}
+const PIECE_IDS = PIECE_DEFS.map(d => d[0]);
+const WEIGHT_SUM = PIECE_DEFS.reduce((a, d) => a + d[1], 0);
+
+// Spring Trail levels. Board rows: '.' empty, 's' tufa stone, 'v' spring vent, '1'-'6' glazed tile.
+// Layouts and piece lists are game design; the card text is sourced (research/town-content.md §4).
+const LEVELS = [
+  { id:'display-spring', name:'Display Spring', era:0, goal:'vents', hint:'Fill the gap in the bottom row to tap the vent.',
+    board:['.........','.........','.........','.........','.........','.........','.........','.........','v12...456'],
+    pieces:['i3h','o4','o1'] },
+  { id:'hale-bathhouse', name:'Hale Bathhouse', era:2, goal:'stones', hint:'Two rows can clear with the right two pieces.',
+    board:['.........','.........','.........','.........','.........','.........','.........','ss.ss..ss','ss.ss..ss'],
+    pieces:['o1','i2v','o4'] },
+  { id:'maurice-spring-fountain', name:'Maurice Spring Fountain', era:2, goal:'lines:2', hint:'Clear two columns with one piece.',
+    board:['12.......','34.......','56.......','12.......','.........','34.......','56.......','12.......','34.......'],
+    pieces:['o1','i2h','i2v'] },
+  { id:'buckstaff-bathhouse', name:'Buckstaff Bathhouse', era:2, goal:'stones', hint:'Finish the center pool.',
+    board:['.........','.........','.........','...s.s...','...s.....','...sss...','.........','.........','.........'],
+    pieces:['o4','c3c','i2h'] },
+  { id:'fordyce-bathhouse', name:'Fordyce Bathhouse', era:2, goal:'stones', hint:'Order matters: one piece can clear a row and a column together.',
+    board:['....s....','....s....','....s....','.........','.sss.ssss','.........','....s....','....s....','....s....'],
+    pieces:['i3v','i2h','o1'] },
+  { id:'superior-bathhouse', name:'Superior Bathhouse', era:3, goal:'vents', hint:'Two vents in two corners. Save the right pieces for each row.',
+    board:['v123456..','1........','2........','3........','4........','5........','6........','.........','1234..61v'],
+    pieces:['i2v','i2h','c3a','o1','l4a','i2h'] },
+  { id:'quapaw-bathhouse', name:'Quapaw Bathhouse', era:3, goal:'stones', hint:'The tufa cave hides under three rows.',
+    board:['.........','.........','.........','.........','.........','.........','sss.sssss','ss...ssss','s..ssss..'],
+    pieces:['i2h','t4b','i2h','c3a'] },
+  { id:'ozark-bathhouse', name:'Ozark Bathhouse', era:4, goal:'lines:4', hint:'Twin towers: one piece can clear four groups at once.',
+    board:['..s...s..','..s...s..','..s...s..','..sssss..','ss.....ss','..sssss..','..s...s..','..s...s..','..s...s..'],
+    pieces:['o1','i3h','i5h'] },
+  { id:'lamar-bathhouse', name:'Lamar Bathhouse', era:4, goal:'stones', hint:'Complete the Row: every stone must go.',
+    board:['.........','.........','.........','sssss..ss','sssss..ss','sssss..ss','..sssssss','..sssssss','..sssssss'],
+    pieces:['r6v','i2v','o4','r6v','i3h','i2v'] },
+  { id:'grand-promenade', name:'Grand Promenade', era:5, goal:'stones', hint:'A long brick walk: plan for the longest pieces.',
+    board:['.........','.........','.........','ssss....s','s.....sss','sss....ss','.........','.........','.........'],
+    pieces:['c3a','i4h','o1','i2v','i5h','i4h'] },
+  { id:'tufa-terrace-trail', name:'Tufa Terrace Trail', era:5, goal:'stones', hint:'Terraces step down. Clear them from the top.',
+    board:['sss......','sss......','ss.......','...sss...','...ss....','...s.....','......sss','......s..','......s..'],
+    pieces:['o1','c3b','i2h','c3d','i2v','i4h','o4','i3h','i2h'] },
+  { id:'thermal-water-cascade', name:'Thermal Water Cascade', era:6, goal:'vents', hint:'Let the water run: tap every vent down the cascade, pool by pool.',
+    board:['v........','.v.......','..v......','...vs....','....v....','...s.v...','......v..','.......v.','........v'],
+    pieces:['c3b','o1','c3c','o1','i2h','o1','c3b','o1','c3c'] },
+];
+
+function parseLevel(L) {
+  const b = new Array(81).fill(0);
+  L.board.forEach((row, r) => [...row].forEach((ch, c) => {
+    b[r * 9 + c] = ch === 's' ? 7 : ch === 'v' ? 8 : (ch >= '1' && ch <= '6') ? +ch : 0;
+  }));
+  return b;
+}
+
+// ===================================================================== RULES (pure; no DOM)
+// mulberry32 by Tommy Ettinger, public domain (via github.com/bryc/code PRNGs.md); state kept on g.rng.
+function rand(g) {
+  let t = (g.rng = (g.rng + 0x6D2B79F5) >>> 0);
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+function randInt(g, n) { return Math.floor(rand(g) * n); }
+
+function canPlace(board, id, r, c) {
+  const p = PIECES[id]; if (!p) return false;
+  for (const [dr, dc] of p.cells) {
+    const rr = r + dr, cc = c + dc;
+    if (rr < 0 || rr > 8 || cc < 0 || cc > 8 || board[rr * 9 + cc]) return false;
+  }
+  return true;
+}
+function fitsAnywhere(board, id) {
+  const p = PIECES[id];
+  for (let r = 0; r <= 9 - p.h; r++) for (let c = 0; c <= 9 - p.wd; c++) if (canPlace(board, id, r, c)) return true;
+  return false;
+}
+function groupCells(type, i) {
+  const out = [];
+  for (let k = 0; k < 9; k++) {
+    if (type === 'row') out.push(i * 9 + k);
+    else if (type === 'col') out.push(k * 9 + i);
+    else out.push((Math.floor(i / 3) * 3 + Math.floor(k / 3)) * 9 + (i % 3) * 3 + (k % 3));
+  }
+  return out;
+}
+function findClears(board) {
+  const groups = [];
+  for (const type of ['row', 'col', 'box'])
+    for (let i = 0; i < 9; i++) {
+      const cells = groupCells(type, i);
+      if (cells.every(x => board[x])) groups.push({ type, i, cells });
+    }
+  return groups;
+}
+function pickPiece(g) {
+  let x = rand(g) * WEIGHT_SUM;
+  for (const d of PIECE_DEFS) { x -= d[1]; if (x < 0) return d[0]; }
+  return PIECE_DEFS[PIECE_DEFS.length - 1][0];
+}
+function heatMult(heat) { return 1 + heat * 0.25; }
+function tempF(heat) { return Math.round(60 + heat * 83 / 12); }
+function eraFor(score) { let e = 0; for (let i = 0; i < ERAS.length; i++) if (score >= ERAS[i].at) e = i; return e; }
+function count(board, code) { let n = 0; for (const v of board) if (v === code) n++; return n; }
+
+function dealTray(g) {
+  if (g.mode === 'trail') {
+    g.tray = [0, 1, 2].map(() => (g.queue.length ? { id: g.queue.shift() } : null));
+  } else {
+    g.tray = [0, 1, 2].map(() => ({ id: pickPiece(g) }));
+    if (g.mode !== 'daily' && !g.tray.some(t => fitsAnywhere(g.board, t.id))) {
+      // mercy deal: redraw the biggest piece until something fits (max 12 tries)
+      let slot = 0;
+      g.tray.forEach((t, i) => { if (PIECES[t.id].n > PIECES[g.tray[slot].id].n) slot = i; });
+      for (let k = 0; k < 12; k++) {
+        g.tray[slot] = { id: pickPiece(g) };
+        if (fitsAnywhere(g.board, g.tray[slot].id)) break;
+      }
+    }
+  }
+  g.round++;
+}
+function spawnVent(g) {
+  if (count(g.board, 8) >= 6) return -1;
+  const empty = [];
+  g.board.forEach((v, i) => { if (!v) empty.push(i); });
+  if (!empty.length) return -1;
+  const i = empty[randInt(g, empty.length)];
+  g.board[i] = 8;
+  if (findClears(g.board).length) { g.board[i] = 0; return -1; }
+  return i;
+}
+function goalMet(g) {
+  if (g.mode === 'springs') return g.springs >= 47;
+  if (g.mode !== 'trail' || !g.goal) return false;
+  if (g.goal === 'stones') return count(g.board, 7) === 0;
+  if (g.goal === 'vents') return count(g.board, 8) === 0;
+  if (g.goal.startsWith('lines:')) return g.groups >= +g.goal.slice(6);
+  return false;
+}
+function checkEnd(g) {
+  if (goalMet(g)) { g.won = true; g.over = true; return; }
+  const left = g.tray.filter(Boolean);
+  if (!left.length) { g.over = true; return; } // trail: out of pieces
+  if (!left.some(t => fitsAnywhere(g.board, t.id))) g.over = true;
+}
+
+// One full turn. Mutates g. Returns what happened (for effects, sounds and tests).
+function applyMove(g, slot, r, c) {
+  const t = g.tray[slot];
+  if (g.over || !t || !canPlace(g.board, t.id, r, c)) return { ok: false };
+  const p = PIECES[t.id];
+  const placedCells = p.cells.map(([dr, dc]) => (r + dr) * 9 + (c + dc));
+  for (const i of placedCells) g.board[i] = p.color;
+  g.placed++;
+  let points = p.n, clearPts = 0, ventPts = 0, bonus = 0;
+  const groups = findClears(g.board);
+  const G = groups.length;
+  const cleared = [];
+  let vents = 0, stones = 0;
+  if (G) {
+    g.heat = Math.min(12, g.heat + G);
+    const mult = heatMult(g.heat);
+    const set = new Set();
+    for (const gr of groups) for (const i of gr.cells) set.add(i);
+    for (const i of set) {
+      cleared.push({ i, code: g.board[i] });
+      if (g.board[i] === 8) vents++;
+      if (g.board[i] === 7) stones++;
+      g.board[i] = 0;
+    }
+    clearPts = Math.round(18 * G * G * mult);
+    ventPts = Math.round(40 * vents * mult);
+    g.springs += vents;
+    g.groups += G;
+    if (g.board.every(v => !v)) bonus = 300;
+  } else {
+    g.heat = Math.max(0, g.heat - 1);
+  }
+  g.bestHeat = Math.max(g.bestHeat, g.heat);
+  points += clearPts + ventPts + bonus;
+  g.score += points;
+  g.tray[slot] = null;
+  let newRound = false, vent = -1;
+  if (!g.tray.some(Boolean) && (g.mode !== 'trail' || g.queue.length)) {
+    dealTray(g); newRound = true;
+    if (g.mode === 'springs') vent = spawnVent(g);
+  }
+  checkEnd(g);
+  return { ok: true, id: t.id, placedCells, groups: groups.map(gr => ({ type: gr.type, i: gr.i })), G, cleared,
+           points, clearPts, ventPts, bonus, vents, stones, mult: heatMult(g.heat), newRound, vent };
+}
+
+function freshGame(mode) {
+  return { v: 1, mode, board: new Array(81).fill(0), tray: [null, null, null], queue: [], score: 0, heat: 0, bestHeat: 0,
+    groups: 0, placed: 0, round: 0, undoLeft: 1, undoStack: [], era: 0, springs: 0, level: null, goal: null,
+    daily: null, over: false, won: false, rng: 1 };
+}
+function setupGame(g, opts) {
+  if (g.mode === 'trail') {
+    const L = LEVELS.find(l => l.id === opts.level) || LEVELS[0];
+    g.level = L.id; g.goal = L.goal; g.board = parseLevel(L); g.queue = L.pieces.slice(); g.era = L.era;
+  } else if (g.mode === 'daily') {
+    let placed = 0, guard = 0;
+    while (placed < 8 && guard++ < 200) {
+      const i = randInt(g, 81);
+      if (g.board[i]) continue;
+      g.board[i] = 7;
+      if (findClears(g.board).length) { g.board[i] = 0; continue; }
+      placed++;
+    }
+  } else if (g.mode === 'springs') {
+    for (let k = 0; k < 4; k++) spawnVent(g);
+  }
+  dealTray(g);
+  checkEnd(g);
+  return g;
+}
+/*RULES-END*/
+
+// ===================================================================== CONTENT (sourced; see research/town-content.md)
+const TICKER = [
+  'Hot Springs water averages about 143°F, the hottest springs east of the Rockies (NPS).',
+  'Most of the spring water fell as rain about 4,400 years ago (USGS tritium and carbon-14 dating).',
+  'Rain soaks into Bigfork Chert and Arkansas Novaculite, then heats to about 160°F a mile down (NPS).',
+  'Two thrust faults, "alpha" and "beta", carry the heated water up like pipes (NPS).',
+  'The springs give over 700,000 gallons a day (NPS); other sources say up to about a million.',
+  'Hot Springs is usually counted as 47 springs; one source says 43 still flow.',
+  'Bicarbonate, about 130 ppm, is the main mineral dissolved in the water (Wikipedia, HSNP).',
+  'Tufa is the white-to-tan rock left where spring water evaporates.',
+  'In 1904 Bertram Boltwood found the waters slightly radioactive, mostly from dissolved radon.',
+  'Dunbar and Hunter counted four principal springs and two lesser ones in 1804.',
+  'A prescribed bath "course" in 1920 was 21 baths (NPS 1920 brochure).',
+];
+const CARDS = {
+  'display-spring': { place:'Display Spring', year:'uncovered 1930s', facts:[
+    'Behind the Maurice Bathhouse, it was covered by a grate for decades before it was opened in the 1930s.',
+    'Its water emerges at about 143°F and flows into Hot Springs Creek.'], src:'NPS: Maurice Historic Display Spring' },
+  'hale-bathhouse': { place:'Hale Bathhouse', year:'1892–93', facts:[
+    'The oldest surviving bathhouse on Bathhouse Row.',
+    'Its facade was remodeled in Mission style in 1939–40, with a red-tile hipped roof and wrought-iron grilles.'], src:'Encyclopedia of Arkansas; Wikipedia: Bathhouse Row' },
+  'maurice-spring-fountain': { place:'Maurice Spring Fountain', year:'1903', facts:[
+    'A fountain with a retaining wall, completed on Bathhouse Row in 1903.',
+    'The Noble Fountain was moved to the Reserve Avenue end of the Grand Promenade in 1957.'], src:'Wikipedia: Bathhouse Row' },
+  'buckstaff-bathhouse': { place:'Buckstaff Bathhouse', year:'1912', facts:[
+    'It has offered baths continuously since 1912, and was the only Row bathhouse still operating after 1985.',
+    'Cream brick with white stucco trim and brass "Buckstaff Baths" letters.'], src:'Encyclopedia of Arkansas; Wikipedia: Bathhouse Row' },
+  'fordyce-bathhouse': { place:'Fordyce Bathhouse', year:'1914–15', facts:[
+    'Built for $212,749.55 including fixtures, the Row’s most luxurious house.',
+    '"Spring number 46" sits in a glazed-tile room in its basement. It reopened as the park visitor center in 1989.'], src:'Wikipedia: Bathhouse Row' },
+  'superior-bathhouse': { place:'Superior Bathhouse', year:'1916', facts:[
+    'The northernmost house on the Row; concrete on its facade is painted to imitate tile, with green tile medallions.',
+    'Since 2012 it has housed a brewery and distillery.'], src:'Wikipedia: Bathhouse Row; Wikipedia: Hot Springs, Arkansas' },
+  'quapaw-bathhouse': { place:'Quapaw Bathhouse', year:'1922', facts:[
+    'It was to be the Platt Bathhouse until Native artifacts and a tufa cave turned up while digging its basement.',
+    'It is crowned by a chevron-mosaic tiled dome with a small copper cupola.'], src:'Encyclopedia of Arkansas; Wikipedia: Bathhouse Row' },
+  'ozark-bathhouse': { place:'Ozark Bathhouse', year:'1922', facts:[
+    'A Spanish Colonial Revival design by Mann & Stern with twin towers in three-tiered setbacks.',
+    'It reopened in 2014 as a cultural center showing artist-in-residence work.'], src:'Wikipedia: Bathhouse Row' },
+  'lamar-bathhouse': { place:'Lamar Bathhouse', year:'1923', facts:[
+    'Its 1923 opening completed Bathhouse Row.',
+    'It stopped offering baths in November 1985 and now holds the park store.'], src:'NPS: History & Culture; Wikipedia: Bathhouse Row' },
+  'grand-promenade': { place:'Grand Promenade', year:'begun 1930s', facts:[
+    'A brick walk about half a mile long behind Bathhouse Row, and a National Recreation Trail.',
+    'Construction began in the 1930s; the walk was completed in the late 1950s to early 1960s.'], src:'NPS: Hot Springs & North Mountain Trails; Wikipedia: Bathhouse Row' },
+  'tufa-terrace-trail': { place:'Tufa Terrace Trail', year:'0.3 mile', facts:[
+    'A paved 0.3-mile trail at a 6% grade, between about 650 and 745 feet.',
+    'Tufa (travertine) is the white-to-tan rock that forms as minerals precipitate from evaporating thermal water.'], src:'NPS: Hot Springs & North Mountain Trails; Wikipedia: HSNP' },
+  'thermal-water-cascade': { place:'Thermal Water Cascade', year:'1982', facts:[
+    'NPS created the Thermal Water Cascade in 1982.',
+    'When the springs were enclosed in 1901, water was diverted to form a thermal cascade.'], src:'Encyclopedia of Arkansas: Hot Springs National Park; EOA photo entry' },
+};
+
+// Tile glazes per era (6 each). From each era palette in shared/design/tokens.js; "d" = derived lighter shade
+// so a dark palette color still reads on the pool-blue board.
+const ERA_TILES = {
+  'ancient':    ['#EDEAE2', '#C99A92', '#A08A6A', '#7E9B4A'/*d oak*/, '#9E4E45'/*d red novaculite*/, '#9CC3BE'/*d steam*/],
+  'frontier':   ['#A58A64', '#8E3B2B', '#5E7D52'/*d*/, '#EFE8DA', '#7B6248', '#C9D3D6'],
+  'gilded-spa': ['#A9432C', '#C46A3E', '#4E7D5B', '#D9A23A', '#E6D7B5', '#2B4C9B'],
+  'roaring':    ['#D4AF37', '#FF3B3B', '#4FC3FF', '#2E8B57'/*d felt*/, '#D8CFBD', '#9A7444'/*d bronze*/],
+  'midcentury': ['#3FBFB5', '#F26B5B', '#F4C542', '#E26D8E', '#FFF6E0', '#2F7FC6'],
+  'revival':    ['#8C877C', '#8B4A33', '#5E7D40'/*d*/, '#D2C8AE', '#6E5640'/*d*/, '#B87333'],
+  'modern':     ['#B5654A', '#4C8FA8', '#F2A541', '#B5568F', '#F6F3EC', '#C8501F'],
+};
+const PAL = { // era palettes copied from shared/design/tokens.js (subset of roles used for backgrounds)
+  'ouachita-forest': { bg:'#1F3324', surface:'#2F4A2C', primary:'#5C7A3A', secondary:'#A08A6A', accent:'#C99A92', text:'#EDEAE2' },
+  'frontier-valley': { bg:'#C9D3D6', surface:'#EFE8DA', primary:'#A58A64', secondary:'#7B6248', accent:'#8E3B2B', highlight:'#3B5236' },
+  'gilded-spa':      { bg:'#E6D7B5', surface:'#F2EFE8', primary:'#A9432C', secondary:'#C46A3E', accent:'#4E7D5B', highlight:'#D9A23A', shadow:'#7E2F1F' },
+  'deco-neon':       { bg:'#14121F', surface:'#1F1C2E', primary:'#D4AF37', secondary:'#7C5A2E', accent:'#FF3B3B', highlight:'#4FC3FF', text:'#D8CFBD' },
+  'motor-hotel':     { bg:'#8FD0E8', surface:'#D9D4CA', primary:'#3FBFB5', secondary:'#F26B5B', accent:'#F4C542', highlight:'#FFF6E0' },
+  'nps-rustic':      { bg:'#3E3528', surface:'#5E4B3C', primary:'#8C877C', secondary:'#5B4632', accent:'#8B4A33', highlight:'#4F6B35', text:'#EDE3C8' },
+  'lake-life':       { bg:'#1E4E79', surface:'#183F63', primary:'#B5654A', secondary:'#4C8FA8', accent:'#F2A541', highlight:'#B5568F' },
+};
+const W8 = { pool:'#1F5F6B', pool2:'#25697A'/*d*/, surface:'#174A54', algae:'#2A9D8F', emerald:'#2F8F5B', tufa:'#9A968C',
+  rim:'#C8C3B6', streak:'#6E6A60', lead:'#2A2A2A', brass:'#C9A23F', text:'#F4F2EC', muted:'#D6D2C6', glass:'#7FC8B8' };
+
+// ===================================================================== STATE + SAVE
+const STORE_KEY = 'hs-thermal-blocks-v1';
+function defaultSave() {
+  return { v: 1, settings: { sound: true, volume: 0.7, motion: 'system', patterns: true, undo: 1, bigText: false, theme: 'system' },
+    best: { classic: 0, springs: 0, daily: {} }, trail: { done: [] }, stats: { games: 0, lines: 0, bestHeat: 0, springs: 0 }, resume: null };
+}
+let SAVE = defaultSave();
+function loadSave() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return;
+    const d = JSON.parse(raw), def = defaultSave();
+    SAVE = { ...def, ...d, settings: { ...def.settings, ...(d.settings || {}) }, best: { ...def.best, ...(d.best || {}) },
+      trail: { ...def.trail, ...(d.trail || {}) }, stats: { ...def.stats, ...(d.stats || {}) } };
+  } catch (e) { /* storage unavailable or corrupt: keep defaults */ }
+}
+function persist() { try { localStorage.setItem(STORE_KEY, JSON.stringify(SAVE)); } catch (e) { /* ignore */ } }
+
+let S = freshGame('classic');
+S.scene = 'title';
+let SEED_PENDING = null;
+const UI = { sel: -1, cur: null, ghost: null, drag: null, hover: null, returnTo: 'title', overAt: 0, fxFrozen: null, lastTap: null };
+
+function todayStr(d = new Date()) {
+  const p = n => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+function dateSeed(s) { return parseInt(s.replace(/-/g, ''), 10) >>> 0; }
+function undoMax() { return S.mode === 'trail' ? Infinity : SAVE.settings.undo; }
+function bestFor(mode) {
+  if (mode === 'daily') return SAVE.best.daily[S.daily] || 0;
+  if (mode === 'trail') return 0;
+  return SAVE.best[mode] || 0;
+}
+function eraId() { return ERAS[S.era].id; }
+
+// ===================================================================== AUDIO (WebAudio synthesis)
+const AU = { ctx: null, master: null, noise: null };
+function audioInit() {
+  if (AU.ctx) { if (AU.ctx.state === 'suspended') AU.ctx.resume().catch(() => {}); return; }
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    AU.ctx = new AC();
+    AU.master = AU.ctx.createGain();
+    AU.master.connect(AU.ctx.destination);
+    const len = AU.ctx.sampleRate;
+    AU.noise = AU.ctx.createBuffer(1, len, AU.ctx.sampleRate);
+    const d = AU.noise.getChannelData(0);
+    let s = 7; for (let i = 0; i < len; i++) { s = (s * 16807) % 2147483647; d[i] = s / 1073741823.5 - 1; }
+    applyVolume();
+  } catch (e) { AU.ctx = null; }
+}
+function applyVolume() {
+  if (AU.master) AU.master.gain.value = SAVE.settings.sound ? SAVE.settings.volume * 0.6 : 0;
+}
+function tone(f, t, dur, type = 'sine', vol = 0.25, f2 = null, att = 0.005) {
+  const c = AU.ctx, o = c.createOscillator(), g = c.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t);
+  if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + att);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(AU.master); o.start(t); o.stop(t + dur + 0.02);
+}
+function hiss(t, dur, vol, f1, f2, q = 1.2, type = 'bandpass') {
+  const c = AU.ctx, s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+  s.buffer = AU.noise; f.type = type; f.Q.value = q;
+  f.frequency.setValueAtTime(f1, t); f.frequency.exponentialRampToValueAtTime(f2, t + dur);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.03);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  s.connect(f); f.connect(g); g.connect(AU.master); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.05);
+}
+const PENTA = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24];
+function sfx(name, o = {}) {
+  if (!AU.ctx || !SAVE.settings.sound) return;
+  try {
+    const t = AU.ctx.currentTime + 0.01;
+    switch (name) {
+      case 'click': tone(660, t, 0.06, 'triangle', 0.12); break;
+      case 'pick': tone(520, t, 0.07, 'triangle', 0.14, 700); break;
+      case 'place': tone(180, t, 0.12, 'sine', 0.35, 90); hiss(t, 0.06, 0.12, 2400, 900, 0.8); break;
+      case 'invalid': tone(110, t, 0.18, 'square', 0.08, 80); break;
+      case 'deal': [0, 1, 2].forEach(k => tone(392 + k * 98, t + k * 0.05, 0.08, 'triangle', 0.08)); break;
+      case 'undo': tone(500, t, 0.12, 'triangle', 0.14, 300); break;
+      case 'clear': {
+        const G = o.G || 1, h = o.heat || 0;
+        hiss(t, 0.7 + G * 0.15, 0.22, 900, 5200, 0.7);
+        for (let k = 0; k < G + 2; k++) {
+          const st = PENTA[Math.min(PENTA.length - 1, Math.floor(h / 2) + k)];
+          tone(440 * Math.pow(2, st / 12), t + 0.04 + k * 0.07, 0.5, 'sine', 0.16);
+        }
+        break;
+      }
+      case 'vent': for (let k = 0; k < 5; k++) tone(300 + k * 90 + Math.random() * 60, t + k * 0.05, 0.08, 'sine', 0.12, 700); break;
+      case 'era': [0, 7, 12, 16].forEach((st, k) => tone(330 * Math.pow(2, st / 12), t + k * 0.12, 1.0, 'sine', 0.13)); break;
+      case 'over': [12, 7, 4, 0].forEach((st, k) => tone(330 * Math.pow(2, st / 12), t + k * 0.18, 0.6, 'triangle', 0.13)); break;
+      case 'win': [0, 4, 7, 12, 16, 19, 24].forEach((st, k) => tone(392 * Math.pow(2, st / 12), t + k * 0.08, 0.5, 'sine', 0.13)); hiss(t, 1.2, 0.12, 800, 4000); break;
+      case 'bonus': [0, 5, 9, 12].forEach((st, k) => tone(523 * Math.pow(2, st / 12), t + k * 0.06, 0.4, 'triangle', 0.12)); break;
+    }
+  } catch (e) { /* audio is optional */ }
+}
+
+// ===================================================================== RENDER
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let DPR = 1, VW = 0, VH = 0, LAY = null, dirty = true;
+const spriteCache = new Map();
+let bgCache = null, bgKey = '', boardCache = null, boardKey = '';
+const FX = [];          // transient effects
+const AMB = [];         // ambient steam wisps (title / vents)
+
+function reducedMotion() {
+  const m = SAVE.settings.motion;
+  if (m === 'reduced') return true;
+  if (m === 'full') return false;
+  return !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+}
+function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+function mix(a, b, t) { const A = hexRgb(a), B = hexRgb(b); return 'rgb(' + A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(',') + ')'; }
+function lum(h) { const [r, g, b] = hexRgb(h); return (0.299 * r + 0.587 * g + 0.114 * b) / 255; }
+function rr(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+
+function computeLayout() {
+  const W = VW, H = VH;
+  const hud = document.getElementById('hud').offsetHeight || 60;
+  const land = W > H * 1.05;
+  const L = { W, H, land, hud };
+  if (land) {
+    const top = hud + 16, availH = H - top - 16;
+    const size = Math.floor(Math.min(availH, W * 0.52, 700));
+    const side = Math.max(120, Math.min(260, (W - size) / 2 - 36));
+    const bx = Math.round((W - size) / 2), by = Math.round(top + (availH - size) / 2);
+    L.board = { x: bx, y: by, size };
+    const tw = side, th = (size - 24) / 3;
+    L.slots = [0, 1, 2].map(k => ({ x: bx + size + 24, y: by + k * (th + 12), w: tw, h: th }));
+    L.info = { x: bx - 24 - side, y: by, w: side, h: size };
+  } else {
+    const panelH = 52, gap = 10;
+    let size = Math.floor(Math.min(W - 16, H - hud - panelH - 104 - gap * 2 - 24, 640));
+    const trayH = Math.max(104, Math.min(200, (H - hud - panelH - size - gap * 2 - 24) * 0.6));
+    const total = panelH + gap + size + gap + trayH;
+    let y0 = hud + Math.max(8, (H - hud - total) / 2);
+    const bx = Math.round((W - size) / 2);
+    L.info = { x: bx, y: Math.round(y0), w: size, h: panelH };
+    L.board = { x: bx, y: Math.round(y0 + panelH + gap), size };
+    const ty = L.board.y + size + gap, sw = (size - 16) / 3;
+    L.slots = [0, 1, 2].map(k => ({ x: bx + k * (sw + 8), y: ty, w: sw, h: trayH }));
+  }
+  const b = L.board;
+  b.frame = Math.max(8, Math.round(b.size * 0.035));
+  b.cell = (b.size - b.frame * 2) / 9;
+  b.gx = b.x + b.frame; b.gy = b.y + b.frame;
+  return L;
+}
+function resize() {
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  VW = window.innerWidth; VH = window.innerHeight;
+  cv.width = Math.round(VW * DPR); cv.height = Math.round(VH * DPR);
+  LAY = computeLayout();
+  spriteCache.clear(); bgKey = ''; boardKey = '';
+  dirty = true;
+}
+
+// ---------- tiles
+function drawPattern(g, k, x, y, s, col) {
+  const dark = lum(col) > 0.55;
+  g.save();
+  g.strokeStyle = g.fillStyle = dark ? 'rgba(31,42,36,.55)' : 'rgba(255,255,255,.62)';
+  g.lineWidth = Math.max(1.5, s * 0.075); g.lineCap = 'round'; g.lineJoin = 'round';
+  const cx = x + s / 2, cy = y + s / 2, u = s * 0.2;
+  g.beginPath();
+  switch (k) {
+    case 1: g.arc(cx, cy, s * 0.13, 0, Math.PI * 2); g.fill(); break;                          // dot
+    case 2: g.moveTo(cx - u, cy - u * 0.5); g.lineTo(cx + u, cy - u * 0.5); g.moveTo(cx - u, cy + u * 0.5); g.lineTo(cx + u, cy + u * 0.5); g.stroke(); break; // bars
+    case 3: g.moveTo(cx - u, cy - u * 0.5); g.lineTo(cx, cy + u * 0.6); g.lineTo(cx + u, cy - u * 0.5); g.stroke(); break; // chevron (Quapaw dome motif)
+    case 4: g.moveTo(cx, cy - u); g.lineTo(cx + u, cy); g.lineTo(cx, cy + u); g.lineTo(cx - u, cy); g.closePath(); g.stroke(); break; // lozenge (Fordyce brick motif)
+    case 5: g.moveTo(cx - u * 1.1, cy); g.bezierCurveTo(cx - u * 0.5, cy - u, cx - u * 0.1, cy - u, cx, cy); g.bezierCurveTo(cx + u * 0.1, cy + u, cx + u * 0.5, cy + u, cx + u * 1.1, cy); g.stroke(); break; // wave
+    case 6: g.moveTo(cx - u, cy); g.lineTo(cx + u, cy); g.moveTo(cx, cy - u); g.lineTo(cx, cy + u); g.stroke(); break; // cross
+  }
+  g.restore();
+}
+function drawTileShape(g, code, x, y, s, era) {
+  const pad = Math.max(1, s * 0.05), w = s - pad * 2, r = s * 0.16;
+  if (code >= 1 && code <= 6) {
+    const col = ERA_TILES[era][code - 1];
+    g.fillStyle = 'rgba(0,0,0,.35)'; rr(g, x + pad, y + pad + s * 0.04, w, w, r); g.fill();
+    const gr = g.createLinearGradient(x, y, x, y + s);
+    gr.addColorStop(0, mix(col, '#FFFFFF', 0.28)); gr.addColorStop(0.5, col); gr.addColorStop(1, mix(col, '#000000', 0.22));
+    g.fillStyle = gr; rr(g, x + pad, y + pad, w, w, r); g.fill();
+    g.strokeStyle = mix(col, '#000000', 0.45); g.lineWidth = 1; g.stroke();
+    g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = Math.max(1, s * 0.04);
+    rr(g, x + pad + s * 0.07, y + pad + s * 0.07, w - s * 0.14, w - s * 0.14, r * 0.7); g.stroke();
+    g.fillStyle = 'rgba(255,255,255,.22)'; g.beginPath(); g.ellipse(x + s * 0.34, y + s * 0.26, s * 0.2, s * 0.09, -0.5, 0, Math.PI * 2); g.fill();
+    if (SAVE.settings.patterns) drawPattern(g, code, x, y, s, col);
+  } else if (code === 7) { // tufa stone (style guide: lobes, rims, damp streaks, emerald fringe)
+    g.fillStyle = 'rgba(0,0,0,.35)'; rr(g, x + pad, y + pad + s * 0.04, w, w, r); g.fill();
+    g.fillStyle = W8.tufa; rr(g, x + pad, y + pad, w, w, r); g.fill();
+    g.save(); rr(g, x + pad, y + pad, w, w, r); g.clip();
+    for (let k = 0; k < 3; k++) {
+      const ly = y + pad + w * (0.2 + k * 0.3);
+      for (let j = 0; j < 3; j++) {
+        const lx = x + pad + w * (0.17 + j * 0.33) + (k % 2) * w * 0.12;
+        const gr = g.createLinearGradient(0, ly - w * 0.12, 0, ly + w * 0.12);
+        gr.addColorStop(0, W8.rim); gr.addColorStop(1, W8.tufa);
+        g.fillStyle = gr; g.beginPath(); g.ellipse(lx, ly, w * 0.19, w * 0.12, 0, Math.PI, 0); g.fill();
+      }
+    }
+    g.strokeStyle = W8.streak; g.lineWidth = Math.max(1, s * 0.03);
+    g.beginPath(); g.moveTo(x + s * 0.3, y + s * 0.45); g.lineTo(x + s * 0.32, y + s * 0.8); g.moveTo(x + s * 0.66, y + s * 0.3); g.lineTo(x + s * 0.64, y + s * 0.62); g.stroke();
+    g.fillStyle = W8.emerald;
+    for (let j = 0; j < 5; j++) { g.beginPath(); g.arc(x + pad + w * (0.12 + j * 0.19), y + pad + w * 0.93, s * 0.04, 0, Math.PI * 2); g.fill(); }
+    g.restore();
+    g.strokeStyle = '#4A4740'; g.lineWidth = 1; rr(g, x + pad, y + pad, w, w, r); g.stroke();
+  } else if (code === 8) { // spring vent: tufa ring around a small hot pool
+    g.fillStyle = 'rgba(0,0,0,.35)'; rr(g, x + pad, y + pad + s * 0.04, w, w, r); g.fill();
+    const gr = g.createRadialGradient(x + s / 2, y + s / 2, s * 0.1, x + s / 2, y + s / 2, s * 0.55);
+    gr.addColorStop(0, W8.rim); gr.addColorStop(1, W8.tufa);
+    g.fillStyle = gr; rr(g, x + pad, y + pad, w, w, r); g.fill();
+    const pr = g.createRadialGradient(x + s * 0.45, y + s * 0.45, 1, x + s / 2, y + s / 2, s * 0.3);
+    pr.addColorStop(0, '#7FE0D2'); pr.addColorStop(0.5, W8.algae); pr.addColorStop(1, W8.pool);
+    g.fillStyle = pr; g.beginPath(); g.arc(x + s / 2, y + s / 2, s * 0.28, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = W8.emerald; g.lineWidth = Math.max(1.5, s * 0.06); g.stroke();
+    g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = Math.max(1, s * 0.035);
+    g.beginPath(); g.arc(x + s / 2, y + s / 2, s * 0.15, Math.PI * 1.1, Math.PI * 1.7); g.stroke();
+    g.strokeStyle = '#4A4740'; g.lineWidth = 1; rr(g, x + pad, y + pad, w, w, r); g.stroke();
+  }
+}
+function tileSprite(code, s) {
+  const era = eraId(), key = era + '|' + code + '|' + Math.round(s * 10) + '|' + SAVE.settings.patterns;
+  let c = spriteCache.get(key);
+  if (!c) {
+    if (spriteCache.size > 300) spriteCache.clear();
+    c = document.createElement('canvas');
+    const px = Math.ceil(s * DPR) + 2;
+    c.width = c.height = px;
+    const g = c.getContext('2d'); g.scale(DPR, DPR);
+    drawTileShape(g, code, 0, 0, s, era);
+    spriteCache.set(key, c);
+  }
+  return c;
+}
+function drawTile(code, x, y, s, alpha = 1) {
+  if (!code) return;
+  const sp = tileSprite(code, s);
+  if (alpha !== 1) ctx.globalAlpha = alpha;
+  ctx.drawImage(sp, x, y, sp.width / DPR, sp.height / DPR);
+  if (alpha !== 1) ctx.globalAlpha = 1;
+}
+function drawPiece(id, x, y, s, alpha = 1, code) {
+  const p = PIECES[id];
+  for (const [r, c] of p.cells) drawTile(code || p.color, x + c * s, y + r * s, s, alpha);
+}
+
+// ---------- backgrounds (one procedural scene per era; recipes after research/visual-style-guide.md era looks)
+function seeded(n) { let s = n >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+function ridge(g, W, H, base, amp, col, seed, step = 40) {
+  const R = seeded(seed); g.fillStyle = col; g.beginPath(); g.moveTo(0, H);
+  let y = base;
+  for (let x = 0; x <= W + step; x += step) { y = base + (R() - 0.5) * amp + Math.sin(x / 210 + seed) * amp * 0.5; g.lineTo(x, y); }
+  g.lineTo(W, H); g.closePath(); g.fill();
+}
+function puff(g, x, y, r, a) { // soft steam puff (style guide Motif 7: translucent white, blurred)
+  const gr = g.createRadialGradient(x, y, 0, x, y, r);
+  gr.addColorStop(0, 'rgba(255,255,255,' + a + ')'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+}
+function steamCol(g, x, y, h, a) {
+  for (let t = 0; t <= 1; t += 0.12) puff(g, x + Math.sin(t * 7) * 14 * t, y - t * h, 14 + t * 40, a * (1 - t * 0.7));
+}
+function drawEraBg(g, id, W, H) {
+  const R = seeded(id.length * 977 + 13);
+  const sky = (a, b) => { const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, a); gr.addColorStop(1, b); g.fillStyle = gr; g.fillRect(0, 0, W, H); };
+  if (id === 'title') {
+    sky('#174A54', '#1F5F6B');
+    ridge(g, W, H, H * 0.62, 70, 'rgba(154,150,140,.35)', 3);
+    ridge(g, W, H, H * 0.75, 50, 'rgba(23,74,84,.9)', 9);
+    return;
+  }
+  if (id === 'ancient') {
+    sky('#3B5A44', '#1F3324');
+    ridge(g, W, H, H * 0.45, 90, 'rgba(237,234,226,.22)', 5);   // novaculite ridges
+    ridge(g, W, H, H * 0.55, 80, '#2F4A2C', 11);
+    for (let k = 0; k < 70; k++) { const x = R() * W, y = H * 0.6 + R() * H * 0.4, s = 18 + R() * 30; g.fillStyle = R() > 0.5 ? '#1F3324' : '#24402A'; g.beginPath(); g.moveTo(x, y - s * 1.6); g.lineTo(x + s * 0.5, y); g.lineTo(x - s * 0.5, y); g.closePath(); g.fill(); }
+    for (let k = 0; k < 6; k++) steamCol(g, W * (0.1 + k * 0.17), H * 0.95, H * 0.4, 0.08);
+  } else if (id === 'frontier') {
+    sky('#C9D3D6', '#EFE8DA');
+    ridge(g, W, H, H * 0.42, 80, '#8FA08A', 4);
+    ridge(g, W, H, H * 0.55, 60, '#3B5236', 8);
+    g.fillStyle = '#9AA6A0'; g.fillRect(0, H * 0.8, W, H * 0.04); // creek
+    for (let k = 0; k < 14; k++) { const x = (k + 0.3) * W / 14 + R() * 20, y = H * 0.8, w = 40 + R() * 30, h = 26 + R() * 14;
+      g.fillStyle = '#A58A64'; g.fillRect(x, y - h, w, h); g.fillStyle = '#7B6248'; g.beginPath(); g.moveTo(x - 6, y - h); g.lineTo(x + w / 2, y - h - 18); g.lineTo(x + w + 6, y - h); g.fill();
+      g.strokeStyle = 'rgba(123,98,72,.6)'; g.lineWidth = 1; for (let j = 1; j < 4; j++) { g.beginPath(); g.moveTo(x, y - h + j * h / 4); g.lineTo(x + w, y - h + j * h / 4); g.stroke(); } }
+    g.fillStyle = '#8B7355'; g.fillRect(0, H * 0.84, W, H * 0.16);
+    for (let k = 0; k < 5; k++) steamCol(g, W * (0.12 + k * 0.2), H * 0.82, H * 0.3, 0.3);
+  } else if (id === 'gilded-spa') {
+    sky('#F2EFE8', '#E6D7B5');
+    ridge(g, W, H, H * 0.38, 70, '#7E9B7E', 6);
+    ridge(g, W, H, H * 0.46, 50, '#4E7D5B', 2);
+    let x = -20;
+    while (x < W) { // bathhouse row: cream brick / white stucco masses with red barrel-tile roofs
+      const w = 90 + R() * 80, h = H * (0.16 + R() * 0.12), y = H * 0.78;
+      g.fillStyle = R() > 0.5 ? '#E6D7B5' : '#F3EFE6'; g.fillRect(x, y - h, w, h);
+      g.strokeStyle = '#CDBF9F'; g.lineWidth = 1; g.strokeRect(x + 0.5, y - h + 0.5, w - 1, h - 1);
+      g.fillStyle = '#A9432C'; g.fillRect(x - 4, y - h - 10, w + 8, 12);
+      for (let t = x - 4; t < x + w + 4; t += 8) { g.fillStyle = '#7E2F1F'; g.beginPath(); g.arc(t + 4, y - h - 10, 4, Math.PI, 0); g.fill(); }
+      g.fillStyle = '#1F2A24';
+      for (let wx = x + 12; wx < x + w - 14; wx += 22) for (let wy = y - h + 18; wy < y - 16; wy += 30) { g.fillRect(wx, wy, 10, 16); }
+      x += w + 10 + R() * 20;
+    }
+    g.fillStyle = '#2F4F2F'; g.fillRect(0, H * 0.78, W, H * 0.22); // magnolia band
+    for (let k = 0; k < 120; k++) { // dark leaves with small cream blossoms
+      const x = R() * W, y = H * 0.8 + R() * H * 0.2;
+      if (k % 4) { g.fillStyle = k % 2 ? '#3F6B48' : '#284A31'; g.beginPath(); g.ellipse(x, y, 12, 5, R() * 3, 0, Math.PI * 2); g.fill(); }
+      else { g.fillStyle = '#F3EFE6'; g.beginPath(); g.arc(x, y, 3.5, 0, Math.PI * 2); g.fill(); }
+    }
+  } else if (id === 'roaring') {
+    sky('#14121F', '#1F1C2E');
+    for (let k = 0; k < 90; k++) { g.fillStyle = 'rgba(216,207,189,' + (0.2 + R() * 0.6) + ')'; g.fillRect(R() * W, R() * H * 0.5, 1.5, 1.5); }
+    let x = 0;
+    while (x < W) {
+      const w = 60 + R() * 70, h = H * (0.25 + R() * 0.35);
+      g.fillStyle = '#26223A'; g.fillRect(x, H - h, w, h);
+      g.fillStyle = '#2E2946'; g.fillRect(x + w * 0.2, H - h - 20, w * 0.6, 20);
+      const neon = ['#FF3B3B', '#4FC3FF', '#D4AF37'][Math.floor(R() * 3)];
+      g.save(); g.shadowColor = neon; g.shadowBlur = 14; g.strokeStyle = neon; g.lineWidth = 3;
+      g.strokeRect(x + 8, H - h + 30, w - 16, 26); g.restore();
+      g.fillStyle = 'rgba(212,175,55,.5)';
+      for (let wy = H - h + 70; wy < H - 10; wy += 22) for (let wx = x + 10; wx < x + w - 10; wx += 16) if (R() > 0.45) g.fillRect(wx, wy, 7, 10);
+      x += w + 6;
+    }
+  } else if (id === 'midcentury') {
+    sky('#8FD0E8', '#FFF6E0');
+    ridge(g, W, H, H * 0.55, 60, '#7FB3A8', 12);
+    const tx = W * 0.72, tw = Math.min(170, W * 0.22), th = H * 0.55;
+    g.fillStyle = '#D9D4CA'; g.fillRect(tx, H - th, tw, th);
+    g.fillStyle = '#3FBFB5'; for (let wy = H - th + 14; wy < H - 30; wy += 18) g.fillRect(tx + 8, wy, tw - 16, 7);
+    g.fillStyle = '#D9D4CA'; g.fillRect(W * 0.08, H * 0.72, W * 0.5, H * 0.28);
+    g.fillStyle = '#F26B5B'; g.fillRect(W * 0.08, H * 0.7, W * 0.5, 12);
+    for (let k = 0; k < 6; k++) { const cx = W * (0.1 + R() * 0.8), cy = H * (0.1 + R() * 0.35), r = 10 + R() * 18; g.strokeStyle = '#F4C542'; g.lineWidth = 2; g.beginPath(); for (let a = 0; a < 8; a++) { const an = a * Math.PI / 4; g.moveTo(cx, cy); g.lineTo(cx + Math.cos(an) * r, cy + Math.sin(an) * r); } g.stroke(); }
+    g.fillStyle = '#E26D8E'; g.fillRect(0, H * 0.94, W, H * 0.06);
+  } else if (id === 'revival') {
+    sky('#5E4B3C', '#3E3528');
+    ridge(g, W, H, H * 0.4, 80, '#4F6B35', 7);
+    for (let k = 0; k < 50; k++) { g.fillStyle = k % 2 ? '#4F6B35' : '#3E5A2A'; g.beginPath(); g.arc(R() * W, H * 0.5 + R() * H * 0.2, 20 + R() * 30, 0, Math.PI * 2); g.fill(); }
+    for (let y = H * 0.75; y < H; y += 22) for (let x = -(y % 30); x < W; x += 40 + R() * 20) { g.fillStyle = R() > 0.5 ? '#8C877C' : '#7A756B'; rr(g, x, y, 36 + R() * 14, 18, 4); g.fill(); }
+  } else if (id === 'modern') {
+    const gr = g.createLinearGradient(0, 0, 0, H * 0.6); gr.addColorStop(0, '#1E4E79'); gr.addColorStop(0.7, '#B5568F'); gr.addColorStop(1, '#F2A541');
+    g.fillStyle = gr; g.fillRect(0, 0, W, H * 0.6);
+    g.fillStyle = '#F2A541'; g.beginPath(); g.arc(W * 0.3, H * 0.6, Math.min(W, H) * 0.08, Math.PI, 0); g.fill();
+    ridge(g, W, H, H * 0.52, 50, '#2D4E5E', 14);
+    g.fillStyle = '#183F63'; g.fillRect(0, H * 0.6, W, H * 0.4);
+    g.strokeStyle = 'rgba(242,165,65,.45)'; g.lineWidth = 2;
+    for (let k = 0; k < 24; k++) { const y = H * 0.62 + R() * H * 0.35, x = W * 0.3 + (R() - 0.5) * W * 0.3; g.beginPath(); g.moveTo(x - 30, y); g.lineTo(x + 30, y); g.stroke(); }
+    let x = W * 0.55;
+    while (x < W) { const w = 50 + R() * 50, h = H * (0.1 + R() * 0.12); g.fillStyle = '#B5654A'; g.fillRect(x, H * 0.6 - h, w, h); g.fillStyle = '#F6F3EC'; for (let wx = x + 8; wx < x + w - 8; wx += 14) g.fillRect(wx, H * 0.6 - h + 10, 6, 10); x += w + 4; }
+    g.fillStyle = '#F2A541'; for (let k = 0; k < 30; k++) { g.beginPath(); g.arc(W * 0.55 + k * (W * 0.45 / 30), H * 0.42 + Math.sin(k / 3) * 6, 2.2, 0, Math.PI * 2); g.fill(); }
+  }
+}
+function ensureBg(id) {
+  const key = id + '|' + VW + 'x' + VH + '|' + DPR;
+  if (bgKey === key) return;
+  bgKey = key;
+  bgCache = bgCache || document.createElement('canvas');
+  bgCache.width = cv.width; bgCache.height = cv.height;
+  const g = bgCache.getContext('2d'); g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  drawEraBg(g, id, VW, VH);
+}
+
+// ---------- board base (frame + pools), cached
+function ensureBoard() {
+  const b = LAY.board, key = b.size + '|' + DPR;
+  if (boardKey === key) return;
+  boardKey = key;
+  boardCache = boardCache || document.createElement('canvas');
+  const px = Math.ceil((b.size + 24) * DPR);
+  boardCache.width = boardCache.height = px;
+  const g = boardCache.getContext('2d'); g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const o = 12, f = b.frame, s = b.size, cell = b.cell;
+  g.fillStyle = 'rgba(0,0,0,.35)'; rr(g, o + 4, o + 8, s, s, 10); g.fill();
+  // brass frame with a skylight border of small squares (style guide Motif 4)
+  const fg = g.createLinearGradient(o, o, o + s, o + s); fg.addColorStop(0, '#D9B656'); fg.addColorStop(1, '#9C7A2A');
+  g.fillStyle = fg; rr(g, o, o, s, s, 10); g.fill();
+  const n = 18, q = (s - f * 2) / n;
+  for (let k = 0; k < n; k++) for (const [x, y, w, h] of [[o + f + k * q + 1, o + f * 0.18, q - 2, f * 0.64], [o + f + k * q + 1, o + s - f * 0.82, q - 2, f * 0.64],
+    [o + f * 0.18, o + f + k * q + 1, f * 0.64, q - 2], [o + s - f * 0.82, o + f + k * q + 1, f * 0.64, q - 2]]) {
+    g.fillStyle = k % 2 ? W8.algae : W8.glass; g.fillRect(x, y, w, h);
+    g.strokeStyle = W8.lead; g.lineWidth = 1; g.strokeRect(x, y, w, h);
+  }
+  // nine pools
+  for (let bi = 0; bi < 9; bi++) {
+    const bx = o + f + (bi % 3) * cell * 3, by = o + f + Math.floor(bi / 3) * cell * 3;
+    const pg = g.createRadialGradient(bx + cell * 1.5, by + cell * 1.5, cell * 0.3, bx + cell * 1.5, by + cell * 1.5, cell * 2.3);
+    const base = bi % 2 ? W8.pool : W8.pool2;
+    pg.addColorStop(0, mix(base, '#2A9D8F', 0.35)); pg.addColorStop(1, base);
+    g.fillStyle = pg; g.fillRect(bx, by, cell * 3, cell * 3);
+  }
+  // empty-cell tiles: grout and a faint wet sheen
+  for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) {
+    const x = o + f + c * cell, y = o + f + r * cell;
+    g.strokeStyle = 'rgba(0,0,0,.28)'; g.lineWidth = 1; g.strokeRect(x + 0.5, y + 0.5, cell - 1, cell - 1);
+    g.strokeStyle = 'rgba(255,255,255,.07)'; g.beginPath(); g.moveTo(x + cell * 0.2, y + cell * 0.25); g.quadraticCurveTo(x + cell * 0.5, y + cell * 0.12, x + cell * 0.8, y + cell * 0.25); g.stroke();
+  }
+  // lead came between pools
+  g.strokeStyle = W8.lead; g.lineWidth = Math.max(2, cell * 0.07);
+  for (let k = 0; k <= 3; k++) {
+    const p = o + f + k * cell * 3;
+    g.beginPath(); g.moveTo(p, o + f); g.lineTo(p, o + s - f); g.moveTo(o + f, p); g.lineTo(o + s - f, p); g.stroke();
+  }
+}
+
+// ---------- panels
+function panel(x, y, w, h) {
+  ctx.fillStyle = 'rgba(23,74,84,.92)'; rr(ctx, x, y, w, h, 10); ctx.fill();
+  ctx.strokeStyle = 'rgba(201,162,63,.8)'; ctx.lineWidth = 2; ctx.stroke();
+}
+function text(t, x, y, size, col = W8.text, align = 'left', font = 'sans', weight = '') {
+  const fam = font === 'mono' ? '"Courier New",ui-monospace,monospace' : font === 'serif' ? '"Palatino Linotype","Book Antiqua",Palatino,Georgia,serif' : 'system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif';
+  ctx.font = (weight ? weight + ' ' : '') + Math.round(size) + 'px ' + fam;
+  ctx.fillStyle = col; ctx.textAlign = align; ctx.textBaseline = 'middle'; ctx.fillText(t, x, y);
+}
+function goalText() {
+  if (S.mode === 'springs') return 'Springs tapped ' + S.springs + ' / 47';
+  if (S.mode === 'trail') {
+    const left = S.tray.filter(Boolean).length + S.queue.length;
+    let g = '';
+    if (S.goal === 'stones') g = 'Clear the tufa: ' + count(S.board, 7) + ' left';
+    else if (S.goal === 'vents') g = 'Tap the vents: ' + count(S.board, 8) + ' left';
+    else g = 'Clear ' + S.goal.slice(6) + ' groups: ' + S.groups + ' done';
+    return g + ' · ' + left + ' piece' + (left === 1 ? '' : 's');
+  }
+  if (S.mode === 'daily') return 'Daily Soak · ' + S.daily;
+  return 'Lines ' + S.groups;
+}
+function drawInfo(now) {
+  const I = LAY.info, temp = tempF(S.heat), frac = S.heat / 12, mult = heatMult(S.heat);
+  const boiling = S.heat >= 12;
+  const hot = frac < 0.5 ? mix('#4FC3D9', '#F2A541', frac * 2) : mix('#F2A541', '#FF4A2B', (frac - 0.5) * 2);
+  if (LAY.land) {
+    panel(I.x, I.y, I.w, I.h);
+    const cx = I.x + I.w / 2;
+    text('HEAT', cx, I.y + 22, 14, W8.muted, 'center', 'sans', '700');
+    text(boiling ? 'Boiling' : temp + '°F', cx, I.y + 50, 28, W8.text, 'center', 'mono', '700');
+    text('×' + mult.toFixed(2).replace(/0$/, ''), cx, I.y + 80, 20, '#F2C14E', 'center', 'mono', '700');
+    // thermometer
+    const tx = cx - 14, ty = I.y + 104, th = I.h * 0.5, bulb = 22;
+    ctx.fillStyle = '#0E2E35'; rr(ctx, tx, ty, 28, th, 14); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, ty + th + bulb * 0.6, bulb, 0, Math.PI * 2); ctx.fill();
+    const fh = (th - 8) * frac;
+    ctx.fillStyle = hot; rr(ctx, tx + 6, ty + th - 4 - fh, 16, fh + 10, 8); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, ty + th + bulb * 0.6, bulb - 6, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = W8.brass; ctx.lineWidth = 2;
+    for (let k = 0; k <= 4; k++) { const yy = ty + 4 + (th - 8) * (1 - k / 4); ctx.beginPath(); ctx.moveTo(tx + 30, yy); ctx.lineTo(tx + 38, yy); ctx.stroke(); }
+    text('143°F', tx + 42, ty + 4, 12, W8.muted, 'left', 'mono');
+    text('60°F', tx + 42, ty + th - 4, 12, W8.muted, 'left', 'mono');
+    const ey = ty + th + bulb * 1.8 + 18;
+    const era = ERAS[S.era], lv = S.mode === 'trail' && LEVELS.find(l => l.id === S.level);
+    text(lv ? lv.name : era.name, cx, ey, 17, W8.text, 'center', 'serif', '700');
+    text(lv ? 'Spring Trail ' + (LEVELS.indexOf(lv) + 1) + ' of 12' : era.years, cx, ey + 22, 13, W8.muted, 'center', 'mono');
+    wrapText(goalText(), cx, ey + 52, I.w - 20, 14, W8.text);
+    const nx = ERAS[S.era + 1];
+    if (S.mode !== 'trail' && nx) wrapText('Next era: ' + nx.name + ' at ' + nx.at.toLocaleString('en-US'), cx, ey + 82, I.w - 20, 13, W8.muted);
+  } else {
+    panel(I.x, I.y, I.w, I.h);
+    const bw = I.w * 0.42;
+    text(boiling ? 'Boiling' : temp + '°F', I.x + 12, I.y + 17, 17, W8.text, 'left', 'mono', '700');
+    text('×' + mult.toFixed(2).replace(/0$/, ''), I.x + bw + 12, I.y + 17, 15, '#F2C14E', 'right', 'mono', '700');
+    ctx.fillStyle = '#0E2E35'; rr(ctx, I.x + 12, I.y + 32, bw, 10, 5); ctx.fill();
+    ctx.fillStyle = hot; rr(ctx, I.x + 12, I.y + 32, Math.max(10, bw * frac), 10, 5); ctx.fill();
+    const rx = I.x + I.w - 12;
+    const lv = S.mode === 'trail' && LEVELS.find(l => l.id === S.level);
+    text(lv ? lv.name : ERAS[S.era].name, rx, I.y + 16, 14, W8.text, 'right', 'serif', '700');
+    const gt = goalText();
+    text(gt, rx, I.y + 36, gt.length > 34 ? 11 : 12, W8.muted, 'right', 'sans');
+  }
+}
+function wrapText(t, cx, y, maxW, size, col) {
+  ctx.font = size + 'px system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif';
+  const words = t.split(' '); let line = '', yy = y;
+  for (const w of words) {
+    const test = line ? line + ' ' + w : w;
+    if (ctx.measureText(test).width > maxW && line) { text(line, cx, yy, size, col, 'center'); line = w; yy += size * 1.35; }
+    else line = test;
+  }
+  if (line) text(line, cx, yy, size, col, 'center');
+}
+
+function slotPieceGeom(k) {
+  const sl = LAY.slots[k], t = S.tray[k];
+  if (!t) return null;
+  const p = PIECES[t.id];
+  const s = Math.min(LAY.board.cell * 0.62, (sl.w - 20) / p.wd, (sl.h - 26) / p.h);
+  return { s, x: sl.x + (sl.w - p.wd * s) / 2, y: sl.y + (sl.h - p.h * s) / 2 + 4 };
+}
+function drawTray(now) {
+  for (let k = 0; k < 3; k++) {
+    const sl = LAY.slots[k], t = S.tray[k];
+    const selected = UI.sel === k && !UI.drag;
+    ctx.fillStyle = selected ? 'rgba(28,104,99,.94)' : 'rgba(23,74,84,.9)';
+    rr(ctx, sl.x, sl.y, sl.w, sl.h, 12); ctx.fill();
+    ctx.strokeStyle = selected ? '#F2C14E' : 'rgba(201,162,63,.55)'; ctx.lineWidth = selected ? 3 : 1.5; ctx.stroke();
+    text(String(k + 1), sl.x + 12, sl.y + 14, 13, selected ? W8.text : W8.muted, 'left', 'mono', '700');
+    if (!t || (UI.drag && UI.drag.slot === k)) continue;
+    const gm = slotPieceGeom(k);
+    const fits = fitsAnywhere(S.board, t.id);
+    let sc = 1;
+    const de = FX.find(f => f.type === 'deal' && f.slot === k);
+    if (de) { const q = Math.min(1, (fxNow(now) - de.t0) / de.dur); sc = 0.4 + 0.6 * easeOut(q); }
+    const rt = FX.find(f => f.type === 'return' && f.slot === k);
+    if (rt) {
+      const q = easeOut(Math.min(1, (fxNow(now) - rt.t0) / rt.dur));
+      const cs = LAY.board.cell + (gm.s - LAY.board.cell) * q;
+      drawPiece(t.id, rt.x + (gm.x - rt.x) * q, rt.y + (gm.y - rt.y) * q, cs, 1);
+      continue;
+    }
+    ctx.save();
+    if (sc !== 1) { const cx = sl.x + sl.w / 2, cy = sl.y + sl.h / 2; ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.translate(-cx, -cy); }
+    drawPiece(t.id, gm.x, gm.y, gm.s, fits ? 1 : 0.32);
+    ctx.restore();
+    if (!fits) text('no room', sl.x + sl.w / 2, sl.y + sl.h - 12, 12, '#FFD7CF', 'center', 'sans', '700');
+  }
+}
+function drawGhost() {
+  const gh = UI.ghost; if (!gh) return;
+  const t = S.tray[gh.slot]; if (!t) return;
+  const b = LAY.board, p = PIECES[t.id], cell = b.cell;
+  if (gh.valid) {
+    // preview groups this placement would complete
+    const tmp = S.board.slice();
+    for (const [dr, dc] of p.cells) tmp[(gh.r + dr) * 9 + gh.c + dc] = p.color;
+    const groups = findClears(tmp);
+    if (groups.length) {
+      ctx.fillStyle = 'rgba(127,224,210,.28)';
+      for (const g of groups) for (const i of g.cells) ctx.fillRect(b.gx + (i % 9) * cell, b.gy + Math.floor(i / 9) * cell, cell, cell);
+    }
+    drawPiece(t.id, b.gx + gh.c * cell, b.gy + gh.r * cell, cell, 0.5);
+    ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2;
+    for (const [dr, dc] of p.cells) ctx.strokeRect(b.gx + (gh.c + dc) * cell + 2, b.gy + (gh.r + dr) * cell + 2, cell - 4, cell - 4);
+  } else {
+    ctx.strokeStyle = 'rgba(255,107,107,.95)'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
+    for (const [dr, dc] of p.cells) {
+      const r = gh.r + dr, c = gh.c + dc;
+      if (r < 0 || r > 8 || c < 0 || c > 8) continue;
+      ctx.strokeRect(b.gx + c * cell + 3, b.gy + r * cell + 3, cell - 6, cell - 6);
+    }
+    ctx.setLineDash([]);
+  }
+}
+
+// ---------- effects
+let fxClock = 0;
+function fxNow(now) { return UI.fxFrozen != null ? UI.fxFrozen : now; }
+function easeOut(q) { return 1 - Math.pow(1 - q, 3); }
+function addFx(f) { f.t0 = performance.now(); FX.push(f); dirty = true; }
+function spawnClearFx(res) {
+  const b = LAY.board, cell = b.cell, red = reducedMotion();
+  addFx({ type: 'flash', cells: res.cleared, dur: red ? 160 : 520, era: eraId() });
+  if (!red) {
+    for (const g of res.groups) {
+      const cells = groupCells(g.type, g.i);
+      let sx = 0, sy = 0;
+      for (const i of cells) { sx += i % 9; sy += Math.floor(i / 9); }
+      addFx({ type: 'ripple', x: b.gx + (sx / 9 + 0.5) * cell, y: b.gy + (sy / 9 + 0.5) * cell, dur: 900, r: cell * 4 });
+    }
+    for (const { i } of res.cleared) {
+      if (Math.random() < 0.55) addFx({ type: 'steam', x: b.gx + (i % 9 + 0.5) * cell, y: b.gy + (Math.floor(i / 9) + 0.5) * cell,
+        dur: 900 + Math.random() * 700, h: cell * (1.6 + Math.random() * 1.6), ph: Math.random() * 6, w: cell * 0.35 });
+    }
+    if (res.G >= 2 || res.bonus) addFx({ type: 'shake', dur: 260, amp: Math.min(8, 2 + res.G * 1.5) });
+  }
+}
+function popup(textStr, x, y, col = '#FFFFFF', size = 22) {
+  const b = LAY.board, half = textStr.length * size * 0.32 + 8;
+  x = Math.max(b.x + half, Math.min(b.x + b.size - half, x));
+  addFx({ type: 'popup', text: textStr, x, y, col, size, dur: reducedMotion() ? 700 : 1100 }); }
+function drawFx(now) {
+  const t = fxNow(now), b = LAY.board, cell = b.cell, red = reducedMotion();
+  for (let k = FX.length - 1; k >= 0; k--) {
+    const f = FX[k], q = (t - f.t0) / f.dur;
+    if (q >= 1 && UI.fxFrozen == null) { FX.splice(k, 1); continue; }
+    const Q = Math.max(0, Math.min(1, q));
+    if (f.type === 'flash') {
+      for (const { i, code } of f.cells) {
+        const x = b.gx + (i % 9) * cell, y = b.gy + Math.floor(i / 9) * cell;
+        const sc = red ? 1 : 1 - 0.35 * Q;
+        const off = cell * (1 - sc) / 2;
+        drawTile(code, x + off, y + off, cell * sc, 1 - Q);
+        ctx.fillStyle = 'rgba(42,157,143,' + (0.75 * (1 - Q)) + ')'; ctx.fillRect(x, y, cell, cell);
+      }
+    } else if (f.type === 'ripple') {
+      for (let j = 0; j < 3; j++) {
+        const qq = Q - j * 0.18; if (qq <= 0) continue;
+        ctx.strokeStyle = 'rgba(200,240,235,' + (0.6 * (1 - qq)) + ')'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r * qq, f.r * qq * 0.6, 0, 0, Math.PI * 2); ctx.stroke();
+      }
+    } else if (f.type === 'steam') {
+      const a = 0.5 * Math.sin(Math.PI * Q);
+      for (let j = 0; j < 3; j++) {
+        const qq = Math.max(0, Q - j * 0.12);
+        puff(ctx, f.x + Math.sin(qq * 5 + f.ph + j) * cell * 0.3, f.y - qq * f.h, cell * (0.25 + qq * 0.55), a * (1 - j * 0.25));
+      }
+    } else if (f.type === 'popup') {
+      const y = f.y - (red ? 0 : 40 * easeOut(Q));
+      ctx.globalAlpha = Q < 0.7 ? 1 : 1 - (Q - 0.7) / 0.3;
+      ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(14,46,53,.9)';
+      ctx.font = '700 ' + f.size + 'px "Courier New",ui-monospace,monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.strokeText(f.text, f.x, y); ctx.fillStyle = f.col; ctx.fillText(f.text, f.x, y);
+      ctx.globalAlpha = 1;
+    }
+  }
+}
+function shakeOffset(now) {
+  const f = FX.find(x => x.type === 'shake'); if (!f) return [0, 0];
+  const q = Math.min(1, (fxNow(now) - f.t0) / f.dur), a = f.amp * (1 - q);
+  return [Math.sin(q * 40) * a, Math.cos(q * 33) * a * 0.6];
+}
+function drawVentWisps(now) {
+  if (reducedMotion()) return;
+  const b = LAY.board, cell = b.cell, t = now / 1000;
+  S.board.forEach((v, i) => {
+    if (v !== 8) return;
+    const x = b.gx + (i % 9 + 0.5) * cell, y = b.gy + (Math.floor(i / 9) + 0.45) * cell;
+    for (let j = 0; j < 3; j++) {
+      const q = ((t * 0.45 + j / 3 + i * 0.13) % 1);
+      puff(ctx, x + Math.sin(q * 5 + i) * cell * 0.12, y - q * cell * 0.9, cell * (0.14 + q * 0.22), 0.4 * Math.sin(Math.PI * q));
+    }
+  });
+}
+function drawTitleSteam(now) {
+  if (reducedMotion()) return;
+  const t = now / 1000;
+  for (let k = 0; k < 16; k++) {
+    const q = (t * 0.06 + k * 0.383) % 1, x = VW * ((k * 0.137) % 1) + Math.sin(q * 6 + k) * 30, y = VH * (1.05 - q * 0.9);
+    puff(ctx, x, y, 40 + q * 90, 0.16 * Math.sin(Math.PI * q));
+  }
+}
+
+const GAME_SCENES = new Set(['game', 'pause', 'over', 'win']);
+function inGame() { return GAME_SCENES.has(S.scene) || (S.scene !== 'title' && UI.returnTo === 'pause'); }
+function draw(now) {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const playing = inGame();
+  ensureBg(playing ? eraId() : 'title');
+  ctx.drawImage(bgCache, 0, 0, VW, VH);
+  if (!playing) { drawTitleSteam(now); return; }
+  ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.fillRect(0, 0, VW, VH);
+  ensureBoard();
+  const b = LAY.board, cell = b.cell;
+  const [sx, sy] = shakeOffset(now);
+  ctx.save(); ctx.translate(sx, sy);
+  ctx.drawImage(boardCache, b.x - 12, b.y - 12, boardCache.width / DPR, boardCache.height / DPR);
+  for (let i = 0; i < 81; i++) if (S.board[i]) drawTile(S.board[i], b.gx + (i % 9) * cell, b.gy + Math.floor(i / 9) * cell, cell);
+  drawVentWisps(now);
+  if (S.scene === 'game') drawGhost();
+  drawFx(now);
+  ctx.restore();
+  drawInfo(now);
+  drawTray(now);
+  const d = UI.drag;
+  if (d && d.moved && S.tray[d.slot]) {
+    const p = PIECES[S.tray[d.slot].id];
+    const [x, y] = dragTopLeft(d, p);
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 8;
+    drawPiece(p.id, x, y, cell, 0.95); ctx.restore();
+  }
+}
+function needsAnim() {
+  return FX.length > 0 || (!reducedMotion() && (S.scene === 'title' || (inGame() && S.board.includes(8))));
+}
+function loop(now) {
+  if (UI.overAt && now >= UI.overAt && FX.length === 0) { UI.overAt = 0; showEnd(); }
+  if (dirty || needsAnim()) { draw(now); dirty = false; }
+  requestAnimationFrame(loop);
+}
+
+// ===================================================================== GAME FLOW
+const $ = id => document.getElementById(id);
+function announce(msg) { const el = $('live'); el.textContent = ''; setTimeout(() => { el.textContent = msg; }, 30); }
+let toastTimer = 0;
+function toast(title, body, ms = 4500) {
+  const el = $('toast');
+  el.innerHTML = '';
+  const b = document.createElement('b'); b.textContent = title; el.appendChild(b);
+  el.appendChild(document.createTextNode(body));
+  el.classList.add('on');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('on'), ms);
+}
+function hideToast() { clearTimeout(toastTimer); $('toast').classList.remove('on'); }
+
+function newGame(opts = {}) {
+  const mode = opts.mode || 'classic';
+  const g = freshGame(mode);
+  if (mode === 'daily') { g.daily = opts.date || todayStr(); g.rng = dateSeed(g.daily); }
+  else if (opts.seed != null) g.rng = opts.seed >>> 0;
+  else if (SEED_PENDING != null) g.rng = SEED_PENDING >>> 0;
+  else g.rng = (Date.now() ^ Math.floor(Math.random() * 0xFFFFFFFF)) >>> 0;
+  g.undoLeft = mode === 'trail' ? 999 : SAVE.settings.undo;
+  setupGame(g, opts);
+  S = Object.assign(g, { scene: 'game' });
+  UI.sel = -1; UI.ghost = null; UI.drag = null; UI.overAt = 0; FX.length = 0;
+  if (mode === 'classic' || mode === 'springs') { SAVE.resume = null; persist(); }
+  hideToast();
+  showScene('game');
+  if (mode === 'trail') {
+    const L = LEVELS.find(l => l.id === S.level);
+    toast(L.name, L.hint, 5000);
+  }
+  announce('New ' + modeLabel() + ' game. ' + trayDesc());
+  return S;
+}
+function modeLabel() {
+  return { classic: 'Classic', daily: 'Daily Soak', springs: 'Springs', trail: 'Spring Trail' }[S.mode] || S.mode;
+}
+function trayDesc() {
+  return 'Tray: ' + S.tray.map((t, k) => (t ? (k + 1) + ' ' + PIECES[t.id].n + '-tile piece' + (fitsAnywhere(S.board, t.id) ? '' : ' (no room)') : (k + 1) + ' empty')).join(', ') + '.';
+}
+function snapshot() {
+  const { scene, undoStack, ...rest } = S;
+  return JSON.parse(JSON.stringify(rest));
+}
+function doPlace(slot, r, c) {
+  if (S.over || S.scene !== 'game') return { ok: false };
+  const snap = snapshot();
+  const prevEra = S.era;
+  const res = applyMove(S, slot, r, c);
+  if (!res.ok) { sfx('invalid'); return res; }
+  S.undoStack.push(snap);
+  if (S.undoStack.length > (S.mode === 'trail' ? 60 : 3)) S.undoStack.shift();
+  if (res.newRound && S.mode !== 'trail') S.undoLeft = SAVE.settings.undo;
+  UI.sel = -1; UI.ghost = null; UI.cur = null;
+  const b = LAY.board, cell = b.cell;
+  const cx = b.gx + (c + PIECES[res.id].wd / 2) * cell, cy = b.gy + (r + PIECES[res.id].h / 2) * cell;
+  sfx('place');
+  if (res.G) {
+    spawnClearFx(res);
+    sfx('clear', { G: res.G, heat: S.heat });
+    popup('+' + (res.clearPts + res.ventPts), cx, cy - cell * 0.3, '#FFFFFF', 26);
+    if (res.mult > 1) popup('×' + res.mult.toFixed(2).replace(/0$/, '') + (S.heat >= 12 ? ' Boiling!' : ''), cx, cy + cell * 0.5, '#F2C14E', 18);
+    if (res.vents) { sfx('vent'); popup(res.vents + (res.vents > 1 ? ' springs' : ' spring') + ' tapped', cx, cy - cell * 1.2, '#7FE0D2', 18); }
+    if (res.bonus) { sfx('bonus'); popup('Clear spring +300', b.x + b.size / 2, b.y + b.size / 2, '#F2C14E', 30); }
+  }
+  if (res.newRound) {
+    [0, 1, 2].forEach(k => addFx({ type: 'deal', slot: k, dur: reducedMotion() ? 1 : 260 }));
+    setTimeout(() => sfx('deal'), 120);
+  }
+  if (S.mode !== 'trail') {
+    S.era = Math.max(S.era, eraFor(S.score));
+    if (S.era !== prevEra) {
+      const e = ERAS[S.era];
+      toast(e.name + ' · ' + e.years, e.cap, 6000); sfx('era'); bgKey = '';
+      spriteCache.clear();
+    }
+  }
+  let msg = 'Placed. ';
+  if (res.G) msg += 'Cleared ' + res.G + (res.G > 1 ? ' groups' : ' group') + ' for ' + (res.clearPts + res.ventPts + res.bonus) + '. ';
+  msg += 'Score ' + S.score + '. Heat ' + tempF(S.heat) + ' degrees. ';
+  if (S.over) msg += S.won ? 'Goal reached!' : 'No room left. Game over.';
+  else msg += trayDesc();
+  announce(msg);
+  if (S.over) endGame();
+  else saveResume();
+  updateHud();
+  dirty = true;
+  return res;
+}
+function saveResume() {
+  if (S.mode === 'classic' || S.mode === 'springs') { SAVE.resume = snapshot(); SAVE.resume.undoStack = []; persist(); }
+}
+function undoAvail() {
+  if (!S.undoStack || !S.undoStack.length) return false;
+  if (S.mode === 'trail') return true;
+  return !S.over && S.undoStack[S.undoStack.length - 1].undoLeft > 0;
+}
+function canUndo() { return undoAvail() && (S.scene === 'game' || (S.mode === 'trail' && S.scene === 'over')); }
+function undoCount() {
+  if (S.mode === 'trail') return '∞';
+  if (!S.undoStack.length) return S.over ? 0 : S.undoLeft;
+  return undoAvail() ? S.undoStack[S.undoStack.length - 1].undoLeft : 0;
+}
+function doUndo() {
+  if (!canUndo()) { sfx('invalid'); return { ok: false }; }
+  const snap = S.undoStack.pop();
+  const stack = S.undoStack;
+  const scene = S.scene === 'over' ? 'game' : S.scene;
+  S = Object.assign(snap, { scene, undoStack: stack });
+  UI.overAt = 0;
+  if (scene !== S.scene || $('sc-over').classList.contains('on')) showScene('game');
+  if (S.mode !== 'trail') S.undoLeft = snap.undoLeft - 1;
+  UI.sel = -1; UI.ghost = null; FX.length = 0;
+  bgKey = ''; spriteCache.clear();
+  sfx('undo'); announce('Undone. Score ' + S.score + '. ' + trayDesc());
+  saveResume(); updateHud(); dirty = true;
+  return { ok: true };
+}
+function endGame() {
+  if (S.mode !== 'trail' || S.won) S.undoStack = [];
+  const st = SAVE.stats;
+  st.games++; st.lines += S.groups; st.bestHeat = Math.max(st.bestHeat, S.bestHeat); st.springs += S.springs;
+  UI.newBest = false;
+  if (S.mode === 'classic' || S.mode === 'springs') {
+    if (S.score > (SAVE.best[S.mode] || 0)) { SAVE.best[S.mode] = S.score; UI.newBest = true; }
+    SAVE.resume = null;
+  } else if (S.mode === 'daily') {
+    if (S.score > (SAVE.best.daily[S.daily] || 0)) { SAVE.best.daily[S.daily] = S.score; UI.newBest = true; }
+  } else if (S.mode === 'trail' && S.won && !SAVE.trail.done.includes(S.level)) {
+    SAVE.trail.done.push(S.level);
+  }
+  persist();
+  UI.overAt = performance.now() + (reducedMotion() ? 350 : 1000);
+  setTimeout(() => sfx(S.won ? 'win' : 'over'), 300);
+}
+function showEnd() {
+  if (!S.over || !GAME_SCENES.has(S.scene)) return;
+  if (S.won && S.mode === 'trail') showWinTrail();
+  else fillOver(), showScene('over');
+}
+function fillOver() {
+  const won = S.won;
+  const trail = S.mode === 'trail', outOf = trail && !S.tray.some(Boolean);
+  $('ov-title').textContent = won ? 'All 47 springs flowing!' : outOf ? 'Out of pieces' : 'No room left';
+  $('ov-sub').textContent = trail ? (LEVELS.find(l => l.id === S.level).name + ' · goal not reached. Undo a move or try again.')
+    : modeLabel() + (S.mode === 'daily' ? ' · ' + S.daily : '') + (won ? ' · you tapped every spring' : ' · none of your pieces fits');
+  $('b-ovundo').style.display = trail && undoAvail() ? '' : 'none';
+  $('b-again').textContent = trail ? 'Try again' : 'Play again';
+  $('ov-score').textContent = S.score.toLocaleString('en-US');
+  $('ov-new').textContent = UI.newBest ? 'New best!' : 'Best: ' + bestFor(S.mode).toLocaleString('en-US');
+  const rows = [['Groups cleared', S.groups], ['Pieces placed', S.placed], ['Hottest water', S.bestHeat >= 12 ? '143°F (boiling)' : tempF(S.bestHeat) + '°F'], ['Era reached', ERAS[S.era].name]];
+  if (S.mode === 'springs') rows.unshift(['Springs tapped', S.springs + ' / 47']);
+  const dl = $('ov-stats'); dl.innerHTML = '';
+  for (const [k, v] of rows) { const dt = document.createElement('dt'); dt.textContent = k; const dd = document.createElement('dd'); dd.textContent = v; dl.append(dt, dd); }
+}
+function cardEl(id, locked) {
+  const c = CARDS[id], L = LEVELS.find(l => l.id === id);
+  const el = document.createElement('article'); el.className = 'card' + (locked ? ' locked' : '');
+  const h = document.createElement('h4'); h.textContent = locked ? L.name : c.place; el.appendChild(h);
+  if (locked) { const p = document.createElement('p'); p.className = 'muted'; p.style.margin = '0'; p.textContent = 'Solve this Spring Trail puzzle to collect the card.'; el.appendChild(p); return el; }
+  const y = document.createElement('div'); y.className = 'yr'; y.textContent = c.year; el.appendChild(y);
+  const ul = document.createElement('ul'); for (const f of c.facts) { const li = document.createElement('li'); li.textContent = f; ul.appendChild(li); } el.appendChild(ul);
+  const s = document.createElement('div'); s.className = 'src'; s.textContent = 'Source: ' + c.src; el.appendChild(s);
+  return el;
+}
+function showWinTrail() {
+  const idx = LEVELS.findIndex(l => l.id === S.level);
+  $('win-title').textContent = LEVELS[idx].name + ': solved';
+  $('win-sub').textContent = 'You collected a fact card. ' + SAVE.trail.done.length + ' of ' + LEVELS.length + ' collected.';
+  const box = $('win-card'); box.innerHTML = ''; box.appendChild(cardEl(S.level, false));
+  $('b-next').style.display = idx < LEVELS.length - 1 ? '' : 'none';
+  showScene('win');
+}
+
+// ===================================================================== SCENES + DOM
+const SCREENS = { title: 'sc-title', pause: 'sc-pause', over: 'sc-over', win: 'sc-win', trail: 'sc-trail', cards: 'sc-cards', records: 'sc-records', help: 'sc-help', settings: 'sc-settings' };
+function showScene(name) {
+  if (name === 'game' && !S.tray) name = 'title';
+  const prev = S.scene;
+  if (['help', 'settings', 'trail', 'cards', 'records'].includes(name) && prev !== name) UI.returnTo = (prev === 'game' || prev === 'pause') ? 'pause' : (prev === 'trail' && name !== 'trail' ? 'trail' : 'title');
+  S.scene = name;
+  for (const [k, id] of Object.entries(SCREENS)) $(id).classList.toggle('on', k === name);
+  const hudOn = inGame() || GAME_SCENES.has(name);
+  $('hud').classList.toggle('on', hudOn);
+  if (name === 'title') { fillTitle(); setTimeout(() => focusFirst('sc-title'), 0); hideToast(); }
+  if (name === 'trail') fillTrail();
+  if (name === 'cards') fillCards();
+  if (name === 'records') fillRecords();
+  if (name === 'settings') fillSettings();
+  if (name === 'over') fillOver();
+  if (name === 'over' || name === 'win') hideToast();
+  if (name === 'game') { setTimeout(() => cv.focus({ preventScroll: true }), 0); }
+  else if (SCREENS[name] && name !== 'title') setTimeout(() => focusFirst(SCREENS[name]), 0);
+  resize();
+  updateHud();
+  dirty = true;
+  return true;
+}
+function focusFirst(id) { const el = $(id).querySelector('button.primary:not([style*="none"]), button:not(:disabled)'); if (el) el.focus({ preventScroll: true }); }
+function back() {
+  if (UI.returnTo === 'pause' && S.tray) showScene('pause');
+  else if (UI.returnTo === 'trail') showScene('trail');
+  else showScene('title');
+}
+function updateHud() {
+  $('h-score').textContent = S.score.toLocaleString('en-US');
+  $('h-best').textContent = S.mode === 'trail' ? (SAVE.trail.done.length + '/12') : Math.max(bestFor(S.mode), S.score).toLocaleString('en-US');
+  $('h-best-lbl').textContent = S.mode === 'trail' ? 'Cards' : 'Best';
+  $('h-mode').textContent = S.mode === 'trail' ? (LEVELS.find(l => l.id === S.level) || {}).name || '' : modeLabel();
+  $('h-undo').textContent = undoCount();
+  $('b-undo').disabled = !canUndo();
+  $('b-undo').setAttribute('aria-label', 'Undo (' + undoCount() + ' left)');
+  const on = SAVE.settings.sound;
+  $('b-sound').setAttribute('aria-pressed', String(on)); $('b-sound').setAttribute('aria-label', on ? 'Sound on' : 'Sound off');
+  $('snd-wave').style.display = on ? '' : 'none';
+}
+let tickerI = 0;
+function fillTitle() {
+  const r = SAVE.resume;
+  $('b-continue').style.display = r && !r.over ? '' : 'none';
+  if (r && !r.over) $('b-continue').textContent = 'Continue ' + ({ classic: 'Classic', springs: 'Springs' }[r.mode] || '') + ' · ' + r.score.toLocaleString('en-US');
+  const d = SAVE.best.daily[todayStr()];
+  $('daily-sub').textContent = d ? 'Today’s best: ' + d.toLocaleString('en-US') : 'Same board and pieces for everyone today.';
+  $('trail-sub').textContent = SAVE.trail.done.length + ' of 12 solved · fact cards to collect.';
+  $('ticker').textContent = TICKER[tickerI % TICKER.length];
+}
+setInterval(() => { if (S.scene === 'title') { tickerI++; $('ticker').textContent = TICKER[tickerI % TICKER.length]; } }, 8000);
+function unlocked(i) { return i === 0 || SAVE.trail.done.includes(LEVELS[i - 1].id) || SAVE.trail.done.includes(LEVELS[i].id); }
+function fillTrail() {
+  const box = $('levels'); box.innerHTML = '';
+  LEVELS.forEach((L, i) => {
+    const b = document.createElement('button');
+    const done = SAVE.trail.done.includes(L.id), open = unlocked(i);
+    if (done) b.className = 'done';
+    b.disabled = !open;
+    const n = document.createElement('b'); n.textContent = (i + 1) + '. ' + L.name;
+    const st = document.createElement('span'); st.className = 'st';
+    st.textContent = done ? 'Solved · card collected' : open ? goalLabel(L.goal) + ' · ' + L.pieces.length + ' pieces' : 'Locked';
+    b.append(n, st);
+    b.addEventListener('click', () => { sfx('click'); newGame({ mode: 'trail', level: L.id }); });
+    box.appendChild(b);
+  });
+}
+function goalLabel(g) { return g === 'stones' ? 'Clear the tufa' : g === 'vents' ? 'Tap the vents' : 'Clear ' + g.slice(6) + ' groups'; }
+function fillCards() {
+  const box = $('cards'); box.innerHTML = '';
+  $('cards-sub').textContent = SAVE.trail.done.length + ' of ' + LEVELS.length + ' collected. Solve Spring Trail puzzles to collect cards. Facts are from the Hot Springs research corpus; sources are listed on each card.';
+  LEVELS.forEach(L => box.appendChild(cardEl(L.id, !SAVE.trail.done.includes(L.id))));
+}
+function fillRecords() {
+  const st = SAVE.stats, dl = $('rec-stats'); dl.innerHTML = '';
+  const rows = [['Classic best', SAVE.best.classic.toLocaleString('en-US')], ['Springs best', SAVE.best.springs.toLocaleString('en-US')],
+    ['Today’s Daily Soak', (SAVE.best.daily[todayStr()] || 0).toLocaleString('en-US')], ['Spring Trail', SAVE.trail.done.length + ' / 12'],
+    ['Games played', st.games], ['Groups cleared (lifetime)', st.lines.toLocaleString('en-US')], ['Hottest water', st.bestHeat >= 12 ? '143°F' : tempF(st.bestHeat) + '°F'],
+    ['Springs tapped (lifetime)', st.springs]];
+  for (const [k, v] of rows) { const dt = document.createElement('dt'); dt.textContent = k; const dd = document.createElement('dd'); dd.textContent = v; dl.append(dt, dd); }
+  const yrs = Math.min(4400, st.lines * 10);
+  $('rec-age').textContent = yrs >= 4400
+    ? 'Water’s age: 4,400 years. Your spring has emerged! USGS dating puts most Hot Springs water at about 4,400 years old.'
+    : 'Water’s age: ' + yrs.toLocaleString('en-US') + ' of 4,400 years underground (each group you clear counts 10 years). USGS dating puts most Hot Springs water at about 4,400 years old.';
+}
+function fillSettings() {
+  const s = SAVE.settings;
+  $('s-sound').checked = s.sound; $('s-volume').value = Math.round(s.volume * 100); $('s-motion').value = s.motion;
+  $('s-patterns').checked = s.patterns; $('s-undo').value = String(s.undo); $('s-big').checked = s.bigText; $('s-theme').value = s.theme;
+}
+function applySettings() {
+  const s = SAVE.settings, root = document.documentElement;
+  root.classList.toggle('big', !!s.bigText);
+  root.classList.toggle('theme-dark', s.theme === 'dark');
+  root.classList.toggle('theme-light', s.theme === 'light');
+  applyVolume(); spriteCache.clear(); resize(); updateHud();
+}
+function setSetting(k, v) {
+  SAVE.settings[k] = v; persist(); applySettings();
+  if (k === 'undo' && S.mode !== 'trail' && S.undoStack.length === 0) S.undoLeft = v;
+  return SAVE.settings;
+}
+
+function wireDom() {
+  document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { audioInit(); sfx('click'); newGame({ mode: b.dataset.mode }); }));
+  document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => { audioInit(); sfx('click'); showScene(b.dataset.go); }));
+  document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => { sfx('click'); back(); }));
+  $('b-continue').addEventListener('click', () => { audioInit(); resumeSaved(); });
+  $('b-pause').addEventListener('click', () => { audioInit(); sfx('click'); pauseGame(); });
+  $('b-resume').addEventListener('click', () => { sfx('click'); showScene('game'); });
+  $('b-restart').addEventListener('click', () => { sfx('click'); restart(); });
+  $('b-quit').addEventListener('click', () => { sfx('click'); saveResume(); showScene('title'); });
+  $('b-again').addEventListener('click', () => { sfx('click'); restart(); });
+  $('b-menu1').addEventListener('click', () => { sfx('click'); showScene('title'); });
+  $('b-ovundo').addEventListener('click', () => { doUndo(); });
+  $('b-menu2').addEventListener('click', () => { sfx('click'); showScene('title'); });
+  $('b-trail2').addEventListener('click', () => { sfx('click'); showScene('trail'); });
+  $('b-next').addEventListener('click', () => { sfx('click'); const i = LEVELS.findIndex(l => l.id === S.level); if (i < LEVELS.length - 1) newGame({ mode: 'trail', level: LEVELS[i + 1].id }); });
+  $('b-undo').addEventListener('click', () => { audioInit(); doUndo(); cv.focus({ preventScroll: true }); });
+  $('b-sound').addEventListener('click', () => { audioInit(); setSetting('sound', !SAVE.settings.sound); sfx('click'); });
+  $('s-sound').addEventListener('change', e => { audioInit(); setSetting('sound', e.target.checked); sfx('click'); });
+  $('s-volume').addEventListener('input', e => setSetting('volume', +e.target.value / 100));
+  $('s-volume').addEventListener('change', () => { audioInit(); sfx('click'); });
+  $('s-motion').addEventListener('change', e => setSetting('motion', e.target.value));
+  $('s-patterns').addEventListener('change', e => setSetting('patterns', e.target.checked));
+  $('s-undo').addEventListener('change', e => setSetting('undo', +e.target.value));
+  $('s-big').addEventListener('change', e => setSetting('bigText', e.target.checked));
+  $('s-theme').addEventListener('change', e => setSetting('theme', e.target.value));
+}
+function pauseGame() { if (S.scene === 'game') { UI.drag = null; UI.ghost = null; showScene('pause'); } }
+function restart() {
+  if (S.mode === 'trail') newGame({ mode: 'trail', level: S.level });
+  else if (S.mode === 'daily') newGame({ mode: 'daily', date: S.daily });
+  else newGame({ mode: S.mode });
+}
+function resumeSaved() {
+  const r = SAVE.resume; if (!r) return;
+  S = Object.assign(JSON.parse(JSON.stringify(r)), { scene: 'game', undoStack: [] });
+  UI.sel = -1; UI.ghost = null; FX.length = 0; bgKey = ''; spriteCache.clear();
+  showScene('game');
+  announce('Game resumed. Score ' + S.score + '. ' + trayDesc());
+}
+
+// ===================================================================== INPUT
+function pt(e) { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+function slotAt(p) { if (!LAY) return -1; return LAY.slots.findIndex(s => p.x >= s.x && p.x <= s.x + s.w && p.y >= s.y && p.y <= s.y + s.h); }
+function cellAt(p) {
+  const b = LAY.board, c = Math.floor((p.x - b.gx) / b.cell), r = Math.floor((p.y - b.gy) / b.cell);
+  return r >= 0 && r < 9 && c >= 0 && c < 9 ? { r, c } : null;
+}
+function dragTopLeft(d, p) {
+  const cell = LAY.board.cell;
+  const lift = d.touch ? cell * 1.6 : 0;
+  return [d.x - p.wd * cell / 2, d.y - p.h * cell / 2 - lift];
+}
+function ghostAt(slot, r, c) { const t = S.tray[slot]; return t ? { slot, r, c, valid: canPlace(S.board, t.id, r, c) } : null; }
+function centeredAt(slot, cell) {
+  const p = PIECES[S.tray[slot].id];
+  return { r: Math.max(0, Math.min(9 - p.h, cell.r - Math.floor((p.h - 1) / 2))), c: Math.max(0, Math.min(9 - p.wd, cell.c - Math.floor((p.wd - 1) / 2))) };
+}
+function dragGhost(d) {
+  const p = PIECES[S.tray[d.slot].id], b = LAY.board;
+  const [x, y] = dragTopLeft(d, p);
+  const c = Math.round((x - b.gx) / b.cell), r = Math.round((y - b.gy) / b.cell);
+  // only show a ghost when the dragged piece is mostly over the board
+  if (r < -1 || c < -1 || r + p.h > 10 || c + p.wd > 10) return null;
+  return ghostAt(d.slot, r, c);
+}
+function selectSlot(k, withCursor = true) {
+  if (!S.tray[k]) { sfx('invalid'); return; }
+  UI.sel = k; sfx('pick');
+  const p = PIECES[S.tray[k].id];
+  const fit = fitsAnywhere(S.board, p.id) ? '' : ', no room on the board';
+  if (!withCursor) { UI.ghost = null; UI.cur = null; announce('Piece ' + (k + 1) + ' selected, ' + p.n + ' tiles' + fit + '. Tap the board to place it.'); dirty = true; return; }
+  UI.cur = UI.cur ? { r: Math.min(UI.cur.r, 9 - p.h), c: Math.min(UI.cur.c, 9 - p.wd) } : { r: Math.floor((9 - p.h) / 2), c: Math.floor((9 - p.wd) / 2) };
+  UI.ghost = ghostAt(k, UI.cur.r, UI.cur.c);
+  announce('Piece ' + (k + 1) + ' selected, ' + p.n + ' tiles' + fit + '. Ghost at row ' + (UI.cur.r + 1) + ', column ' + (UI.cur.c + 1) + (UI.ghost.valid ? '.' : ', blocked.'));
+  dirty = true;
+}
+cv.addEventListener('pointerdown', e => {
+  if (S.scene !== 'game' || S.over) return;
+  audioInit();
+  const p = pt(e), k = slotAt(p);
+  if (e.button === 2) return;
+  if (k >= 0 && S.tray[k]) {
+    UI.drag = { slot: k, x: p.x, y: p.y, sx: p.x, sy: p.y, moved: false, touch: e.pointerType !== 'mouse', id: e.pointerId };
+    try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+    dirty = true; e.preventDefault(); return;
+  }
+  const cell = cellAt(p);
+  if (cell && UI.sel >= 0 && S.tray[UI.sel]) {
+    const pos = centeredAt(UI.sel, cell);
+    const touch = e.pointerType !== 'mouse';
+    const gh = UI.ghost;
+    const onGhost = gh && gh.slot === UI.sel && PIECES[S.tray[UI.sel].id].cells.some(([dr, dc]) => gh.r + dr === cell.r && gh.c + dc === cell.c);
+    if (touch && !(onGhost && gh.valid)) { UI.cur = pos; UI.ghost = ghostAt(UI.sel, pos.r, pos.c); sfx(UI.ghost.valid ? 'pick' : 'invalid'); dirty = true; return; }
+    const tgt = touch ? gh : ghostAt(UI.sel, pos.r, pos.c);
+    UI.cur = { r: tgt.r, c: tgt.c };
+    if (tgt.valid) doPlace(UI.sel, tgt.r, tgt.c); else { sfx('invalid'); UI.ghost = tgt; dirty = true; }
+    return;
+  }
+  if (!cell) { UI.sel = -1; UI.ghost = null; dirty = true; }
+});
+cv.addEventListener('pointermove', e => {
+  const p = pt(e), d = UI.drag;
+  if (d && e.pointerId === d.id) {
+    d.x = p.x; d.y = p.y;
+    if (!d.moved && Math.hypot(p.x - d.sx, p.y - d.sy) > 8) { d.moved = true; UI.sel = -1; sfx('pick'); }
+    if (d.moved) UI.ghost = dragGhost(d);
+    dirty = true; return;
+  }
+  if (S.scene === 'game' && e.pointerType === 'mouse' && UI.sel >= 0 && S.tray[UI.sel]) {
+    const cell = cellAt(p);
+    if (cell) { const pos = centeredAt(UI.sel, cell); UI.cur = pos; const g = ghostAt(UI.sel, pos.r, pos.c); if (!UI.ghost || g.r !== UI.ghost.r || g.c !== UI.ghost.c) { UI.ghost = g; dirty = true; } }
+  }
+});
+function endDrag(e, cancel) {
+  const d = UI.drag; if (!d || (e && e.pointerId !== d.id)) return;
+  UI.drag = null;
+  if (!d.moved) {
+    if (!cancel) { if (UI.sel === d.slot) { UI.sel = -1; UI.ghost = null; } else selectSlot(d.slot, false); }
+    dirty = true; return;
+  }
+  const gh = cancel ? null : dragGhost(d);
+  if (gh && gh.valid) { doPlace(d.slot, gh.r, gh.c); return; }
+  UI.ghost = null;
+  if (gh) sfx('invalid');
+  const p = PIECES[S.tray[d.slot].id], [x, y] = dragTopLeft(d, p);
+  addFx({ type: 'return', slot: d.slot, x, y, dur: reducedMotion() ? 1 : 220 });
+}
+cv.addEventListener('pointerup', e => endDrag(e, false));
+cv.addEventListener('pointercancel', e => endDrag(e, true));
+cv.addEventListener('contextmenu', e => { e.preventDefault(); if (UI.drag) { UI.drag = null; UI.ghost = null; dirty = true; } });
+
+function moveCursor(dr, dc) {
+  if (UI.sel < 0 || !S.tray[UI.sel]) { const k = S.tray.findIndex(Boolean); if (k < 0) return; selectSlot(k); return; }
+  if (!UI.cur) { selectSlot(UI.sel); return; }
+  const p = PIECES[S.tray[UI.sel].id];
+  UI.cur = { r: Math.max(0, Math.min(9 - p.h, UI.cur.r + dr)), c: Math.max(0, Math.min(9 - p.wd, UI.cur.c + dc)) };
+  UI.ghost = ghostAt(UI.sel, UI.cur.r, UI.cur.c);
+  dirty = true;
+}
+function confirmPlace() {
+  if (UI.sel < 0 || !UI.ghost) { const k = S.tray.findIndex(Boolean); if (k >= 0) selectSlot(k); return { ok: false }; }
+  if (!UI.ghost.valid) { sfx('invalid'); announce('Blocked. Move the piece.'); return { ok: false }; }
+  return doPlace(UI.sel, UI.ghost.r, UI.ghost.c);
+}
+function cycleSel(dir) {
+  const ks = [0, 1, 2].filter(k => S.tray[k]); if (!ks.length) return;
+  const i = ks.indexOf(UI.sel);
+  selectSlot(ks[(i < 0 ? (dir > 0 ? 0 : ks.length - 1) : (i + dir + ks.length) % ks.length)]);
+}
+window.addEventListener('keydown', e => {
+  const k = e.key, tag = (document.activeElement && document.activeElement.tagName) || '';
+  if (k === 'Escape') {
+    e.preventDefault();
+    if (S.scene === 'game') { if (UI.sel >= 0 || UI.drag) { UI.sel = -1; UI.ghost = null; UI.drag = null; dirty = true; } else pauseGame(); }
+    else if (S.scene === 'pause') showScene('game');
+    else if (['help', 'settings', 'trail', 'cards', 'records'].includes(S.scene)) back();
+    return;
+  }
+  if (S.scene !== 'game' || S.over) return;
+  if (tag === 'BUTTON' && (k === 'Enter' || k === ' ')) return;
+  if (k === 'm' || k === 'M') { audioInit(); setSetting('sound', !SAVE.settings.sound); return; }
+  audioInit();
+  if (k >= '1' && k <= '3') { selectSlot(+k - 1); cv.focus({ preventScroll: true }); e.preventDefault(); }
+  else if (k === 'Tab' && document.activeElement === cv) { cycleSel(e.shiftKey ? -1 : 1); e.preventDefault(); }
+  else if (k === 'q' || k === 'Q') cycleSel(-1);
+  else if (k === 'e' || k === 'E') cycleSel(1);
+  else if (k === 'ArrowUp') { moveCursor(-1, 0); e.preventDefault(); }
+  else if (k === 'ArrowDown') { moveCursor(1, 0); e.preventDefault(); }
+  else if (k === 'ArrowLeft') { moveCursor(0, -1); e.preventDefault(); }
+  else if (k === 'ArrowRight') { moveCursor(0, 1); e.preventDefault(); }
+  else if (k === 'Enter' || k === ' ') { confirmPlace(); e.preventDefault(); }
+  else if (k === 'u' || k === 'U' || ((k === 'z' || k === 'Z') && (e.ctrlKey || e.metaKey))) { doUndo(); e.preventDefault(); }
+});
+window.addEventListener('resize', () => { resize(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && S.scene === 'game') { saveResume(); } });
+
+// ===================================================================== TEST HOOKS
+window.__game = {
+  seed(n) { SEED_PENDING = n >>> 0; S.rng = n >>> 0; return true; },
+  getState() {
+    const o = JSON.parse(JSON.stringify(S));
+    o.fits = S.tray.map(t => (t ? fitsAnywhere(S.board, t.id) : null));
+    o.temp = tempF(S.heat); o.eraId = eraId(); o.ghost = UI.ghost; o.sel = UI.sel; o.undoCount = undoCount();
+    o.settings = SAVE.settings; o.best = bestFor(S.mode);
+    return o;
+  },
+  setState(s) {
+    Object.assign(S, JSON.parse(JSON.stringify(s)));
+    if (s.board) S.board = s.board.slice();
+    UI.sel = -1; UI.ghost = null; FX.length = 0; bgKey = ''; spriteCache.clear();
+    if (!S.over) { checkEnd(S); if (S.over) endGame(); }
+    if (s.scene) showScene(s.scene);
+    updateHud(); dirty = true; return true;
+  },
+  isIdle() { return UI.fxFrozen != null || (FX.length === 0 && !UI.drag && !UI.overAt); },
+  scene(name) { if (GAME_SCENES.has(name) && !S.tray.some(Boolean) && !S.over) newGame({ mode: 'classic' }); if (name === 'over') { S.over = true; } if (name === 'win' && S.mode === 'trail') { showWinTrail(); return true; } return showScene(name); },
+  newGame(opts) { newGame(opts || {}); return this.getState(); },
+  act(name, ...a) {
+    switch (name) {
+      case 'place': { const r = doPlace(a[0], a[1], a[2]); return { ok: !!r.ok, G: r.G || 0, points: r.points || 0, cleared: (r.cleared || []).length }; }
+      case 'select': selectSlot(a[0]); return { sel: UI.sel, ghost: UI.ghost };
+      case 'move': moveCursor(a[0], a[1]); return { sel: UI.sel, ghost: UI.ghost };
+      case 'confirm': { const r = confirmPlace(); return { ok: !!r.ok }; }
+      case 'undo': return doUndo();
+      case 'setting': return setSetting(a[0], a[1]);
+      case 'fill': { for (const i of a[0]) S.board[i] = a[1]; dirty = true; return true; }
+      case 'freezeFx': { const last = FX.reduce((m, f) => Math.max(m, f.t0), 0); UI.fxFrozen = last + (a[0] || 0); dirty = true; draw(performance.now()); return FX.length; }
+      case 'unfreezeFx': UI.fxFrozen = null; dirty = true; return true;
+      case 'fxTypes': return FX.map(f => f.type);
+      case 'canvasHash': { const d = cv.toDataURL(); let h = 0; for (let i = 0; i < d.length; i += 7) h = (h * 31 + d.charCodeAt(i)) >>> 0; return h; }
+      case 'pause': pauseGame(); return S.scene;
+      case 'resume': showScene('game'); return S.scene;
+      case 'toast': toast(a[0], a[1]); return true;
+      case 'hideToast': hideToast(); return true;
+      case 'save': return JSON.parse(JSON.stringify(SAVE));
+      case 'resumeSaved': resumeSaved(); return S.scene;
+      case 'audio': audioInit(); sfx(a[0] || 'click'); return { ctx: !!AU.ctx, state: AU.ctx ? AU.ctx.state : null, gain: AU.master ? AU.master.gain.value : null };
+    }
+    throw new Error('unknown act ' + name);
+  },
+  getLevels() { return LEVELS; },
+  pieces() { return PIECES; },
+  layout() { return { board: LAY.board, slots: LAY.slots, info: LAY.info, land: LAY.land }; },
+};
+
+// ===================================================================== BOOT
+loadSave();
+wireDom();
+applySettings();
+showScene('title');
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
