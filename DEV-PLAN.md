@@ -125,3 +125,27 @@ undo-from-loss are covered by `trail.test.mjs` → trail loss offers undo (deskt
 | D18 | M4 | code review | Opening Spring Trail from a win screen made Back return to a dead pause menu | Return target becomes "pause" only from game or pause | Fixed |
 | D19 | M5 | soak test | Era thresholds up to 12,000 were out of reach for typical games (bot scores about 15 points a move) | Thresholds 0 / 400 / 1,000 / 2,000 / 3,500 / 5,500 / 8,000 | Fixed |
 | D20 | M5 | contrast check | Tray "no room" (4.23:1) and slot numbers (3.70:1) under 4.5:1 over light era skies | Tray fill 90% opaque; selected slot number uses light text (all now ≥ 4.98:1) | Fixed |
+
+## Visual v2 defect log (2026-10-29)
+
+| # | Milestone | Found by | Defect | Fix | Status |
+|---|---|---|---|---|---|
+| V1 | research | DEM check against USGS EPQS | Tower ground read 908 ft instead of 1,036 ft: the 3DEP `exportImage` BIP output carries a 21.6 KB trailer, so rows were misread | Read exactly W×H floats; checked five points within ±21 ft | Fixed |
+| V2 | M-A | test run | Patch splices mixed CRLF and LF line endings in `index.html`, so later string patches missed | Normalised the file to LF | Fixed |
+| V3 | M-A | screenshot `02-board-empty` | Live water caustics read as cracked glass | Domain-warped, thinner, half the gain; then halved again after review 2 | Fixed |
+| V4 | M-A | perf profile | Clear swell drew tiles at a new size each frame, rebuilding sprites every frame | Sprites cached at the board and tray sizes; animated sizes reuse 6 px buckets | Fixed |
+| V5 | M-A | perf profile | Water cost 83% of frame time: the WebGL canvas was read back into the 2D canvas | Water is its own compositor layer under the basin; no readback | Fixed |
+| V6 | M-A | perf profile | The full-screen backdrop was redrawn into the game canvas every frame | Backdrop on its own static canvas layer | Fixed |
+| V7 | M-A | perf profile | Ambient steam puffs up to 600 px at 2× DPR saturated fill rate during clears | Fewer, smaller puffs; paused while effects run; glow sprite instead of per-cell gradients | Fixed |
+| V8 | M-A | test `boot` | Screenshots caught the vector fallback because `isIdle()` ignored loading art; then waited on every image | `isIdle()` waits only for images the current screen needs | Fixed |
+| V9 | M-A | screenshot `60-clear-fx` | Ripple rings spilled over the frame and the backdrop | Rings clipped to the cleared group's cells | Fixed |
+| V10 | M-A | review 2, `85-combo-boiling` | Score popup collided with the combo banner | Popup sits under the banner and does not rise | Fixed |
+| V11 | M-A | review 2, `85` mobile | Era toast covered the heat strip and the top row | Toast moved below the tray (portrait) and to the lower left (landscape) | Fixed |
+| V12 | M-A | screenshot `01-title` | Title panel centred over the Row by the global `.panel{margin:auto}` | Panel pinned right on desktop, bottom sheet on phones | Fixed |
+| V13 | M-B | review 2 | Clear burst read as confetti | Steam plumes, droplets and a few glaze chips from the cleared cells | Fixed |
+| V14 | M-B | review 2 | Tray pieces floated on the busy painting | Recessed tray wells | Fixed |
+| V15 | M-B | review 2 | Mosaic border read as a ruler or film strip | Bronze moulding with a calm glazed band and lozenges | Fixed |
+| V16 | M-B | load timing | WebGL setup delayed the title screen | Water starts on the first game frame | Fixed |
+| V17 | M-D | review 3 | Clear burst centred on the board, not the lines; landing preview weak; empty board busy; heat invisible; phone toast over the tray | Per-tile flash and shrink wave, line sweeps, score at the cleared cells; outlined ghost and lifted piece; checkerboard pools and brass dividers; heat-driven water and steam; toast below the tray | Fixed |
+| V18 | M-D | perf A/B | Mobile frames under software WebGL far behind v1 | Still shader frame on software WebGL (`?gl=force` overrides), 1.5× DPR cap on phones, backdrop at ≤ 1.25×, bead glow as a cached sprite | Fixed |
+| V19 | M-E | review 4 | Heat still invisible in the still-frame and 2D water paths; desktop drag hid its own ghost | Heat overlay drawn in every path (measured board colour change); mouse drags lift the piece a third of a cell at 86% opacity | Fixed |

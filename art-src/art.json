@@ -1,0 +1,117 @@
+{
+ "quality": 0.84,
+ "items": [
+  {
+   "name": "tile-1",
+   "src": "tile-1.png",
+   "w": 160,
+   "h": 160,
+   "quality": 0.9
+  },
+  {
+   "name": "tile-2",
+   "src": "tile-2.png",
+   "w": 160,
+   "h": 160,
+   "quality": 0.9
+  },
+  {
+   "name": "tile-3",
+   "src": "tile-3.png",
+   "w": 160,
+   "h": 160,
+   "quality": 0.9
+  },
+  {
+   "name": "tile-4",
+   "src": "tile-4.png",
+   "w": 160,
+   "h": 160,
+   "quality": 0.9
+  },
+  {
+   "name": "tile-5",
+   "src": "tile-5.png",
+   "w": 160,
+   "h": 160,
+   "quality": 0.9
+  },
+  {
+   "name": "tile-6",
+   "src": "tile-6.png",
+   "w": 160,
+   "h": 160,
+   "quality": 0.9
+  },
+  {
+   "name": "tile-7",
+   "src": "tile-7.png",
+   "w": 160,
+   "h": 160,
+   "quality": 0.9
+  },
+  {
+   "name": "tile-8",
+   "src": "tile-8.png",
+   "w": 160,
+   "h": 160,
+   "quality": 0.9
+  },
+  {
+   "name": "era-ancient",
+   "src": "era-ancient.png",
+   "w": 1600,
+   "h": 1000,
+   "quality": 0.72
+  },
+  {
+   "name": "era-frontier",
+   "src": "era-frontier.png",
+   "w": 1600,
+   "h": 1000,
+   "quality": 0.72
+  },
+  {
+   "name": "era-gilded-spa",
+   "src": "era-gilded-spa.png",
+   "w": 1600,
+   "h": 1000,
+   "quality": 0.72
+  },
+  {
+   "name": "era-roaring",
+   "src": "era-roaring.png",
+   "w": 1600,
+   "h": 1000,
+   "quality": 0.72
+  },
+  {
+   "name": "era-midcentury",
+   "src": "era-midcentury.png",
+   "w": 1600,
+   "h": 1000,
+   "quality": 0.72
+  },
+  {
+   "name": "era-revival",
+   "src": "era-revival.png",
+   "w": 1600,
+   "h": 1000,
+   "quality": 0.72
+  },
+  {
+   "name": "era-modern",
+   "src": "era-modern.png",
+   "w": 1600,
+   "h": 1000,
+   "quality": 0.72
+  },
+  {
+   "name": "title-hero",
+   "src": "title-hero.png",
+   "w": 1600,
+   "h": 1000,
+   "quality": 0.76
+  }
+ ]
+}

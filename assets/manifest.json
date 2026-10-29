@@ -1,0 +1,98 @@
+{
+ "tile-1": {
+  "file": "tile-1.webp",
+  "w": 160,
+  "h": 160,
+  "bytes": 5210
+ },
+ "tile-2": {
+  "file": "tile-2.webp",
+  "w": 160,
+  "h": 160,
+  "bytes": 5634
+ },
+ "tile-3": {
+  "file": "tile-3.webp",
+  "w": 160,
+  "h": 160,
+  "bytes": 5220
+ },
+ "tile-4": {
+  "file": "tile-4.webp",
+  "w": 160,
+  "h": 160,
+  "bytes": 5096
+ },
+ "tile-5": {
+  "file": "tile-5.webp",
+  "w": 160,
+  "h": 160,
+  "bytes": 4288
+ },
+ "tile-6": {
+  "file": "tile-6.webp",
+  "w": 160,
+  "h": 160,
+  "bytes": 5178
+ },
+ "tile-7": {
+  "file": "tile-7.webp",
+  "w": 160,
+  "h": 160,
+  "bytes": 8296
+ },
+ "tile-8": {
+  "file": "tile-8.webp",
+  "w": 160,
+  "h": 160,
+  "bytes": 7704
+ },
+ "era-ancient": {
+  "file": "era-ancient.webp",
+  "w": 1600,
+  "h": 1000,
+  "bytes": 189334
+ },
+ "era-frontier": {
+  "file": "era-frontier.webp",
+  "w": 1600,
+  "h": 1000,
+  "bytes": 275954
+ },
+ "era-gilded-spa": {
+  "file": "era-gilded-spa.webp",
+  "w": 1600,
+  "h": 1000,
+  "bytes": 258022
+ },
+ "era-roaring": {
+  "file": "era-roaring.webp",
+  "w": 1600,
+  "h": 1000,
+  "bytes": 220304
+ },
+ "era-midcentury": {
+  "file": "era-midcentury.webp",
+  "w": 1600,
+  "h": 1000,
+  "bytes": 293508
+ },
+ "era-revival": {
+  "file": "era-revival.webp",
+  "w": 1600,
+  "h": 1000,
+  "bytes": 189874
+ },
+ "era-modern": {
+  "file": "era-modern.webp",
+  "w": 1600,
+  "h": 1000,
+  "bytes": 187156
+ },
+ "title-hero": {
+  "file": "title-hero.webp",
+  "w": 1600,
+  "h": 1000,
+  "bytes": 242664
+ }
+}

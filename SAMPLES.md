@@ -60,3 +60,17 @@ for general ideas only and are marked reference-only whatever their license.
 | Randomness | mulberry32 with the state stored in the game state | Sample 3 |
 | Audio | WebAudio node recipes with envelopes | Sample 4 (idea) |
 | Campaign | Fixed piece lists on hand-made boards, solver-verified | Sample 2 (idea) |
+
+## Visual v2 (2026-10-29): vendored files, data and generated art
+
+| # | Item | Source | License | Version | Use |
+|---|---|---|---|---|---|
+| 6 | Fraunces display font, Latin subset, weights 700 and 900 | npm `@fontsource/fraunces` (upstream github.com/undercasetype/Fraunces) | SIL Open Font License 1.1 (`vendor/fraunces-5.3.0/LICENSE`) | 5.3.0 (published 2026-07-19) | Embedded as base64 WOFF2 in `index.html` (logo, score, headings, combo text). Originals in `vendor/fraunces-5.3.0/` |
+| 7 | Terrain: USGS 3D Elevation Program (3DEP), 1/3 arc-second | `elevation.nationalmap.gov` ImageServer `exportImage` | Public domain (US Government) | fetched 2026-10-28 | `tools/skyline.mjs` caches it in `art-src/dem/` (git-ignored) and writes `research/skyline.json`; the Blender composition guide uses it |
+| 8 | Building footprints around Bathhouse Row | OpenStreetMap via the Overpass API | ODbL 1.0, © OpenStreetMap contributors | query 2026-10-29 | `research/bathhouse-row-osm.json` (named landmarks only); the Blender guide extrudes the full query in `art-src/geo/` |
+| 9 | Glazed tile sprites (6 glazes, tufa, vent) | Rendered in Blender 5.2 Cycles by `art-src/blender/tiles.py` | Original (MIT with the game) | — | `assets/tile-1..8.webp` |
+| 10 | Era backdrops (7) and title key art | Painted with OpenAI image generation (via the Codex CLI) over `art-src/blender/renders/guide.png`, a Blender block-out made by `art-src/blender/backdrop.py` from items 7 and 8 | Original game art (MIT with the game) | prompts in `research/backdrop-notes.md` | `assets/era-*.webp`, `assets/title-hero.webp` |
+
+No third-party code was added. The WebGL water shader, sprite effects and layout code are written for this game.
+OpenStreetMap data needs attribution wherever it is shown or redistributed: the credit is in the How to play screen
+and in `research/backdrop-notes.md`.

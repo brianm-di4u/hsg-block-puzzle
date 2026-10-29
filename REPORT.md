@@ -7,6 +7,17 @@ bathhouse tile floor. Wave 1, built 2026-10-28.
 **50 of 50 tests passing**. The tests cover desktop 1280×800 and mobile 390×844, with zero console errors
 and zero external requests. They produce **75 screenshots** (38 desktop, 37 mobile), and every one was opened and inspected.
 
+## Visual v2 (2026-10-29)
+
+The visual enhancement pass replaced the procedural art with painted era backdrops of the real Bathhouse Row view,
+Blender-rendered glazed tiles, live WebGL thermal water, a new HUD and tray layout, steam-led clear effects with
+escalating combo banners, an embedded display font and a new title screen. Rules, modes, saves and content are
+unchanged; v1 saves load as-is (one new setting, Effects, defaults to Full). Full account, review scores, tests and
+performance: **`VISUAL-REPORT.md`** (final run 64/64 at both viewports, 87 screenshots inspected). Plan: `VISUAL-PLAN.md`. New files: `assets/` (16 WebP), `art-src/` (Blender
+scripts, `art.json`), `vendor/fraunces-5.3.0/`, `tests/visual.test.mjs`, `tools/skyline.mjs`, `tools/check-file-url.mjs`,
+`research/backdrop-notes.md`, `research/skyline.json`, `research/bathhouse-row-osm.json`. The v1 sections below describe
+the original build; where they mention vector art, era tile palettes or the side panels, v2 supersedes them.
+
 ## What was built
 
 | Area | Delivered |

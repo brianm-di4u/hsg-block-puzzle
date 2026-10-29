@@ -84,17 +84,23 @@ Title ─┬─ Classic / Daily Soak / Springs ──► Game ──► Pause (r
 
 ## 7. Art direction
 
-- **Palette:** `thermal-water` for the board everywhere; the era palette (`ERA_PALETTE`) for backgrounds and
-  tile glazes; UI chrome from the default light theme, or dark (deco-neon based) under `prefers-color-scheme: dark`
-  or the Theme setting.
-- **Board:** brass frame with a skylight border of small squares (style guide Motif 4); nine pools in two tints of
-  pool blue; lead-came lines `#2A2A2A` between pools; empty cells read as wet tile with a faint ripple highlight.
-- **Tiles:** rounded glazed squares with a top highlight, bevel and shadow; each color carries a pattern
-  (dot, bars, chevron, lozenge, wave, cross) for colorblind play.
-- **Tufa stones:** gray lobed blocks with lighter rims and dark damp streaks. **Vents:** a small pool in a tufa ring
-  with a steam wisp.
-- **Clears:** cells flash algae green, steam curls rise, ripple rings spread, popups show points and "×2.5".
-- **Type:** Victorian serif for titles, system sans for UI, mono for numbers.
+Visual v2 (2026-10-29) replaced the v1 vector art; see `VISUAL-PLAN.md` and `VISUAL-REPORT.md`.
+
+- **Backdrops:** one painted scene per era of the real view east over Bathhouse Row to Hot Springs Mountain and its
+  tower, laid out from USGS terrain and OpenStreetMap footprints (`research/backdrop-notes.md`). A painted title key
+  art. The vector scenes remain as the fallback (`?art=0` or a failed image).
+- **Board:** a bronze moulding with a glazed cream tile band and green and cobalt lozenges, a brass bead, and nine
+  pools of live thermal water (WebGL caustics and clear ripples; a still frame or 2D water when WebGL is off).
+- **Tiles:** Blender-rendered glazed art tiles with a raised panel, in one fixed six-glaze palette (terra cotta, amber,
+  cobalt, green, cream, violet). Eras change the backdrop and a faint light tint, not the glazes. Each glaze carries a
+  pressed-in pattern (dot, bars, chevron, lozenge, wave, cross) for colorblind play.
+- **Tufa stones and vents:** rendered porous travertine; vents are a glowing pool sunk into tufa with a steam wisp.
+- **Clears:** a quick swell and glow, steam plumes, droplets and a few glaze chips from the cleared cells, a ring on
+  the water, and a centred banner that escalates with groups cleared at once (Double, Triple, Quadruple, Spring Surge)
+  and the water's heat word (Warm, Hot, Steaming, Scalding, Boiling).
+- **Type:** Fraunces (OFL) for the logo, score, headings and banners; system sans for UI text; no text under 12 px.
+- **Layout:** no side panels. A large score in a transparent HUD; a brass thermometer beside the board (landscape) or a
+  heat strip above it (portrait); three recessed tray wells.
 
 ## 8. Audio direction
 
@@ -120,7 +126,8 @@ phrase at game over, a bright arpeggio on wins. Default volume 70%, mute toggle.
 
 ## 11. Performance budgets
 
-60 fps on a mid-range laptop during clears; idle CPU near zero (draw on change); HTML ≤ 2 MB (target ≤ 150 KB);
+60 fps on a mid-range laptop during clears; idle CPU near zero (draw on change; the water shimmer runs at 30 fps and
+stops 30 s after the last input); HTML ≤ 2 MB (v2: 175 KB with the embedded font), images ≤ 2.6 MB loaded by priority;
 interactive in ≤ 2 s; zero network requests.
 
 ## 12. Save / load
@@ -153,7 +160,7 @@ Settings, bests, daily scores, trail progress, lifetime stats and an in-progress
 | AC19 | Springs | Vents clear only with their group, count taps, respawn up to 6, and 47 taps win |
 | AC20 | Trail | 12 levels; each is solvable (solver-verified); winning unlocks its fact card; the next level unlocks |
 | AC21 | Fact cards | The album shows unlocked cards with place, year, facts and source; locked ones are hidden |
-| AC22 | Eras | Crossing each score threshold switches background and tile palette and shows the caption |
+| AC22 | Eras | Crossing each score threshold switches the backdrop (and its light tint) and shows the caption. v2: tile glazes stay fixed |
 | AC23 | Clear FX | Clears show flash, steam and ripples; reduced motion replaces them with a short fade |
 | AC24 | Audio | Sounds play through WebAudio after a gesture; mute and volume work; no errors without audio |
 | AC25 | Patterns | Every tile color has a distinct pattern; the setting can hide them |
@@ -162,7 +169,7 @@ Settings, bests, daily scores, trail progress, lifetime stats and an in-progress
 | AC28 | Layout | No horizontal overflow; controls on-screen; touch targets ≥ 44 px on mobile |
 | AC29 | Dark scheme | Under dark color scheme the menus use the dark tokens and remain legible |
 | AC30 | Resume | Leaving a Classic game and returning offers Continue and restores it exactly |
-| AC31 | Performance | ≥ 55 fps during clear effects in the test browser; file ≤ 2 MB; load ≤ 2 s |
+| AC31 | Performance | ≥ 55 fps during clear effects in the test browser; index.html ≤ 2 MB and assets ≤ 2.6 MB; load ≤ 2 s; a lite path without WebGL |
 | AC32 | Records | The records screen shows bests, lifetime stats and the water's-age line |
 
 ## 14. Out of scope
