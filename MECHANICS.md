@@ -97,10 +97,13 @@ All input goes through Pointer Events on the canvas (`touch-action: none`, `setP
 
 | Action | Mouse | Touch | Keyboard |
 |---|---|---|---|
-| Pick a piece | press on a tray piece | touch a tray piece | `1` `2` `3`, or `Tab` / `Q` `E` to cycle |
-| Move | drag; ghost snaps to the nearest cells | drag; the piece floats 1.6 cells above the finger | arrow keys move the ghost |
-| Place | release over a valid spot | release, or tap-select then tap the board (first tap shows the ghost, second tap on the ghost confirms) | `Enter` / `Space` |
+| Pick a piece | press on a tray piece | touch a tray piece (it swells; a plain tap hops it and hints "drag") | `1` `2` `3`, or `Tab` / `Q` `E` to cycle |
+| Move | drag; ghost snaps to the nearest cells | drag; the piece floats with its bottom edge ¾ cell above the finger, whatever its height | arrow keys move the ghost |
+| Place | release over a valid spot | release where the finger lifts. With the **Tap to place** setting on (off by default): tap-select, then tap the board (first tap shows the ghost, second tap on the ghost confirms) | `Enter` / `Space` |
 | Cancel | release off-board, or right-click | release off-board | `Esc` (with nothing selected: pause) |
+
+Drag snapping: a piece hanging up to 0.6 cell past the board edge is pulled back in. If the nearest spot is
+blocked, the closest open neighbouring spot within ¾ cell is used instead.
 | Undo | Undo button | Undo button | `U` or `Ctrl+Z` |
 | Mute | sound button | sound button | `M` |
 

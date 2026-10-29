@@ -78,8 +78,8 @@ Every test runs at desktop (1280×800) and mobile (390×844) unless noted. Scree
 | AC10 | `rules.test.mjs` → refill | — |
 | AC11, AC12 | `gameover.test.mjs` → no fit ends game | `20-no-moves-dim`, `21-game-over` |
 | AC13 | `gameover.test.mjs` → undo budget | — |
-| AC14 | `input.test.mjs` → pointer drag (desktop) | `30-drag-ghost` |
-| AC15 | `input.test.mjs` → tap select and place (mobile) | `31-tap-ghost` |
+| AC14 | `input.test.mjs` → pointer drag (desktop), touch drag is the default (mobile) | `30-drag-ghost`, `34-touch-drag` |
+| AC15 | `input.test.mjs` → tap select and place (mobile, Tap to place on) | `31-tap-ghost` |
 | AC16 | `input.test.mjs` → keyboard turn | `32-keyboard-cursor`, `33-pause` |
 | AC17 | `gameover.test.mjs` → best persists; storage blocked | — |
 | AC18 | `modes.test.mjs` → daily determinism | `40-daily` |
@@ -149,3 +149,12 @@ undo-from-loss are covered by `trail.test.mjs` → trail loss offers undo (deskt
 | V17 | M-D | review 3 | Clear burst centred on the board, not the lines; landing preview weak; empty board busy; heat invisible; phone toast over the tray | Per-tile flash and shrink wave, line sweeps, score at the cleared cells; outlined ghost and lifted piece; checkerboard pools and brass dividers; heat-driven water and steam; toast below the tray | Fixed |
 | V18 | M-D | perf A/B | Mobile frames under software WebGL far behind v1 | Still shader frame on software WebGL (`?gl=force` overrides), 1.5× DPR cap on phones, backdrop at ≤ 1.25×, bead glow as a cached sprite | Fixed |
 | V19 | M-E | review 4 | Heat still invisible in the still-frame and 2D water paths; desktop drag hid its own ghost | Heat overlay drawn in every path (measured board colour change); mouse drags lift the piece a third of a cell at 86% opacity | Fixed |
+
+## Touch input defect log (2026-10-29)
+
+| # | Found in | How | Problem | Fix | Status |
+|---|---|---|---|---|---|
+| T1 | playtest | mobile testers | Two-tap placement felt sensitive (the second tap had to land on a ghost cell), and most players never found the drag | Drag is the touch default; tap-place moved behind a "Tap to place" setting (off). A tray tap hops the piece and hints "drag" | Fixed |
+| T2 | code review | lift math | A fixed 1.6-cell lift left the bottom of 3- to 5-tall pieces under the finger | The piece's bottom edge sits ¾ cell above the finger for every height | Fixed |
+| T3 | code review | drop math | Plain rounding: a slightly-off or overhanging drop returned the piece | Overhang ≤ 0.6 cell pulled in; nearest open neighbour within ¾ cell; the drop uses the lift-off point | Fixed |
+| T4 | code review | iOS | No callout or selection guard on the canvas, so a long press could cancel a drag | `user-select`/`-webkit-touch-callout` off, `overscroll-behavior: none`, `lostpointercapture` ends the drag; toasts let touches through | Fixed (needs a real-phone check) |
