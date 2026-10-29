@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Builds the Hot Springs Mountain skyline from real terrain (USGS 3DEP, public domain).
-//   node games/block-puzzle/tools/skyline.mjs            (fetches the DEM once into art-src/dem/, which is git-ignored)
+//   node tools/skyline.mjs            (fetches the DEM once into art-src/dem/, which is git-ignored)
 // Ray-casts a panorama from a viewpoint on Central Avenue's west side, looking east over Bathhouse Row,
 // and writes research/skyline.json: per-column elevation angles for three depth bands, plus the
 // Mountain Tower (34.51723, -93.04611; 216 ft) bearing and top angle. The game draws its backdrop from it.

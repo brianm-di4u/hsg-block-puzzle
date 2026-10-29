@@ -41,7 +41,7 @@ export const tests = [
       t.equal(levels.length, 12, 'twelve levels');
       for (const [i, L] of levels.entries()) {
         const rec = SOL[L.id];
-        t.expect(rec && rec.key === levelKey(L), `${L.id}: solutions.json is current (re-run node games/block-puzzle/tools/rules-node.mjs)`);
+        t.expect(rec && rec.key === levelKey(L), `${L.id}: solutions.json is current (re-run node tools/rules-node.mjs)`);
         t.expect(rec && rec.solution, `${L.id}: solver found a solution`);
         if (!rec || !rec.solution) continue;
         if (i === 6) { await t.game('newGame', { mode: 'trail', level: L.id }); await t.game('act', 'hideToast'); await t.shot('44-trail-level'); }

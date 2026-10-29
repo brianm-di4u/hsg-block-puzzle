@@ -1,0 +1,11 @@
+{
+  "name": "hsg-block-puzzle",
+  "private": true,
+  "type": "module",
+  "description": "Thermal Blocks: 9×9 block-placement puzzle",
+  "license": "MIT",
+  "scripts": {
+    "setup": "cd shared/test-harness && npm install && npx playwright install chromium",
+    "test": "node shared/test-harness/run.mjs ."
+  }
+}
