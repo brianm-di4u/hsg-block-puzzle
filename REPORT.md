@@ -144,3 +144,12 @@ random legal playouts that win runs from 74% (Ozark, a deliberate breather) to 0
 - Commit `tools/solutions.json` along with the levels. The trail test reads it, and it must be regenerated
   (`node games/block-puzzle/tools/rules-node.mjs`, about 20 s) whenever a level changes.
 - The screenshot folders `m1`–`m5` are earlier milestone runs kept for the gallery; `final` is authoritative.
+
+## Update: repainted backgrounds (2026-11-02)
+
+The title painting and all seven era backdrops were repainted. They now look down on downtown from the hills above
+Central Avenue and Bathhouse Row, so the About text says so. The new source PNGs replace the `art-src/art.json`
+sources (git-ignored; the workspace keeps copies of the old and new paintings in `reference/backgrounds/`) and were
+packed with the usual tools. Older descriptions of these paintings in VISUAL-REPORT.md refer to the previous art.
+
+`npm test`: 65/65 passed.
