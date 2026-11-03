@@ -51,48 +51,48 @@
   "file": "era-ancient.webp",
   "w": 1600,
   "h": 1000,
-  "bytes": 189334
+  "bytes": 182400
  },
  "era-frontier": {
   "file": "era-frontier.webp",
   "w": 1600,
   "h": 1000,
-  "bytes": 275954
+  "bytes": 253086
  },
  "era-gilded-spa": {
   "file": "era-gilded-spa.webp",
   "w": 1600,
   "h": 1000,
-  "bytes": 258022
+  "bytes": 300904
  },
  "era-roaring": {
   "file": "era-roaring.webp",
   "w": 1600,
   "h": 1000,
-  "bytes": 220304
+  "bytes": 244538
  },
  "era-midcentury": {
   "file": "era-midcentury.webp",
   "w": 1600,
   "h": 1000,
-  "bytes": 293508
+  "bytes": 409618
  },
  "era-revival": {
   "file": "era-revival.webp",
   "w": 1600,
   "h": 1000,
-  "bytes": 189874
+  "bytes": 315174
  },
  "era-modern": {
   "file": "era-modern.webp",
   "w": 1600,
   "h": 1000,
-  "bytes": 187156
+  "bytes": 292838
  },
  "title-hero": {
   "file": "title-hero.webp",
   "w": 1600,
   "h": 1000,
-  "bytes": 242664
+  "bytes": 364312
  }
 }
