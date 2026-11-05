@@ -639,17 +639,110 @@ function defaultSave() {
   return { v: 1, settings: { sound: true, volume: 0.7, motion: 'system', patterns: true, undo: 1, bigText: false, theme: 'system', effects: 'full', tapPlace: false },
     best: { classic: 0, springs: 0, daily: {} }, trail: { done: [] }, stats: { games: 0, lines: 0, bestHeat: 0, springs: 0 }, resume: null };
 }
-let SAVE = defaultSave();
-function loadSave() {
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (!raw) return;
-    const d = JSON.parse(raw), def = defaultSave();
-    SAVE = { ...def, ...d, settings: { ...def.settings, ...(d.settings || {}) }, best: { ...def.best, ...(d.best || {}) },
-      trail: { ...def.trail, ...(d.trail || {}) }, stats: { ...def.stats, ...(d.stats || {}) } };
-  } catch (e) { /* storage unavailable or corrupt: keep defaults */ }
+// SAVE MERGE CORE (portable regression extracts this same function)
+function createSaveStore(storage, defaults, revision) {
+  const copy = value => JSON.parse(JSON.stringify(value));
+  const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const object = value => value && typeof value === 'object' && !Array.isArray(value);
+  const number = value => typeof value === 'number' && Number.isFinite(value) && value >= 0;
+  const put = (object, key, value) => Object.defineProperty(object, key, { value, enumerable: true, writable: true, configurable: true });
+  function normalize(data) {
+    const def = defaults();
+    if (!object(data)) return def;
+    const out = { ...def, ...data, v: 1 };
+    for (const name of ['settings', 'best', 'trail', 'stats']) out[name] = { ...def[name], ...(object(data[name]) ? data[name] : {}) };
+    for (const [key, value] of Object.entries(def.settings)) {
+      if (typeof out.settings[key] !== typeof value || (typeof value === 'number' && !number(out.settings[key]))) out.settings[key] = value;
+    }
+    for (const key of ['classic', 'springs']) if (!number(out.best[key])) out.best[key] = 0;
+    out.best.daily = Object.fromEntries(Object.entries(object(out.best.daily) ? out.best.daily : {}).filter(([, value]) => number(value)));
+    out.trail.done = [...new Set(Array.isArray(out.trail.done) ? out.trail.done.filter(value => typeof value === 'string') : [])];
+    for (const key of Object.keys(def.stats)) if (!number(out.stats[key])) out.stats[key] = def.stats[key];
+    for (const key of ['resumeGeneration', 'resumeRevision']) if (Object.hasOwn(out, key) && (typeof out[key] !== 'string' || !out[key])) delete out[key];
+    // Resume is an opaque v1 JSON object. Do not newly reject shipped optional fields.
+    if (out.resume !== null && !object(out.resume)) out.resume = null;
+    return out;
+  }
+  let value = defaults(), base = copy(value), pending = null, dirty = false, warned = false;
+  const slot = save => ({ generation: save.resumeGeneration ?? null, revision: save.resumeRevision ?? null, resume: save.resume });
+  let acknowledged = copy(slot(value));
+  function read() {
+    const raw = storage.getItem();
+    if (raw === null || raw === '') return defaults();
+    try { return normalize(JSON.parse(raw)); }
+    catch { return copy(base); } // Keep the last known valid save if current bytes are corrupt.
+  }
+  function load() {
+    if (dirty) return value; // Failed writes still have pending local changes.
+    try { value = read(); base = copy(value); acknowledged = copy(slot(value)); }
+    catch { /* Storage unavailable: retain the in-memory fallback. */ }
+    return value;
+  }
+  function readResume() {
+    try {
+      const latest = read();
+      acknowledged = copy(slot(latest)); pending = null; warned = false;
+      value.resume = copy(latest.resume);
+      for (const key of ['resumeGeneration', 'resumeRevision']) {
+        if (Object.hasOwn(latest, key)) put(value, key, latest[key]); else delete value[key];
+      }
+    } catch { /* Offline/storage-denied play may still use its last in-memory run. */ }
+    return copy(value.resume);
+  }
+  function persist(intent = 'none') {
+    if (!['none', 'update', 'clear', 'replace'].includes(intent)) throw new Error('Unknown resume intent');
+    if (intent !== 'none') pending = { kind: intent, resume: copy(value.resume), admitted: intent !== 'replace', newGeneration: intent === 'replace' || intent === 'clear' || !!pending?.newGeneration };
+    let latest;
+    try { latest = read(); }
+    catch { if (pending) pending.admitted = true; dirty = true; return { ok: false, conflict: false }; }
+    if (pending?.kind === 'replace' && !pending.admitted) {
+      // Only this explicit new-game action may replace a foreign run. Its retry is still exact-slot guarded.
+      acknowledged = copy(slot(latest)); pending.admitted = true; warned = false;
+    }
+    const merged = copy(latest), def = defaults();
+    for (const key of Object.keys(def.settings)) {
+      if (!equal(value.settings[key], base.settings[key])) put(merged.settings, key, copy(value.settings[key]));
+    }
+    for (const key of ['classic', 'springs']) {
+      if (value.best[key] > base.best[key]) merged.best[key] = Math.max(merged.best[key], value.best[key]);
+    }
+    for (const [key, n] of Object.entries(value.best.daily)) {
+      if (number(n) && n > (base.best.daily[key] || 0)) put(merged.best.daily, key, Math.max(merged.best.daily[key] || 0, n));
+    }
+    merged.trail.done = [...new Set([...merged.trail.done, ...value.trail.done.filter(id => !base.trail.done.includes(id))])];
+    for (const key of ['games', 'lines', 'springs']) merged.stats[key] += Math.max(0, value.stats[key] - base.stats[key]);
+    if (value.stats.bestHeat > base.stats.bestHeat) merged.stats.bestHeat = Math.max(merged.stats.bestHeat, value.stats.bestHeat);
+    let wroteResume = false, conflict = false;
+    if (pending) {
+      if (equal(slot(latest), acknowledged)) {
+        merged.resume = copy(pending.resume);
+        merged.resumeGeneration = pending.newGeneration || !latest.resumeGeneration ? revision() : latest.resumeGeneration;
+        merged.resumeRevision = revision(); wroteResume = true;
+      } else {
+        conflict = !warned; warned = true; pending = null;
+      }
+    }
+    try { storage.setItem(JSON.stringify(merged)); }
+    catch { dirty = true; return { ok: false, conflict }; }
+    value = normalize(merged); base = copy(value); dirty = false;
+    if (wroteResume) { acknowledged = copy(slot(value)); pending = null; warned = false; }
+    return { ok: true, conflict, wroteResume };
+  }
+  return { get value() { return value; }, load, readResume, persist };
 }
-function persist() { try { localStorage.setItem(STORE_KEY, JSON.stringify(SAVE)); } catch (e) { /* ignore */ } }
+// END SAVE MERGE CORE
+let saveRevisionCounter = 0;
+const SAVE_STORE = createSaveStore({ getItem: () => localStorage.getItem(STORE_KEY), setItem: raw => localStorage.setItem(STORE_KEY, raw) }, defaultSave,
+  () => globalThis.crypto?.randomUUID?.() || (Date.now().toString(36) + '-' + (++saveRevisionCounter) + '-' + Math.random().toString(36).slice(2)));
+let SAVE = SAVE_STORE.value;
+function loadSave() { SAVE = SAVE_STORE.load(); }
+function persist(intent = 'none') {
+  const before = JSON.stringify(SAVE.settings), result = SAVE_STORE.persist(intent);
+  SAVE = SAVE_STORE.value;
+  if (before !== JSON.stringify(SAVE.settings)) applySettings();
+  if (result.conflict) toast('Saved game changed in another tab', 'This game is still playable here. Continue from the title to use the saved game, or start a new game.', 6000);
+  return result.ok;
+}
 
 let S = freshGame('classic');
 S.scene = 'title';
@@ -1690,7 +1783,7 @@ function newGame(opts = {}) {
   setupGame(g, opts);
   S = Object.assign(g, { scene: 'game' });
   UI.sel = -1; UI.ghost = null; UI.drag = null; UI.overAt = 0; FX.length = 0;
-  if (mode === 'classic' || mode === 'springs') { SAVE.resume = null; persist(); }
+  if (mode === 'classic' || mode === 'springs') { SAVE.resume = null; persist('replace'); }
   hideToast();
   showScene('game');
   if (mode === 'trail') {
@@ -1756,7 +1849,7 @@ function doPlace(slot, r, c) {
   return res;
 }
 function saveResume() {
-  if (S.mode === 'classic' || S.mode === 'springs') { SAVE.resume = snapshot(); SAVE.resume.undoStack = []; persist(); }
+  if (S.mode === 'classic' || S.mode === 'springs') { SAVE.resume = snapshot(); SAVE.resume.undoStack = []; persist('update'); }
 }
 function undoAvail() {
   if (!S.undoStack || !S.undoStack.length) return false;
@@ -1797,7 +1890,7 @@ function endGame() {
   } else if (S.mode === 'trail' && S.won && !SAVE.trail.done.includes(S.level)) {
     SAVE.trail.done.push(S.level);
   }
-  persist();
+  persist(S.mode === 'classic' || S.mode === 'springs' ? 'clear' : 'none');
   UI.overAt = performance.now() + (reducedMotion() ? 350 : 1000);
   setTimeout(() => sfx(S.won ? 'win' : 'over'), 300);
 }
@@ -1993,7 +2086,7 @@ function restart() {
   else newGame({ mode: S.mode });
 }
 function resumeSaved() {
-  const r = SAVE.resume; if (!r) return;
+  const r = SAVE_STORE.readResume(); SAVE = SAVE_STORE.value; if (!r) { fillTitle(); return; }
   S = Object.assign(JSON.parse(JSON.stringify(r)), { scene: 'game', undoStack: [] });
   UI.sel = -1; UI.ghost = null; FX.length = 0; bgKey = ''; spriteCache.clear();
   showScene('game');
