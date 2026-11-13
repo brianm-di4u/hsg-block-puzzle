@@ -1757,7 +1757,12 @@ void main(){
       W.gl = gl; W.prog = p;
       const dbg = gl.getExtension('WEBGL_debug_renderer_info');
       W.software = /swiftshader|llvmpipe|software/i.test(dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : '');
-      W.cv.addEventListener('webglcontextlost', e => { e.preventDefault(); W.gl = null; W.on = false; boardKey = ''; dirty = true; });
+      if (!W.listening) {
+        W.listening = true;
+        W.cv.addEventListener('webglcontextlost', e => { e.preventDefault(); W.gl = null; W.on = false; boardKey = ''; dirty = true; });
+        // after a driver reset the program and buffers are gone: build them again and put the water back
+        W.cv.addEventListener('webglcontextrestored', () => { W.inited = false; W.size = 0; init(); W.resize(); boardKey = ''; dirty = true; });
+      }
       W.on = wanted();
     } catch (e) { W.gl = null; W.on = false; }
   }
@@ -2293,6 +2298,7 @@ window.addEventListener('keydown', e => {
 });
 window.addEventListener('resize', () => { resize(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && S.scene === 'game') { saveResume(); } });
+window.addEventListener('pagehide', () => { if (S.scene === 'game') saveResume(); });
 
 // ===================================================================== TEST HOOKS
 window.__game = {

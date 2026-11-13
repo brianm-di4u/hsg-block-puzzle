@@ -105,4 +105,26 @@ export const tests = [
       await t.game('act', 'setting', 'undo', 1);
     },
   },
+  {
+    name: 'S6-08 pagehide saves the run and a restored WebGL context brings the water back',
+    async run(t) {
+      await t.seed(30);
+      await t.game('newGame', { mode: 'classic' });
+      await t.waitFrames(3);
+      let ok = false;
+      for (let r = 0; r < 9 && !ok; r++) ok = (await t.game('act', 'place', 0, r, 0)).ok;
+      // a change that only a hide-time save would store
+      await t.page.evaluate(() => { S.score = 4321; window.dispatchEvent(new Event('pagehide')); });
+      const stored = await t.page.evaluate(k => JSON.parse(localStorage.getItem(k) || 'null'), KEY);
+      t.equal(stored && stored.resume && stored.resume.score, 4321, 'pagehide wrote the run');
+      const art = await t.game('act', 'art');
+      if (!art.gl) { t.log('no WebGL in this browser; restore check skipped'); return; }
+      const lost = await t.page.evaluate(() => { const x = document.getElementById('water').getContext('webgl').getExtension('WEBGL_lose_context'); if (!x) return false; window.__lose = x; x.loseContext(); return true; });
+      if (!lost) { t.log('WEBGL_lose_context unavailable; restore check skipped'); return; }
+      await t.page.waitForFunction(() => !window.__game.act('art').gl);
+      await t.page.evaluate(() => window.__lose.restoreContext());
+      await t.page.waitForFunction(() => window.__game.act('art').gl, null, { timeout: 5000 }).catch(() => {});
+      t.expect((await t.game('act', 'art')).gl, 'WebGL water is set up again after the context is restored');
+    },
+  },
 ];
