@@ -167,4 +167,17 @@ export const tests = [
       t.expect(/Springs/.test(await t.page.textContent('#b-continue')), 'names Springs');
     },
   },
+  {
+    name: 'P-N04 a resume slot from another schema version is discarded',
+    async run(t) {
+      const save = await realSave(t);
+      t.equal(save.resume.v, 1, 'real slots carry schema version 1');
+      for (const [name, v] of [['newer version', 2], ['no version', undefined]]) {
+        const bad = JSON.parse(JSON.stringify(save));
+        if (v === undefined) delete bad.resume.v; else bad.resume.v = v;
+        await storeAndReload(t, bad);
+        await titleAlive(t, name);
+      }
+    },
+  },
 ];

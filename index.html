@@ -736,9 +736,12 @@ const SAVE_STORE = createSaveStore({ getItem: () => localStorage.getItem(STORE_K
   () => globalThis.crypto?.randomUUID?.() || (Date.now().toString(36) + '-' + (++saveRevisionCounter) + '-' + Math.random().toString(36).slice(2)));
 let SAVE = SAVE_STORE.value;
 function loadSave() { SAVE = SAVE_STORE.load(); }
+// Bump RESUME_VERSION when the game state changes shape; older stored runs are then dropped, not loaded half-wrong.
+const RESUME_VERSION = 1;
 // A stored run must have the shape the game reads; anything else is dropped instead of breaking the title or the board.
 function validResume(r) {
   if (!r || typeof r !== 'object' || Array.isArray(r)) return false;
+  if (r.v !== RESUME_VERSION) return false;
   if (r.mode !== 'classic' && r.mode !== 'springs') return false;
   if (!Array.isArray(r.board) || r.board.length !== 81) return false;
   if (!Array.isArray(r.tray) || r.tray.length !== 3 || !r.tray.every(t => t === null || (!!t && typeof t === 'object' && Object.hasOwn(PIECES, t.id)))) return false;
