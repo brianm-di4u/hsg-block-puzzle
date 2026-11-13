@@ -736,6 +736,20 @@ const SAVE_STORE = createSaveStore({ getItem: () => localStorage.getItem(STORE_K
   () => globalThis.crypto?.randomUUID?.() || (Date.now().toString(36) + '-' + (++saveRevisionCounter) + '-' + Math.random().toString(36).slice(2)));
 let SAVE = SAVE_STORE.value;
 function loadSave() { SAVE = SAVE_STORE.load(); }
+// A stored run must have the shape the game reads; anything else is dropped instead of breaking the title or the board.
+function validResume(r) {
+  if (!r || typeof r !== 'object' || Array.isArray(r)) return false;
+  if (r.mode !== 'classic' && r.mode !== 'springs') return false;
+  if (!Array.isArray(r.board) || r.board.length !== 81) return false;
+  if (!Array.isArray(r.tray) || r.tray.length !== 3 || !r.tray.every(t => t === null || (!!t && typeof t === 'object' && Object.hasOwn(PIECES, t.id)))) return false;
+  return Number.isFinite(r.score);
+}
+function dropBadResume() {
+  if (SAVE.resume === null || validResume(SAVE.resume)) return false;
+  SAVE.resume = null; persist('clear');
+  return true;
+}
+function badResumeToast() { toast('Saved game discarded', 'It could not be read, so it was cleared. Start a new game.', 6000); }
 function persist(intent = 'none') {
   const before = JSON.stringify(SAVE.settings), result = SAVE_STORE.persist(intent);
   SAVE = SAVE_STORE.value;
@@ -2087,6 +2101,7 @@ function restart() {
 }
 function resumeSaved() {
   const r = SAVE_STORE.readResume(); SAVE = SAVE_STORE.value; if (!r) { fillTitle(); return; }
+  if (dropBadResume()) { fillTitle(); badResumeToast(); return; }
   S = Object.assign(JSON.parse(JSON.stringify(r)), { scene: 'game', undoStack: [] });
   UI.sel = -1; UI.ghost = null; FX.length = 0; bgKey = ''; spriteCache.clear();
   showScene('game');
@@ -2305,10 +2320,12 @@ window.__game = {
 
 // ===================================================================== BOOT
 loadSave();
+const discardedResume = dropBadResume();
 wireDom();
 if (document.fonts && document.fonts.load) Promise.all([document.fonts.load('700 20px Fraunces'), document.fonts.load('900 20px Fraunces')]).then(() => { dirty = true; }, () => {});
 applySettings();
 showScene('title');
+if (discardedResume) badResumeToast();
 loadArtFor('title');
 requestAnimationFrame(loop);
 </script>
