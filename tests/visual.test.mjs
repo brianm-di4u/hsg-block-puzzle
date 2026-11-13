@@ -73,6 +73,7 @@ export const tests = [
       await t.shot('82-water-lite');
       await t.game('act', 'setting', 'effects', 'full');
       await t.game('scene', 'title');
+      await t.waitFrames(2); // the frame loop hides the layer on its next frame, not inside scene()
       t.equal(await t.page.evaluate(() => getComputedStyle(document.getElementById('water')).display), 'none', 'no water layer on the title');
     },
   },
