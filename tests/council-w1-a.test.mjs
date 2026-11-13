@@ -127,4 +127,44 @@ export const tests = [
       t.expect((await t.game('act', 'art')).gl, 'WebGL water is set up again after the context is restored');
     },
   },
+  {
+    name: 'S6-11 corrupt resume content that does not throw is rejected',
+    async run(t) {
+      const save = await realSave(t);
+      const cases = {
+        'ten-cell board': r => { r.board = r.board.slice(0, 10); },
+        'string cells': r => { r.board = r.board.map(String); },
+        'cell out of range': r => { r.board[3] = 9; },
+        'fractional cell': r => { r.board[3] = 1.5; },
+        'string score': r => { r.score = 'lots'; },
+        'negative score': r => { r.score = -5; },
+        'unknown mode': r => { r.mode = ''; },
+        'trail mode': r => { r.mode = 'trail'; },
+        'heat out of range': r => { r.heat = 99; },
+        'era out of range': r => { r.era = 99; },
+        'bad queue id': r => { r.queue = ['nope']; },
+        'string undoLeft': r => { r.undoLeft = 'x'; },
+      };
+      for (const [name, mutate] of Object.entries(cases)) {
+        const bad = JSON.parse(JSON.stringify(save));
+        mutate(bad.resume);
+        await storeAndReload(t, bad);
+        await titleAlive(t, name);
+      }
+    },
+  },
+  {
+    name: 'S6-11 a real Springs resume slot still loads',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.seed(12);
+      await t.game('newGame', { mode: 'springs' });
+      let ok = false;
+      for (let r = 0; r < 9 && !ok; r++) for (let c = 0; c < 9 && !ok; c++) ok = (await t.game('act', 'place', 0, r, c)).ok;
+      t.expect(ok, 'placed a piece');
+      await t.reload();
+      t.expect(await t.page.isVisible('#b-continue'), 'Continue offered for Springs');
+      t.expect(/Springs/.test(await t.page.textContent('#b-continue')), 'names Springs');
+    },
+  },
 ];

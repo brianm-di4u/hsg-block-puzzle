@@ -742,7 +742,13 @@ function validResume(r) {
   if (r.mode !== 'classic' && r.mode !== 'springs') return false;
   if (!Array.isArray(r.board) || r.board.length !== 81) return false;
   if (!Array.isArray(r.tray) || r.tray.length !== 3 || !r.tray.every(t => t === null || (!!t && typeof t === 'object' && Object.hasOwn(PIECES, t.id)))) return false;
-  return Number.isFinite(r.score);
+  if (!r.board.every(c => Number.isInteger(c) && c >= 0 && c <= 8)) return false;
+  if (!Array.isArray(r.queue) || !r.queue.every(id => Object.hasOwn(PIECES, id))) return false;
+  const count = v => Number.isFinite(v) && v >= 0;
+  if (![r.score, r.bestHeat, r.groups, r.placed, r.round, r.undoLeft, r.springs, r.rng].every(count)) return false;
+  if (!(Number.isFinite(r.heat) && r.heat >= 0 && r.heat <= 12)) return false;
+  if (!Number.isInteger(r.era) || r.era < 0 || r.era >= ERAS.length) return false;
+  return typeof r.over === 'boolean' && typeof r.won === 'boolean';
 }
 function dropBadResume() {
   if (SAVE.resume === null || validResume(SAVE.resume)) return false;
