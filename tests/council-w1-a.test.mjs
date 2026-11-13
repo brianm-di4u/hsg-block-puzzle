@@ -180,4 +180,48 @@ export const tests = [
       }
     },
   },
+  {
+    name: 'S6-09 Trail puzzle and Daily run survive a reload',
+    async run(t) {
+      const placeAny = async () => {
+        for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) if ((await t.game('act', 'place', 0, r, c)).ok) return true;
+        return false;
+      };
+      // Trail
+      await t.game('newGame', { mode: 'trail', level: 'display-spring' });
+      const fresh = await t.state();
+      t.expect(await placeAny(), 'placed a trail piece');
+      const before = await t.state();
+      await t.reload();
+      await t.page.click('#sc-title [data-go="trail"]');
+      t.expect(/In progress/.test(await t.page.textContent('#levels')), 'Trail list offers the run');
+      await t.page.click('#levels button:nth-child(1)');
+      let after = await t.state();
+      t.equal(after.scene, 'game', 'trail run opened');
+      t.equal(after.level, 'display-spring', 'same puzzle');
+      t.equal(after.board, before.board, 'trail board restored');
+      t.equal(after.tray, before.tray, 'trail tray restored');
+      t.expect(JSON.stringify(after.board) !== JSON.stringify(fresh.board), 'differs from a fresh start');
+      // an explicit restart starts over
+      await t.game('newGame', { mode: 'trail', level: 'display-spring' });
+      t.equal((await t.state()).board, fresh.board, 'newGame without resume starts fresh');
+      await t.reload();
+      await t.page.click('#sc-title [data-go="trail"]');
+      t.expect(!/In progress/.test(await t.page.textContent('#levels')), 'restart cleared the saved run');
+      // Daily
+      await t.page.click('#sc-title [data-back], #sc-trail [data-back]').catch(() => {});
+      await t.game('newGame', { mode: 'daily' });
+      t.expect(await placeAny(), 'placed a daily piece');
+      const daily = await t.state();
+      await t.reload();
+      t.expect(/Run in progress/.test(await t.page.textContent('#daily-sub')), 'Daily offers the run');
+      await t.page.click('#sc-title [data-mode="daily"]');
+      after = await t.state();
+      t.equal(after.mode, 'daily', 'daily opened');
+      t.equal(after.board, daily.board, 'daily board restored');
+      t.equal(after.score, daily.score, 'daily score restored');
+      const classic = await t.game('act', 'save');
+      t.equal(classic.resume, null, 'Classic slot untouched');
+    },
+  },
 ];

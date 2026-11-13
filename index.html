@@ -739,10 +739,10 @@ function loadSave() { SAVE = SAVE_STORE.load(); }
 // Bump RESUME_VERSION when the game state changes shape; older stored runs are then dropped, not loaded half-wrong.
 const RESUME_VERSION = 1;
 // A stored run must have the shape the game reads; anything else is dropped instead of breaking the title or the board.
-function validResume(r) {
+function validResume(r, modes = ['classic', 'springs']) {
   if (!r || typeof r !== 'object' || Array.isArray(r)) return false;
   if (r.v !== RESUME_VERSION) return false;
-  if (r.mode !== 'classic' && r.mode !== 'springs') return false;
+  if (!modes.includes(r.mode)) return false;
   if (!Array.isArray(r.board) || r.board.length !== 81) return false;
   if (!Array.isArray(r.tray) || r.tray.length !== 3 || !r.tray.every(t => t === null || (!!t && typeof t === 'object' && Object.hasOwn(PIECES, t.id)))) return false;
   if (!r.board.every(c => Number.isInteger(c) && c >= 0 && c <= 8)) return false;
@@ -752,6 +752,28 @@ function validResume(r) {
   if (!(Number.isFinite(r.heat) && r.heat >= 0 && r.heat <= 12)) return false;
   if (!Number.isInteger(r.era) || r.era < 0 || r.era >= ERAS.length) return false;
   return typeof r.over === 'boolean' && typeof r.won === 'boolean';
+}
+// Trail puzzles and Daily runs keep their own slot (the Classic/Springs resume slot is untouched), written after every
+// placement and offered again when the same puzzle or the same day's Daily is opened from the menus.
+const RUN_KEY = 'hs-thermal-blocks-v1-run';
+function runKey(mode, level, date) { return mode === 'trail' ? level : date; }
+function clearRun() { try { localStorage.removeItem(RUN_KEY); } catch (e) { /* storage unavailable */ } }
+function saveRun() {
+  try {
+    const state = snapshot(); state.undoStack = [];
+    localStorage.setItem(RUN_KEY, JSON.stringify({ rv: RESUME_VERSION, mode: S.mode, key: runKey(S.mode, S.level, S.daily), state }));
+  } catch (e) { /* storage unavailable: the run just will not survive a reload */ }
+}
+function savedRun(mode, key) {
+  try {
+    const raw = localStorage.getItem(RUN_KEY);
+    if (!raw) return null;
+    const o = JSON.parse(raw), st = o && o.state;
+    const ok = o && o.rv === RESUME_VERSION && o.mode === mode && o.key === key && validResume(st, [mode]) && !st.over &&
+      (mode === 'trail' ? LEVELS.some(l => l.id === st.level) && st.level === key : st.daily === key);
+    if (!ok) return null;
+    return st;
+  } catch (e) { return null; }
 }
 function dropBadResume() {
   if (SAVE.resume === null || validResume(SAVE.resume)) return false;
@@ -1830,13 +1852,17 @@ function hideToast() { clearTimeout(toastTimer); $('toast').classList.remove('on
 
 function newGame(opts = {}) {
   const mode = opts.mode || 'classic';
-  const g = freshGame(mode);
-  if (mode === 'daily') { g.daily = opts.date || todayStr(); g.rng = dateSeed(g.daily); }
-  else if (opts.seed != null) g.rng = opts.seed >>> 0;
-  else if (SEED_PENDING != null) g.rng = SEED_PENDING >>> 0;
-  else g.rng = (Date.now() ^ Math.floor(Math.random() * 0xFFFFFFFF)) >>> 0;
-  g.undoLeft = mode === 'trail' ? 999 : SAVE.settings.undo;
-  setupGame(g, opts);
+  const kept = opts.resume && (mode === 'trail' || mode === 'daily') ? savedRun(mode, mode === 'trail' ? opts.level : (opts.date || todayStr())) : null;
+  const g = kept ? JSON.parse(JSON.stringify(kept)) : freshGame(mode);
+  if (!kept) {
+    if (mode === 'trail' || mode === 'daily') clearRun();
+    if (mode === 'daily') { g.daily = opts.date || todayStr(); g.rng = dateSeed(g.daily); }
+    else if (opts.seed != null) g.rng = opts.seed >>> 0;
+    else if (SEED_PENDING != null) g.rng = SEED_PENDING >>> 0;
+    else g.rng = (Date.now() ^ Math.floor(Math.random() * 0xFFFFFFFF)) >>> 0;
+    g.undoLeft = mode === 'trail' ? 999 : SAVE.settings.undo;
+    setupGame(g, opts);
+  } else g.undoStack = [];
   S = Object.assign(g, { scene: 'game' });
   UI.sel = -1; UI.ghost = null; UI.drag = null; UI.overAt = 0; FX.length = 0;
   if (mode === 'classic' || mode === 'springs') { SAVE.resume = null; persist('replace'); }
@@ -1906,6 +1932,7 @@ function doPlace(slot, r, c) {
 }
 function saveResume() {
   if (S.mode === 'classic' || S.mode === 'springs') { SAVE.resume = snapshot(); SAVE.resume.undoStack = []; persist('update'); }
+  else if ((S.mode === 'trail' || S.mode === 'daily') && !S.over) { if (S.placed > 0) saveRun(); else clearRun(); }
 }
 function undoAvail() {
   if (!S.undoStack || !S.undoStack.length) return false;
@@ -1934,6 +1961,7 @@ function doUndo() {
   return { ok: true };
 }
 function endGame() {
+  if (S.mode === 'trail' || S.mode === 'daily') clearRun();
   if (S.mode !== 'trail' || S.won) S.undoStack = [];
   const st = SAVE.stats;
   st.games++; st.lines += S.groups; st.bestHeat = Math.max(st.bestHeat, S.bestHeat); st.springs += S.springs;
@@ -2048,7 +2076,7 @@ function fillTitle() {
   $('b-continue').style.display = r && !r.over ? '' : 'none';
   if (r && !r.over) $('b-continue').textContent = 'Continue ' + ({ classic: 'Classic', springs: 'Springs' }[r.mode] || '') + ' · ' + r.score.toLocaleString('en-US');
   const d = SAVE.best.daily[todayStr()];
-  $('daily-sub').textContent = d ? 'Today’s best: ' + d.toLocaleString('en-US') : 'Same board for everyone today.';
+  $('daily-sub').textContent = savedRun('daily', todayStr()) ? 'Run in progress · tap to continue' : d ? 'Today’s best: ' + d.toLocaleString('en-US') : 'Same board for everyone today.';
   $('trail-sub').textContent = SAVE.trail.done.length + ' of 12 solved.';
   $('ticker').textContent = TICKER[tickerI % TICKER.length];
 }
@@ -2063,9 +2091,9 @@ function fillTrail() {
     b.disabled = !open;
     const n = document.createElement('b'); n.textContent = (i + 1) + '. ' + L.name;
     const st = document.createElement('span'); st.className = 'st';
-    st.textContent = done ? 'Solved · card collected' : open ? goalLabel(L.goal) + ' · ' + L.pieces.length + ' pieces' : 'Locked';
+    st.textContent = savedRun('trail', L.id) ? 'In progress · tap to continue' : done ? 'Solved · card collected' : open ? goalLabel(L.goal) + ' · ' + L.pieces.length + ' pieces' : 'Locked';
     b.append(n, st);
-    b.addEventListener('click', () => { sfx('click'); newGame({ mode: 'trail', level: L.id }); });
+    b.addEventListener('click', () => { sfx('click'); newGame({ mode: 'trail', level: L.id, resume: true }); });
     box.appendChild(b);
   });
 }
@@ -2108,7 +2136,7 @@ function setSetting(k, v) {
 }
 
 function wireDom() {
-  document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { audioInit(); sfx('click'); newGame({ mode: b.dataset.mode }); }));
+  document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { audioInit(); sfx('click'); newGame({ mode: b.dataset.mode, resume: true }); }));
   document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => { audioInit(); sfx('click'); showScene(b.dataset.go); }));
   document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => { sfx('click'); back(); }));
   $('b-continue').addEventListener('click', () => { audioInit(); resumeSaved(); });
