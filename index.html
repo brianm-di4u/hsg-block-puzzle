@@ -1896,23 +1896,23 @@ function saveResume() {
 function undoAvail() {
   if (!S.undoStack || !S.undoStack.length) return false;
   if (S.mode === 'trail') return true;
-  return !S.over && S.undoStack[S.undoStack.length - 1].undoLeft > 0;
+  return !S.over && S.undoLeft > 0;
 }
 function canUndo() { return undoAvail() && (S.scene === 'game' || (S.mode === 'trail' && S.scene === 'over')); }
 function undoCount() {
   if (S.mode === 'trail') return '∞';
   if (!S.undoStack.length) return S.over ? 0 : S.undoLeft;
-  return undoAvail() ? S.undoStack[S.undoStack.length - 1].undoLeft : 0;
+  return undoAvail() ? S.undoLeft : 0;
 }
 function doUndo() {
   if (!canUndo()) { sfx('invalid'); return { ok: false }; }
   const snap = S.undoStack.pop();
-  const stack = S.undoStack;
+  const stack = S.undoStack, left = S.undoLeft;
   const scene = S.scene === 'over' ? 'game' : S.scene;
   S = Object.assign(snap, { scene, undoStack: stack });
   UI.overAt = 0;
   if (scene !== S.scene || $('sc-over').classList.contains('on')) showScene('game');
-  if (S.mode !== 'trail') S.undoLeft = snap.undoLeft - 1;
+  if (S.mode !== 'trail') S.undoLeft = left - 1;
   UI.sel = -1; UI.ghost = null; FX.length = 0;
   bgKey = '';
   sfx('undo'); announce('Undone. Score ' + S.score + '. ' + trayDesc());

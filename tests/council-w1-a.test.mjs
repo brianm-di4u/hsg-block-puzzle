@@ -85,4 +85,24 @@ export const tests = [
       t.expect(/Something went wrong/.test(await t.page.textContent('#toast')), 'rejection toast shown');
     },
   },
+  {
+    name: 'S6-06 undo budget of 1 allows one undo per round',
+    viewports: ['desktop'],
+    async run(t) {
+      const EMPTY = () => new Array(81).fill(0);
+      await t.game('act', 'setting', 'undo', 1);
+      await t.seed(4);
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('setState', { board: EMPTY(), tray: [{ id: 'o1' }, { id: 'o1' }, { id: 'o1' }], score: 0 });
+      await t.game('act', 'place', 0, 0, 0);
+      await t.game('act', 'place', 1, 0, 1);
+      await t.game('act', 'place', 2, 0, 2);
+      t.equal((await t.state()).undoCount, 1, 'badge shows one');
+      t.expect((await t.game('act', 'undo')).ok, 'first undo works');
+      t.equal((await t.state()).undoCount, 0, 'badge shows none');
+      t.expect(!(await t.game('act', 'undo')).ok, 'second undo refused');
+      t.expect(!(await t.game('act', 'undo')).ok, 'third undo refused');
+      await t.game('act', 'setting', 'undo', 1);
+    },
+  },
 ];
