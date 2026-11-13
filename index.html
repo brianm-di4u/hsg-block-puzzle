@@ -810,7 +810,7 @@ function eraId() { return ERAS[S.era].id; }
 // ===================================================================== AUDIO (WebAudio synthesis)
 const AU = { ctx: null, master: null, noise: null };
 function audioInit() {
-  if (AU.ctx) { if (AU.ctx.state === 'suspended') AU.ctx.resume().catch(() => {}); return; }
+  if (AU.ctx) { if (AU.ctx.state !== 'running') AU.ctx.resume().catch(() => {}); return; }
   try {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
@@ -2334,7 +2334,11 @@ window.addEventListener('keydown', e => {
   else if (k === 'u' || k === 'U' || ((k === 'z' || k === 'Z') && (e.ctrlKey || e.metaKey))) { doUndo(); e.preventDefault(); }
 });
 window.addEventListener('resize', () => { resize(); });
-document.addEventListener('visibilitychange', () => { if (document.hidden && S.scene === 'game') { saveResume(); } });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && S.scene === 'game') { saveResume(); }
+  // a hidden tab makes no sound; Safari may also leave the context 'interrupted' after a call or lock, so resume on return
+  if (AU.ctx) { if (document.hidden) { if (AU.ctx.state === 'running') AU.ctx.suspend().catch(() => {}); } else if (AU.ctx.state !== 'running') AU.ctx.resume().catch(() => {}); }
+});
 window.addEventListener('pagehide', () => { if (S.scene === 'game') saveResume(); });
 
 // ===================================================================== TEST HOOKS

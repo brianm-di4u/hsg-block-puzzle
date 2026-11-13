@@ -224,4 +224,21 @@ export const tests = [
       t.equal(classic.resume, null, 'Classic slot untouched');
     },
   },
+  {
+    name: 'S4-23 audio is suspended while the tab is hidden and resumed on return',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.game('act', 'audio', 'click');
+      await t.page.waitForTimeout(300);
+      const state = () => t.page.evaluate(() => AU.ctx && AU.ctx.state);
+      if ((await state()) !== 'running') { t.log('audio context not running in this browser (' + (await state()) + '); skipped'); return; }
+      const setHidden = h => t.page.evaluate(h => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => h }); document.dispatchEvent(new Event('visibilitychange')); }, h);
+      await setHidden(true);
+      await t.page.waitForFunction(() => AU.ctx.state === 'suspended', null, { timeout: 3000 }).catch(() => {});
+      t.equal(await state(), 'suspended', 'suspended while hidden');
+      await setHidden(false);
+      await t.page.waitForFunction(() => AU.ctx.state === 'running', null, { timeout: 3000 }).catch(() => {});
+      t.equal(await state(), 'running', 'running again when visible');
+    },
+  },
 ];
