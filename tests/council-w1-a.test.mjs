@@ -58,4 +58,31 @@ export const tests = [
       t.equal(s.score, save.resume.score, 'score kept');
     },
   },
+  {
+    name: 'S6-02 a throwing draw does not freeze the canvas',
+    async run(t) {
+      await t.seed(5);
+      await t.game('newGame', { mode: 'classic' });
+      await t.page.evaluate(() => { S.tray = [{ id: 'zzz' }, { id: 'zzz' }, null]; dirty = true; });
+      await t.waitFrames(10);
+      t.expect((await rafCount(t)) > 5, 'frames keep running after the draw threw');
+      t.equal((await t.state()).scene, 'title', 'back on the title after repeated failures');
+      t.expect(/Something went wrong/.test(await t.page.textContent('#toast')), 'player is told');
+      await t.game('newGame', { mode: 'classic' });
+      t.equal((await t.state()).scene, 'game', 'a new game starts and draws');
+    },
+  },
+  {
+    name: 'S6-02 uncaught errors and rejected promises show a message',
+    allowConsoleErrors: true,
+    async run(t) {
+      await t.page.evaluate(() => { setTimeout(() => { throw new Error('probe'); }, 0); });
+      await t.page.waitForTimeout(200);
+      t.expect(/Something went wrong/.test(await t.page.textContent('#toast')), 'error toast shown');
+      await t.reload();
+      await t.page.evaluate(() => { Promise.reject(new Error('probe')); });
+      await t.page.waitForTimeout(200);
+      t.expect(/Something went wrong/.test(await t.page.textContent('#toast')), 'rejection toast shown');
+    },
+  },
 ];

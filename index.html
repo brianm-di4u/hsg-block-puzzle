@@ -1667,14 +1667,42 @@ function watchFrame(now) {
   PERF.n = 0; PERF.sum = 0;
 }
 function liteFx() { return SAVE.settings.effects === 'lite' || PERF.autoLite; }
-function loop(now) {
-  if (UI.overAt && now >= UI.overAt && FX.length === 0) { UI.overAt = 0; showEnd(); }
-  watchFrame(now);
-  // ambient-only frames (steam, water shimmer) run at 30 fps; anything the player caused runs at full rate
-  const ambientOnly = !dirty && FX.length === 0 && !UI.drag;
-  if (dirty || (needsAnim() && (!ambientOnly || now - lastDraw > 31))) { draw(now); dirty = false; lastDraw = now; }
-  requestAnimationFrame(loop);
+// One bad frame must not end rendering for the session: the next frame is always scheduled first, and a draw that
+// keeps failing sends the player back to the title with a message instead of a frozen board.
+let frameFails = 0, errorToasted = false;
+function failSafe() {
+  try { dropBadResume(); } catch (e) { SAVE.resume = null; }
+  try {
+    UI.sel = -1; UI.ghost = null; UI.drag = null; UI.overAt = 0; FX.length = 0;
+    S = freshGame('classic'); S.scene = 'game';
+    showScene('title');
+  } catch (e) { /* the loop keeps running regardless */ }
+  toast('Something went wrong', 'Back at the title screen. Start a new game to keep playing.', 7000);
 }
+function loop(now) {
+  requestAnimationFrame(loop);
+  try {
+    if (UI.overAt && now >= UI.overAt && FX.length === 0) { UI.overAt = 0; showEnd(); }
+    watchFrame(now);
+    // ambient-only frames (steam, water shimmer) run at 30 fps; anything the player caused runs at full rate
+    const ambientOnly = !dirty && FX.length === 0 && !UI.drag;
+    if (dirty || (needsAnim() && (!ambientOnly || now - lastDraw > 31))) { draw(now); dirty = false; lastDraw = now; }
+    frameFails = 0;
+  } catch (e) {
+    if (++frameFails >= 3) { frameFails = 0; failSafe(); }
+  }
+}
+window.addEventListener('error', () => {
+  if (errorToasted) return;
+  errorToasted = true;
+  try { dropBadResume(); } catch (e) { /* storage may be unavailable */ }
+  toast('Something went wrong', 'If the game stops responding, reload the page.', 6000);
+});
+window.addEventListener('unhandledrejection', () => {
+  if (errorToasted) return;
+  errorToasted = true;
+  toast('Something went wrong', 'If the game stops responding, reload the page.', 6000);
+});
 
 // ===================================================================== WATER (WebGL thermal water under the board)
 // Procedural caustics and clear ripples in one fragment shader, on its own canvas layer placed under the board's
