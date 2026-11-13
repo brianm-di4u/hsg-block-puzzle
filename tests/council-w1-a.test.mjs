@@ -241,4 +241,25 @@ export const tests = [
       t.equal(await state(), 'running', 'running again when visible');
     },
   },
+  {
+    name: 'S6-04 canvas layout keeps clear of left, right and bottom insets',
+    async run(t) {
+      await t.seed(3);
+      await t.game('newGame', { mode: 'classic' });
+      const before = await t.game('layout');
+      // stand-in for env(safe-area-inset-*) on a notched phone in landscape
+      await t.page.addStyleTag({ content: '#inset{padding:0 44px 21px 48px !important}' });
+      await t.page.evaluate(() => window.dispatchEvent(new Event('resize')));
+      await t.waitFrames(3);
+      const L = await t.game('layout');
+      const { width: W, height: H } = t.vp;
+      const edges = [['board', L.board.x, L.board.x + L.board.size, L.board.y + L.board.size], ...L.slots.map((s, i) => ['slot ' + i, s.x, s.x + s.w, s.y + s.h])];
+      for (const [name, left, right, bottom] of edges) {
+        t.expect(left >= 48 - 0.5, name + ' clear of the left inset (' + left + ')');
+        t.expect(right <= W - 44 + 0.5, name + ' clear of the right inset (' + right + ' of ' + W + ')');
+        t.expect(bottom <= H - 21 + 0.5, name + ' clear of the bottom inset (' + bottom + ' of ' + H + ')');
+      }
+      t.expect(before.board.size > 0 && L.board.size > 0, 'board still has a size');
+    },
+  },
 ];

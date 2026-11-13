@@ -57,7 +57,8 @@ button.primary{background:var(--color-primary) linear-gradient(rgba(255,255,255,
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
 /* HUD */
-#hud{position:fixed;left:0;right:0;top:0;height:var(--hud-h);display:none;align-items:center;gap:8px;padding:12px max(10px,env(safe-area-inset-left)) 6px;background:none;color:#F4F2EC;z-index:5;pointer-events:none}
+#inset{position:fixed;left:0;top:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+#hud{position:fixed;left:0;right:0;top:0;height:calc(var(--hud-h) + env(safe-area-inset-top));display:none;align-items:center;gap:8px;padding:calc(12px + env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) 6px max(10px,env(safe-area-inset-left));background:none;color:#F4F2EC;z-index:5;pointer-events:none}
 #hud>*{pointer-events:auto}
 #hud.on{display:flex}
 #hud .mid{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:18px;pointer-events:none}
@@ -165,6 +166,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
 </style>
 </head>
 <body>
+<div id="inset" aria-hidden="true"></div>
 <canvas id="bg" aria-hidden="true"></canvas>
 <canvas id="water" aria-hidden="true"></canvas>
 <canvas id="cv" tabindex="0" role="application" aria-label="Thermal Blocks board. Keys: 1 2 3 pick a piece, arrows move, Enter places, U undoes, Escape pauses."></canvas>
@@ -920,8 +922,15 @@ function rr(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w
 
 // Layout. No side panels: a big score in the HUD, a slim thermometer beside the board (landscape) or a heat strip
 // above it (portrait), an open tray shelf, and a one-line caption.
+// Notch and home-bar insets (read from a hidden element padded with env(safe-area-inset-*)). The HUD already grows by
+// the top inset, so the board and tray only avoid the left, right and bottom ones.
+let INS = { l: 0, r: 0, b: 0 };
+function readInsets() {
+  const cs = getComputedStyle(document.getElementById('inset')), px = v => Math.max(0, parseFloat(v) || 0);
+  INS = { l: px(cs.paddingLeft), r: px(cs.paddingRight), b: px(cs.paddingBottom) };
+}
 function computeLayout() {
-  const W = VW, H = VH;
+  const W = VW - INS.l - INS.r, H = VH - INS.b;
   const hud = document.getElementById('hud').offsetHeight || 64;
   const land = W > H * 1.05;
   const L = { W, H, land, hud };
@@ -951,6 +960,7 @@ function computeLayout() {
   const b = L.board;
   b.frame = Math.max(10, Math.round(b.size * 0.04));
   b.cell = (b.size - b.frame * 2) / 9;
+  if (INS.l) { b.x += INS.l; L.slots.forEach(sl => { sl.x += INS.l; }); L.info.x += INS.l; if (L.cap) L.cap.x += INS.l; }
   b.gx = b.x + b.frame; b.gy = b.y + b.frame;
   // one tray scale for every piece (up to 0.62 of a board cell); long pieces shrink to fit their slot
   L.trayScale = land ? Math.min(b.cell * 0.62, (L.slots[0].h - 30) / 3.2) : Math.min(b.cell * 0.8, (L.slots[0].h - 24) / 4);
@@ -962,6 +972,7 @@ function resize() {
   DPR = Math.min(window.innerWidth * window.innerHeight > 600000 ? 2 : 1.5, dpr);
   VW = window.innerWidth; VH = window.innerHeight;
   cv.width = Math.round(VW * DPR); cv.height = Math.round(VH * DPR);
+  readInsets();
   LAY = computeLayout();
   spriteCache.clear(); bgKey = ''; boardKey = '';
   WATER.resize();
