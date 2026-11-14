@@ -458,9 +458,21 @@ function findClears(board) {
     }
   return groups;
 }
+// Classic pressure ramp (S3-01). Per era, the weight of the small helper pieces and of the big or awkward pieces is
+// scaled; eras 0 and 1 stay exactly as before (all 1). To undo the retune, set every entry to 1 and MERCY_TRIES to 12.
+const EASY_PIECES = ['o1', 'i2h', 'i2v'];
+const HARD_PIECES = ['x5', 'u5a', 'u5b', 'v5a', 'v5b', 'v5c', 'v5d', 'o9', 'r6h', 'r6v', 'i5h', 'i5v'];
+const ERA_EASY_MULT = [1, 1, 0.7, 0.5, 0.33, 0.22, 0.12];   // was 1 in every era
+const ERA_HARD_MULT = [1, 1, 1.5, 2.5, 3.5, 4.8, 6];        // was 1 in every era
+const MERCY_TRIES = [12, 12, 12, 12, 5, 3, 1];            // by era; was 12 in every era
+const ERA_WEIGHTS = ERA_EASY_MULT.map((easy, e) => {
+  const w = PIECE_DEFS.map(d => d[1] * (EASY_PIECES.includes(d[0]) ? easy : HARD_PIECES.includes(d[0]) ? ERA_HARD_MULT[e] : 1));
+  return { w, sum: w.reduce((a, v) => a + v, 0) };
+});
 function pickPiece(g) {
-  let x = rand(g) * WEIGHT_SUM;
-  for (const d of PIECE_DEFS) { x -= d[1]; if (x < 0) return d[0]; }
+  const t = g.mode === 'classic' ? ERA_WEIGHTS[eraFor(g.score)] : { w: PIECE_DEFS.map(d => d[1]), sum: WEIGHT_SUM };
+  let x = rand(g) * t.sum;
+  for (let i = 0; i < PIECE_DEFS.length; i++) { x -= t.w[i]; if (x < 0) return PIECE_DEFS[i][0]; }
   return PIECE_DEFS[PIECE_DEFS.length - 1][0];
 }
 function heatMult(heat) { return 1 + heat * 0.25; }
@@ -477,7 +489,8 @@ function dealTray(g) {
       // mercy deal: redraw the biggest piece until something fits (max 12 tries)
       let slot = 0;
       g.tray.forEach((t, i) => { if (PIECES[t.id].n > PIECES[g.tray[slot].id].n) slot = i; });
-      for (let k = 0; k < 12; k++) {
+      const tries = g.mode === 'classic' ? MERCY_TRIES[eraFor(g.score)] : 12;
+      for (let k = 0; k < tries; k++) {
         g.tray[slot] = { id: pickPiece(g) };
         if (fitsAnywhere(g.board, g.tray[slot].id)) break;
       }
