@@ -790,8 +790,10 @@ function createSaveStore(storage, defaults, revision) {
       if (number(n) && n > (base.best.daily[key] || 0)) put(merged.best.daily, key, Math.max(merged.best.daily[key] || 0, n));
     }
     merged.trail.done = [...new Set([...merged.trail.done, ...value.trail.done.filter(id => !base.trail.done.includes(id))])];
-    for (const [id, n] of Object.entries(value.trail.stars)) {
-      if (n > (base.trail.stars[id] || 0)) put(merged.trail.stars, id, Math.max(merged.trail.stars[id] || 0, n));
+    const stars = value.trail.stars || {}, baseStars = base.trail.stars || {};
+    if (!object(merged.trail.stars)) merged.trail.stars = {};
+    for (const [id, n] of Object.entries(stars)) {
+      if (n > (baseStars[id] || 0)) put(merged.trail.stars, id, Math.max(merged.trail.stars[id] || 0, n));
     }
     for (const key of ['games', 'lines', 'springs']) merged.stats[key] += Math.max(0, value.stats[key] - base.stats[key]);
     if (value.stats.bestHeat > base.stats.bestHeat) merged.stats.bestHeat = Math.max(merged.stats.bestHeat, value.stats.bestHeat);

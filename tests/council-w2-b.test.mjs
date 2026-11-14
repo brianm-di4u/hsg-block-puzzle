@@ -312,3 +312,24 @@ tests.push(
     },
   },
 );
+
+tests.push({
+  name: 'S3-03 stars from two tabs merge by the higher value and never drop',
+  node: true,
+  async run(t) {
+    const html = fs.readFileSync(path.join(HERE, '..', 'index.html'), 'utf8');
+    const core = html.split('// SAVE MERGE CORE (portable regression extracts this same function)')[1].split('// END SAVE MERGE CORE')[0];
+    const createSaveStore = new Function(core + '\nreturn createSaveStore;')();
+    const defaults = () => ({ v: 1, settings: { sound: true, volume: 0.7 }, best: { classic: 0, springs: 0, daily: {} }, trail: { done: [], stars: {} }, stats: { games: 0, lines: 0, bestHeat: 0, springs: 0 }, resume: null });
+    let raw = null, n = 0;
+    const storage = { getItem: () => raw, setItem: v => { raw = v; } };
+    const tab = () => { const s = createSaveStore(storage, defaults, () => 'r' + (++n)); s.load(); return s; };
+    const a = tab(), b = tab();
+    a.value.trail.done.push('x'); a.value.trail.stars.x = 2; a.value.trail.stars.y = 3; a.persist();
+    b.value.trail.done.push('x'); b.value.trail.stars.x = 3; b.value.trail.stars.z = 1; b.persist();
+    const saved = JSON.parse(raw);
+    t.equal(saved.trail.stars, { x: 3, y: 3, z: 1 }, 'highest star count per puzzle from both tabs');
+    a.value.trail.stars.x = 1; a.persist();
+    t.equal(JSON.parse(raw).trail.stars.x, 3, 'a lower value from a stale tab does not lower it');
+  },
+});
