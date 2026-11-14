@@ -27,7 +27,7 @@ export const tests = [
     async run(t) {
       await t.game('scene', 'trail');
       const btns = await t.page.$$eval('#levels button', els => els.map(e => ({ dis: e.disabled, txt: e.textContent })));
-      t.equal(btns.length, 12, 'twelve levels');
+      t.equal(btns.length, 24, 'twenty-four levels');
       t.equal(btns.filter(b => !b.dis).length, 1, 'only the first is open');
       await t.checkLayout();
       await t.shot('43-trail-select');
@@ -38,7 +38,7 @@ export const tests = [
     viewports: ['desktop'],
     async run(t) {
       const levels = await t.game('getLevels');
-      t.equal(levels.length, 12, 'twelve levels');
+      t.equal(levels.length, 24, 'twenty-four levels');
       for (const [i, L] of levels.entries()) {
         const rec = SOL[L.id];
         t.expect(rec && rec.key === levelKey(L), `${L.id}: solutions.json is current (re-run node tools/rules-node.mjs)`);
@@ -54,7 +54,7 @@ export const tests = [
       }
       await t.game('scene', 'trail');
       const open = await t.page.$$eval('#levels button', els => els.filter(e => !e.disabled).length);
-      t.equal(open, 12, 'all levels open after solving');
+      t.equal(open, 24, 'all levels open after solving');
       await t.game('scene', 'cards');
       const cards = await t.page.$$eval('#cards .card:not(.locked)', els => els.length);
       t.equal(cards, 12, 'twelve cards shown');

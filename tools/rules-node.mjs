@@ -11,7 +11,7 @@ export function loadRules(htmlPath = path.join(HERE, '..', 'index.html')) {
   if (a < 0 || b < 0) throw new Error('RULES markers not found');
   const src = html.slice(a, b);
   // eslint-disable-next-line no-new-func
-  return new Function(src + '\nreturn { ERAS, PIECES, PIECE_IDS, LEVELS, pickPiece, dealTray, parseLevel, canPlace, fitsAnywhere, findClears, applyMove, freshGame, setupGame, goalMet, count };')();
+  return new Function(src + '\nreturn { ERAS, PIECES, PIECE_IDS, LEVELS, pickPiece, dealTray, trailStars, TRAIL_STAR_UNDOS, TRAIL_RING2_STARS, parseLevel, canPlace, fitsAnywhere, findClears, applyMove, freshGame, setupGame, goalMet, count };')();
 }
 
 // Depth-first search over every placement order and position. Returns the winning move list or null.

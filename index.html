@@ -140,6 +140,9 @@ button.big{width:100%;font-size:1.1em;padding:12px}
 .levels button{display:flex;flex-direction:column;align-items:flex-start;text-align:left;min-height:64px}
 .levels .st{font-size:.8em;color:var(--color-muted)}
 .levels .done .st{color:var(--color-success)}
+.levels h3.ring{grid-column:1/-1;margin:8px 0 0;font-size:1em;color:var(--color-primary)}
+.stars{letter-spacing:.12em;color:var(--color-primary);font-size:.95em}
+.winstars{text-align:center;font-size:2em;margin:0 0 4px}
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
 .card{border:2px solid var(--color-border);border-radius:var(--radius-md);padding:12px;background:var(--color-bg)}
 .card h4{margin:0 0 4px;font-family:var(--font-serif-victorian);font-size:1.1em;color:var(--color-primary)}
@@ -195,7 +198,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
     <div class="modes">
       <button data-mode="daily"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg><b>Daily Soak</b><span id="daily-sub">Same board for everyone today.</span></button>
       <button data-mode="springs"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4c-2 2 2 3 0 6M12 3c-2 2 2 3 0 6M16 4c-2 2 2 3 0 6"/><ellipse cx="12" cy="17" rx="8" ry="3.5"/></svg><b>Springs</b><span>Tap 47 hot-spring vents.</span></button>
-      <button data-go="trail"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-6.2-6-11a6 6 0 0112 0c0 4.8-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/></svg><b>Spring Trail</b><span id="trail-sub">12 puzzles at real places.</span></button>
+      <button data-go="trail"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-6.2-6-11a6 6 0 0112 0c0 4.8-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/></svg><b>Spring Trail</b><span id="trail-sub">24 puzzles at real places.</span></button>
     </div>
     <div class="links">
       <button data-go="cards">Fact cards</button><button data-go="records">Records</button>
@@ -233,6 +236,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
 <section class="screen overlay" id="sc-win" aria-label="Puzzle solved">
   <div class="panel" style="width:min(460px,100%)">
     <h2 id="win-title">Puzzle solved</h2>
+    <div id="win-stars" class="winstars"></div>
     <p class="muted" id="win-sub" style="margin:0 0 8px"></p>
     <div id="win-card"></div>
     <div class="row"><button class="primary" id="b-next">Next puzzle</button><button id="b-trail2">Spring Trail</button><button id="b-menu2">Menu</button></div>
@@ -242,7 +246,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
 <section class="screen overlay" id="sc-trail" aria-label="Spring Trail">
   <div class="panel" style="width:min(720px,100%)">
     <h2>Spring Trail</h2>
-    <p class="muted" style="margin-top:0">Twelve puzzles named for Hot Springs places. Each has a fixed set of pieces and one goal. Solve one to collect its fact card and open the next.</p>
+    <p class="muted" style="margin-top:0" id="trail-intro"></p>
     <div class="levels" id="levels"></div>
     <div class="row"><button data-back>Back</button></div>
   </div>
@@ -283,7 +287,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
       <li><b>Classic</b>: endless. Score carries you through the town's seven eras.</li>
       <li><b>Daily Soak</b>: everyone gets the same tufa stones and the same pieces today.</li>
       <li><b>Springs</b>: vents sit on the floor. Clear a vent's row, column or pool to tap it (+40 × the heat multiplier). Tap 47 to win. Hot Springs is usually said to have 47 springs; one source says 43 still flow, and NPS says "about four dozen".</li>
-      <li><b>Spring Trail</b>: hand-made puzzles with a goal and a fixed set of pieces. Undo is unlimited there.</li>
+      <li><b>Spring Trail</b>: hand-made puzzles with a goal and a fixed set of pieces. Undo is unlimited there, but each puzzle earns up to three stars: fewer undos, more stars.</li>
     </ul>
     <h3>Controls</h3>
     <table class="keys">
@@ -407,6 +411,56 @@ const LEVELS = [
   { id:'thermal-water-cascade', name:'Thermal Water Cascade', era:6, goal:'vents', hint:'Let the water run: tap every vent down the cascade, pool by pool.',
     board:['v........','.v.......','..v......','...vs....','....v....','...s.v...','......v..','.......v.','........v'],
     pieces:['c3b','o1','c3c','o1','i2h','o1','c3b','o1','c3c'] },
+  // Second ring (S3-03): twelve harder puzzles, every one proven solvable by tools/rules-node.mjs (tools/solutions.json).
+  // Their names and the spring fact on the win panel reuse statements already in this game (ticker, era captions, fact cards).
+  { id:'valley-of-vapors', name:'Valley of Vapors', era:0, ring:2, goal:'vents', hint:'Open one vent at a time: finish its row, column or pool.',
+    fact:'Steam off the springs gave the valley its old nickname: the Valley of Vapors.',
+    board:['.........','4.....v.4','......6..','.........','.....2...','....vv3..','.........','.........','.........'],
+    pieces:['s4v','s4v','s4h','c3a','c3c','j4b'] },
+  { id:'boiling-springs', name:'Boiling Springs', era:1, ring:2, goal:'stones', hint:'Stones clear with their pool or row. Fill the gaps in the bottom pools.',
+    fact:'1804: William Dunbar writes Thomas Jefferson about "the boiling springs."',
+    board:['.........','.........','.........','.........','.........','.........','...s.ss..','.....s.ss','...s.ssss'],
+    pieces:['i3v','t4a','i4v','s4h','l4c'] },
+  { id:'four-principal-springs', name:'Four Principal Springs', era:1, ring:2, goal:'lines:4', hint:'Four groups to clear. Finish one row so the next piece completes two.',
+    fact:'Dunbar and Hunter counted four principal springs and two lesser ones in 1804.',
+    board:['4...1.5.5','4132..664','..6.5...2','15455526.','.5...12..','.2.6.66..','3665..545','....1.5..','....3...4'],
+    pieces:['c3d','c3d','i3v','i3h','i2h','u5a','i4h'] },
+  { id:'hot-springs-creek', name:'Hot Springs Creek', era:2, ring:2, goal:'vents', hint:'Check each vent: which line is closest to full?',
+    fact:'Hot Springs water averages about 143°F, the hottest springs east of the Rockies (NPS).',
+    board:['.........','.....3...','.......v1','.........','.......1.','.....6...','.........','..v.6v..6','.........'],
+    pieces:['j4a','v5a','s4v','i5v','c3b','r6h','v5a','u5a'] },
+  { id:'noble-fountain', name:'Noble Fountain', era:2, ring:2, goal:'lines:4', hint:'Four groups from a busy floor. Look for gaps that finish two lines at once.',
+    fact:'The Noble Fountain was moved to the Reserve Avenue end of the Grand Promenade in 1957.',
+    board:['.24.43.2.','.2.1552.2','..3.451..','.25......','4.5...1..','5..1..244','..11...6.','..424..16','436.2113.'],
+    pieces:['v5a','c3d','i3v','v5a','j4a','z4h','l4d','c3d'] },
+  { id:'thrust-faults', name:'Thrust Faults', era:3, ring:2, goal:'stones', hint:'Each stone clears with its pool, row or column. Fill what is left around it.',
+    fact:'Two thrust faults, "alpha" and "beta", carry the heated water up like pipes (NPS).',
+    board:['.........','.........','.........','.....s...','...sss...','...ss....','sss......','.s.......','.s.......'],
+    pieces:['c3c','u5a','c3b','i2v','x5'] },
+  { id:'bigfork-chert', name:'Bigfork Chert', era:3, ring:2, goal:'vents', hint:'Keep your longest pieces for the longest gaps.',
+    fact:'Rain soaks into Bigfork Chert and Arkansas Novaculite, then heats to about 160°F a mile down (NPS).',
+    board:['...6.....','.........','.........','v.....54.','.1.v....4','.....4...','..14.v...','1..2.2...','2....v.62'],
+    pieces:['s4h','z4h','z4h','i3h','x5','i3v','s4v','c3a'] },
+  { id:'bicarbonate-water', name:'Bicarbonate Water', era:4, ring:2, goal:'lines:3', hint:'Three groups to clear. The order you place pieces matters.',
+    fact:'Bicarbonate, about 130 ppm, is the main mineral dissolved in the water (Wikipedia, HSNP).',
+    board:['1.31.3.25','......4..','1311.....','.3...3.32','....1566.','455.52...','..2.5....','3.641.543','2..6...3.'],
+    pieces:['t4b','c3d','i2v','i2h','s4v','v5a'] },
+  { id:'tufa-stone', name:'Tufa Stone', era:4, ring:2, goal:'stones', hint:'A stone clears with its pool, row or column. Save small pieces for tight gaps.',
+    fact:'Tufa is the white-to-tan rock left where spring water evaporates.',
+    board:['sss......','sss......','.s.......','......sss','......s.s','.........','........s','......sss','......sss'],
+    pieces:['i3h','o1','o1','r6h','s4v','j4b','x5'] },
+  { id:'boltwoods-waters', name:'Boltwood’s Waters', era:5, ring:2, goal:'vents', hint:'Open one vent at a time, and keep an eye on the pieces left.',
+    fact:'In 1904 Bertram Boltwood found the waters slightly radioactive, mostly from dissolved radon.',
+    board:['.4.......','v6.......','vv.v..654','...5.....','.........','.3.......','.5.......','...2.....','5..1.....'],
+    pieces:['v5a','i3v','s4v','v5a','u5a','j4a','j4b'] },
+  { id:'gallons-a-day', name:'Gallons a Day', era:5, ring:2, goal:'lines:5', hint:'Five groups to clear. Chain your clears so the floor never fills.',
+    fact:'The springs give over 700,000 gallons a day (NPS); other sources say up to about a million.',
+    board:['1..6.1..6','.6.2.3264','......133','..51...41','4..1....2','26..3....','......5..','1..115.6.','...5....4'],
+    pieces:['t4b','z4h','c3d','i2v','i5h','i3h','r6h','c3a'] },
+  { id:'forty-seven-springs', name:'Forty-Seven Springs', era:6, ring:2, goal:'stones', hint:'Take your time: undo is free, but it costs stars.',
+    fact:'Hot Springs is usually counted as 47 springs; one source says 43 still flow.',
+    board:['.........','.........','.........','.........','...sss...','...sss...','....ss...','...sss...','....ss...'],
+    pieces:['l4c','i5v','c3b','u5a','x5','i5h','l4a','l4c','c3b'] },
 ];
 
 function parseLevel(L) {
@@ -416,6 +470,11 @@ function parseLevel(L) {
   }));
   return b;
 }
+
+// Spring Trail mastery (S3-03). Stars come from undos used in one attempt. To change the curve, edit these two lines.
+const TRAIL_STAR_UNDOS = [0, 2];   // three stars: no undos; two stars: up to 2 undos; one star: more
+const TRAIL_RING2_STARS = 18;      // total stars that open the second ring
+function trailStars(undos) { return undos <= TRAIL_STAR_UNDOS[0] ? 3 : undos <= TRAIL_STAR_UNDOS[1] ? 2 : 1; }
 
 // ===================================================================== RULES (pure; no DOM)
 // mulberry32 by Tommy Ettinger, public domain (via github.com/bryc/code PRNGs.md); state kept on g.rng.
@@ -571,7 +630,7 @@ function applyMove(g, slot, r, c) {
 
 function freshGame(mode) {
   return { v: 1, mode, board: new Array(81).fill(0), tray: [null, null, null], queue: [], score: 0, heat: 0, bestHeat: 0,
-    groups: 0, placed: 0, round: 0, undoLeft: 1, undoStack: [], era: 0, springs: 0, level: null, goal: null,
+    groups: 0, placed: 0, round: 0, undoLeft: 1, undosUsed: 0, undoStack: [], era: 0, springs: 0, level: null, goal: null,
     daily: null, over: false, won: false, rng: 1 };
 }
 function setupGame(g, opts) {
@@ -657,7 +716,7 @@ const W8 = { pool:'#1F5F6B', pool2:'#25697A'/*d*/, surface:'#174A54', algae:'#2A
 const STORE_KEY = 'hs-thermal-blocks-v1';
 function defaultSave() {
   return { v: 1, settings: { sound: true, volume: 0.7, sfx: true, music: true, musicVol: 0.5, ambience: true, ambVol: 0.5, motion: 'system', patterns: true, undo: 1, bigText: false, theme: 'system', effects: 'full', tapPlace: false },
-    best: { classic: 0, springs: 0, daily: {} }, trail: { done: [] }, stats: { games: 0, lines: 0, bestHeat: 0, springs: 0 }, resume: null };
+    best: { classic: 0, springs: 0, daily: {} }, trail: { done: [], stars: {} }, stats: { games: 0, lines: 0, bestHeat: 0, springs: 0 }, resume: null };
 }
 // SAVE MERGE CORE (portable regression extracts this same function)
 function createSaveStore(storage, defaults, revision) {
@@ -677,6 +736,7 @@ function createSaveStore(storage, defaults, revision) {
     for (const key of ['classic', 'springs']) if (!number(out.best[key])) out.best[key] = 0;
     out.best.daily = Object.fromEntries(Object.entries(object(out.best.daily) ? out.best.daily : {}).filter(([, value]) => number(value)));
     out.trail.done = [...new Set(Array.isArray(out.trail.done) ? out.trail.done.filter(value => typeof value === 'string') : [])];
+    out.trail.stars = Object.fromEntries(Object.entries(object(out.trail.stars) ? out.trail.stars : {}).filter(([, value]) => Number.isInteger(value) && value >= 1 && value <= 3));
     for (const key of Object.keys(def.stats)) if (!number(out.stats[key])) out.stats[key] = def.stats[key];
     for (const key of ['resumeGeneration', 'resumeRevision']) if (Object.hasOwn(out, key) && (typeof out[key] !== 'string' || !out[key])) delete out[key];
     // Resume is an opaque v1 JSON object. Do not newly reject shipped optional fields.
@@ -730,6 +790,9 @@ function createSaveStore(storage, defaults, revision) {
       if (number(n) && n > (base.best.daily[key] || 0)) put(merged.best.daily, key, Math.max(merged.best.daily[key] || 0, n));
     }
     merged.trail.done = [...new Set([...merged.trail.done, ...value.trail.done.filter(id => !base.trail.done.includes(id))])];
+    for (const [id, n] of Object.entries(value.trail.stars)) {
+      if (n > (base.trail.stars[id] || 0)) put(merged.trail.stars, id, Math.max(merged.trail.stars[id] || 0, n));
+    }
     for (const key of ['games', 'lines', 'springs']) merged.stats[key] += Math.max(0, value.stats[key] - base.stats[key]);
     if (value.stats.bestHeat > base.stats.bestHeat) merged.stats.bestHeat = Math.max(merged.stats.bestHeat, value.stats.bestHeat);
     let wroteResume = false, conflict = false;
@@ -1788,7 +1851,7 @@ function drawInfo(now) {
     if (w) { capsule(I.x - 10, ty + th + bulb * 1.6 + 6, I.w + 20, 24, 0.7); text(w, cx, ty + th + bulb * 1.6 + 18, 13, hot, 'center', 'sans', '700'); }
     // caption under the board
     const C = LAY.cap, nx = ERAS[S.era + 1];
-    let cap = lv ? lv.name + ' · Spring Trail ' + (LEVELS.indexOf(lv) + 1) + ' of 12 · ' + goalText()
+    let cap = lv ? lv.name + ' · Spring Trail ' + (LEVELS.indexOf(lv) + 1) + ' of ' + LEVELS.length + ' · ' + goalText()
       : era.name + ' · ' + era.years + ' · ' + goalText() + (nx ? ' · next era at ' + nx.at.toLocaleString('en-US') : '');
     ctx.font = '15px ' + FONT_SANS; const cw = Math.min(C.w, ctx.measureText(cap).width + 36);
     capsule(C.x + (C.w - cw) / 2, C.y, cw, C.h, 0.78);
@@ -2360,6 +2423,7 @@ function newGame(opts = {}) {
     else if (SEED_PENDING != null) g.rng = SEED_PENDING >>> 0;
     else g.rng = (Date.now() ^ Math.floor(Math.random() * 0xFFFFFFFF)) >>> 0;
     g.undoLeft = mode === 'trail' ? 999 : SAVE.settings.undo;
+    UI.trailWin = null;
     setupGame(g, opts);
   } else g.undoStack = [];
   S = Object.assign(g, { scene: 'game' });
@@ -2443,22 +2507,27 @@ function undoAvail() {
 }
 function canUndo() { return undoAvail() && (S.scene === 'game' || (S.mode === 'trail' && S.scene === 'over')); }
 function undoCount() {
-  if (S.mode === 'trail') return '∞';
+  if (S.mode === 'trail') return trailStars(S.undosUsed || 0) + '★';
   if (!S.undoStack.length) return S.over ? 0 : S.undoLeft;
   return undoAvail() ? S.undoLeft : 0;
 }
 function doUndo() {
   if (!canUndo()) { sfx('invalid'); return { ok: false }; }
   const snap = S.undoStack.pop();
-  const stack = S.undoStack, left = S.undoLeft;
+  const stack = S.undoStack, left = S.undoLeft, used = S.undosUsed || 0;
   const scene = S.scene === 'over' ? 'game' : S.scene;
   S = Object.assign(snap, { scene, undoStack: stack });
   UI.overAt = 0;
   if (scene !== S.scene || $('sc-over').classList.contains('on')) showScene('game');
   if (S.mode !== 'trail') S.undoLeft = left - 1;
+  else {
+    S.undosUsed = used + 1;
+    const was = trailStars(used), now = trailStars(used + 1);
+    if (now < was) toast('Undo used', 'This puzzle is now worth ' + now + (now === 1 ? ' star.' : ' stars.'), 2500);
+  }
   UI.sel = -1; UI.ghost = null; FX.length = 0;
   bgKey = '';
-  sfx('undo'); audioPressure(); announce('Undone. Score ' + S.score + '. ' + trayDesc());
+  sfx('undo'); audioPressure(); announce('Undone. ' + (S.mode === 'trail' ? 'Worth ' + trailStars(S.undosUsed) + ' stars now. ' : 'Score ' + S.score + '. ') + trayDesc());
   saveResume(); updateHud(); dirty = true;
   return { ok: true };
 }
@@ -2473,8 +2542,11 @@ function endGame() {
     SAVE.resume = null;
   } else if (S.mode === 'daily') {
     if (S.score > (SAVE.best.daily[S.daily] || 0)) { SAVE.best.daily[S.daily] = S.score; UI.newBest = true; }
-  } else if (S.mode === 'trail' && S.won && !SAVE.trail.done.includes(S.level)) {
-    SAVE.trail.done.push(S.level);
+  } else if (S.mode === 'trail' && S.won) {
+    const stars = trailStars(S.undosUsed || 0), prev = SAVE.trail.stars[S.level] || 0;
+    UI.trailWin = { stars, prev, undos: S.undosUsed || 0, first: !SAVE.trail.done.includes(S.level) };
+    if (UI.trailWin.first) SAVE.trail.done.push(S.level);
+    if (stars > prev) SAVE.trail.stars[S.level] = stars;
   }
   persist(S.mode === 'classic' || S.mode === 'springs' ? 'clear' : 'none');
   UI.overAt = performance.now() + (reducedMotion() ? 350 : 1000);
@@ -2511,6 +2583,13 @@ function countUp(el, to) { // the summary score counts up (instant under reduced
   const step = now => { const q = dur ? Math.min(1, (now - t0) / dur) : 1; el.textContent = Math.round(to * easeOut(q)).toLocaleString('en-US'); if (q < 1) requestAnimationFrame(step); };
   step(t0);
 }
+function factEl(L) {
+  const el = document.createElement('article'); el.className = 'card';
+  const h = document.createElement('h4'); h.textContent = L.name; el.appendChild(h);
+  const y = document.createElement('div'); y.className = 'yr'; y.textContent = 'Spring fact'; el.appendChild(y);
+  const p = document.createElement('p'); p.style.margin = '6px 0 0'; p.textContent = L.fact; el.appendChild(p);
+  return el;
+}
 function cardEl(id, locked) {
   const c = CARDS[id], L = LEVELS.find(l => l.id === id);
   const el = document.createElement('article'); el.className = 'card' + (locked ? ' locked' : '');
@@ -2524,8 +2603,15 @@ function cardEl(id, locked) {
 function showWinTrail() {
   const idx = LEVELS.findIndex(l => l.id === S.level);
   $('win-title').textContent = LEVELS[idx].name + ': solved';
-  $('win-sub').textContent = 'You collected a fact card. ' + SAVE.trail.done.length + ' of ' + LEVELS.length + ' collected.';
-  const box = $('win-card'); box.innerHTML = ''; box.appendChild(cardEl(S.level, false));
+  const w = UI.trailWin || { stars: trailStars(S.undosUsed || 0), prev: 0, undos: S.undosUsed || 0, first: false };
+  const sb = $('win-stars'); sb.innerHTML = ''; sb.appendChild(starsEl(w.stars));
+  const how = w.undos === 0 ? 'No undos used.' : w.undos + (w.undos === 1 ? ' undo' : ' undos') + ' used.';
+  const next = w.stars < 3 ? ' Solve it again with ' + (w.stars === 2 ? 'no undos' : 'two undos or fewer') + ' for ' + (w.stars + 1) + ' stars.' : '';
+  const best = w.stars > w.prev && w.prev > 0 ? ' New best: up from ' + w.prev + '.' : '';
+  $('win-sub').textContent = how + best + next + ' ' + SAVE.trail.done.length + ' of ' + LEVELS.length + ' solved, ' + trailStarTotal() + ' stars.';
+  announce(LEVELS[idx].name + ' solved with ' + w.stars + ' stars.');
+  const box = $('win-card'); box.innerHTML = '';
+  if (CARDS[S.level]) box.appendChild(cardEl(S.level, false)); else box.appendChild(factEl(LEVELS[idx]));
   $('b-next').style.display = idx < LEVELS.length - 1 ? '' : 'none';
   showScene('win');
 }
@@ -2563,12 +2649,12 @@ function back() {
 }
 function updateHud() {
   $('h-score').textContent = S.score.toLocaleString('en-US');
-  $('h-best').textContent = S.mode === 'trail' ? (SAVE.trail.done.length + '/12') : Math.max(bestFor(S.mode), S.score).toLocaleString('en-US');
-  $('h-best-lbl').textContent = S.mode === 'trail' ? 'Cards' : 'Best';
+  $('h-best').textContent = S.mode === 'trail' ? (SAVE.trail.done.length + '/' + LEVELS.length) : Math.max(bestFor(S.mode), S.score).toLocaleString('en-US');
+  $('h-best-lbl').textContent = S.mode === 'trail' ? 'Solved' : 'Best';
   $('h-mode').textContent = S.mode === 'trail' ? (LEVELS.find(l => l.id === S.level) || {}).name || '' : modeLabel();
   $('h-undo').textContent = undoCount();
   $('b-undo').disabled = !canUndo();
-  $('b-undo').setAttribute('aria-label', 'Undo (' + undoCount() + ' left)');
+  $('b-undo').setAttribute('aria-label', S.mode === 'trail' ? 'Undo (this puzzle is worth ' + trailStars(S.undosUsed || 0) + ' stars; each undo may cost one)' : 'Undo (' + undoCount() + ' left)');
   const on = SAVE.settings.sound;
   $('b-sound').setAttribute('aria-pressed', String(on)); $('b-sound').setAttribute('aria-label', on ? 'Sound on' : 'Sound off');
   $('snd-wave').style.display = on ? '' : 'none';
@@ -2580,22 +2666,39 @@ function fillTitle() {
   if (r && !r.over) $('b-continue').textContent = 'Continue ' + ({ classic: 'Classic', springs: 'Springs' }[r.mode] || '') + ' · ' + r.score.toLocaleString('en-US');
   const d = SAVE.best.daily[todayStr()];
   $('daily-sub').textContent = savedRun('daily', todayStr()) ? 'Run in progress · tap to continue' : d ? 'Today’s best: ' + d.toLocaleString('en-US') : 'Same board for everyone today.';
-  $('trail-sub').textContent = SAVE.trail.done.length + ' of 12 solved.';
+  $('trail-sub').textContent = SAVE.trail.done.length + ' of ' + LEVELS.length + ' solved · ' + trailStarTotal() + ' stars.';
   $('ticker').textContent = TICKER[tickerI % TICKER.length];
 }
 setInterval(() => { if (S.scene === 'title') { tickerI++; $('ticker').textContent = TICKER[tickerI % TICKER.length]; } }, 8000);
-function unlocked(i) { return i === 0 || SAVE.trail.done.includes(LEVELS[i - 1].id) || SAVE.trail.done.includes(LEVELS[i].id); }
+function trailStarTotal() { return Object.values(SAVE.trail.stars).reduce((a, n) => a + n, 0); }
+function starText(n) { return '★'.repeat(n) + '☆'.repeat(3 - n); }
+function starsEl(n) { const el = document.createElement('span'); el.className = 'stars'; el.setAttribute('role', 'img'); el.setAttribute('aria-label', n + ' of 3 stars'); el.textContent = starText(n); return el; }
+function ring2Gate(i) { return LEVELS[i].ring === 2 && !(LEVELS[i - 1] && LEVELS[i - 1].ring === 2); }
+function unlocked(i) {
+  if (i === 0 || SAVE.trail.done.includes(LEVELS[i].id)) return true;
+  if (ring2Gate(i)) return trailStarTotal() >= TRAIL_RING2_STARS && SAVE.trail.done.includes(LEVELS[i - 1].id);
+  return SAVE.trail.done.includes(LEVELS[i - 1].id);
+}
 function fillTrail() {
   const box = $('levels'); box.innerHTML = '';
+  const total = trailStarTotal();
+  $('trail-intro').textContent = LEVELS.length + ' puzzles named for Hot Springs places. Each has a fixed set of pieces and one goal. Solve one to open the next. Finish with no undos for three stars, up to two for two, more for one. ' + TRAIL_RING2_STARS + ' stars open the second ring. You have ' + total + '.';
   LEVELS.forEach((L, i) => {
+    if (ring2Gate(i)) {
+      const h = document.createElement('h3'); h.className = 'ring';
+      h.textContent = 'Second ring' + (total >= TRAIL_RING2_STARS ? '' : ' · locked until ' + TRAIL_RING2_STARS + ' stars');
+      box.appendChild(h);
+    }
     const b = document.createElement('button');
-    const done = SAVE.trail.done.includes(L.id), open = unlocked(i);
+    const done = SAVE.trail.done.includes(L.id), open = unlocked(i), stars = SAVE.trail.stars[L.id] || 0;
     if (done) b.className = 'done';
     b.disabled = !open;
     const n = document.createElement('b'); n.textContent = (i + 1) + '. ' + L.name;
     const st = document.createElement('span'); st.className = 'st';
-    st.textContent = savedRun('trail', L.id) ? 'In progress · tap to continue' : done ? 'Solved · card collected' : open ? goalLabel(L.goal) + ' · ' + L.pieces.length + ' pieces' : 'Locked';
+    st.textContent = savedRun('trail', L.id) ? 'In progress · tap to continue' : done ? (stars ? 'Solved' : 'Solved · replay for stars') : open ? goalLabel(L.goal) + ' · ' + L.pieces.length + ' pieces'
+      : ring2Gate(i) ? 'Needs ' + TRAIL_RING2_STARS + ' stars (' + total + ')' : 'Locked';
     b.append(n, st);
+    if (stars) b.appendChild(starsEl(stars));
     b.addEventListener('click', () => { sfx('click'); newGame({ mode: 'trail', level: L.id, resume: true }); });
     box.appendChild(b);
   });
@@ -2603,13 +2706,14 @@ function fillTrail() {
 function goalLabel(g) { return g === 'stones' ? 'Clear the tufa' : g === 'vents' ? 'Tap the vents' : 'Clear ' + g.slice(6) + ' groups'; }
 function fillCards() {
   const box = $('cards'); box.innerHTML = '';
-  $('cards-sub').textContent = SAVE.trail.done.length + ' of ' + LEVELS.length + ' collected. Solve Spring Trail puzzles to collect cards. Facts are from the Hot Springs research corpus; sources are listed on each card.';
-  LEVELS.forEach(L => box.appendChild(cardEl(L.id, !SAVE.trail.done.includes(L.id))));
+  const withCards = LEVELS.filter(l => CARDS[l.id]);
+  $('cards-sub').textContent = withCards.filter(l => SAVE.trail.done.includes(l.id)).length + ' of ' + withCards.length + ' collected. Solve Spring Trail puzzles to collect cards. Facts are from the Hot Springs research corpus; sources are listed on each card.';
+  withCards.forEach(L => box.appendChild(cardEl(L.id, !SAVE.trail.done.includes(L.id))));
 }
 function fillRecords() {
   const st = SAVE.stats, dl = $('rec-stats'); dl.innerHTML = '';
   const rows = [['Classic best', SAVE.best.classic.toLocaleString('en-US')], ['Springs best', SAVE.best.springs.toLocaleString('en-US')],
-    ['Today’s Daily Soak', (SAVE.best.daily[todayStr()] || 0).toLocaleString('en-US')], ['Spring Trail', SAVE.trail.done.length + ' / 12'],
+    ['Today’s Daily Soak', (SAVE.best.daily[todayStr()] || 0).toLocaleString('en-US')], ['Spring Trail', SAVE.trail.done.length + ' / ' + LEVELS.length], ['Trail stars', trailStarTotal() + ' / ' + LEVELS.length * 3],
     ['Games played', st.games], ['Groups cleared (lifetime)', st.lines.toLocaleString('en-US')], ['Hottest water', st.bestHeat >= 12 ? '143°F' : tempF(st.bestHeat) + '°F'],
     ['Springs tapped (lifetime)', st.springs]];
   for (const [k, v] of rows) { const dt = document.createElement('dt'); dt.textContent = k; const dd = document.createElement('dd'); dd.textContent = v; dl.append(dt, dd); }
