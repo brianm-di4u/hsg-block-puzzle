@@ -54,6 +54,7 @@ export const tests = [
     name: 'touch drag is the default',
     viewports: ['mobile'],
     async run(t) {
+      await t.game('act', 'setting', 'tipsSeen', true); // first-run tips (S2-01) hold the drag-hint toast back; this test is about the hint
       const L = await setup(t, [{ id: 'i5v' }, { id: 'o1' }, { id: 'i2h' }]);
       const b = L.board, cell = b.cell;
       const cdp = await t.page.context().newCDPSession(t.page);

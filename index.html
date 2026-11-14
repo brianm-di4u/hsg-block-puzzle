@@ -163,6 +163,28 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
 /* Toast */
 #toast{position:fixed;left:50%;bottom:max(12px,env(safe-area-inset-bottom));transform:translateX(-50%);max-width:min(460px,calc(100% - 24px));background:var(--panel);color:var(--color-text);border:2px solid var(--color-highlight);border-radius:var(--radius-lg);padding:10px 14px;z-index:8;display:none;box-shadow:0 6px 20px rgba(0,0,0,.3);text-align:center;font-size:.95em;pointer-events:none}
 #toast.on{display:block}
+#achtoast{position:fixed;left:50%;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 78px);transform:translateX(-50%);max-width:min(380px,calc(100% - 24px));background:var(--panel);color:var(--color-text);border:2px solid #C9A23F;border-radius:999px;padding:6px 16px;z-index:20;display:none;box-shadow:0 6px 20px rgba(0,0,0,.35);text-align:center;font-size:.9em;line-height:1.25;pointer-events:none}
+#achtoast.on{display:block}
+@media (orientation:landscape){#achtoast{left:12px;bottom:166px;transform:none;width:clamp(150px,calc((100vw - 100vh)/2 - 30px),300px);box-sizing:border-box;border-radius:14px;padding:8px 12px}}
+#achtoast b{font-family:var(--font-serif-victorian);color:var(--color-primary)}
+#achtoast span{display:block;font-size:.85em;color:var(--color-muted)}
+#tip{position:fixed;left:50%;bottom:max(12px,env(safe-area-inset-bottom));transform:translateX(-50%);width:min(420px,calc(100% - 24px));box-sizing:border-box;background:var(--panel);color:var(--color-text);border:2px solid var(--color-highlight);border-radius:var(--radius-lg);padding:8px 8px 8px 14px;z-index:8;display:none;align-items:center;gap:10px;box-shadow:0 6px 20px rgba(0,0,0,.3);font-size:.95em;line-height:1.3}
+#tip.on{display:flex}
+#tip::before{content:"\25B2";color:var(--color-primary);font-size:1.1em;flex:0 0 auto}
+#tip span{flex:1 1 auto}
+#tip button{flex:0 0 auto;padding:6px 10px;font-size:.85em}
+@media (orientation:landscape){#tip{left:12px;bottom:16px;transform:none;width:clamp(150px,calc((100vw - 100vh)/2 - 30px),300px);flex-wrap:wrap;padding:10px 12px}#tip::before{content:"\25B6"}#tip span{flex:1 1 calc(100% - 28px)}#tip button{flex:1 1 100%}}
+.cal{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;margin:0 0 6px}
+.cal i{font-style:normal;text-align:center;font-size:.72em;padding:6px 0;border-radius:4px;border:1px solid var(--color-border);color:var(--color-muted);font-variant-numeric:tabular-nums}
+.cal i.on{background:#C9A23F;border-color:#C9A23F;color:#1F2A24;font-weight:800}
+.cal i.today{outline:2px solid var(--color-primary);outline-offset:1px}
+.goals{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.goals li{border:2px solid var(--color-border);border-radius:var(--radius-md);padding:6px 10px;display:grid;gap:1px}
+.goals li b{font-family:var(--font-serif-victorian);color:var(--color-muted)}
+.goals li span{font-size:.85em;color:var(--color-muted)}
+.goals li.got{border-color:#C9A23F}
+.goals li.got b{color:var(--color-primary)}
+.goals li.got b::before{content:"\2713  "}
 @media (orientation:portrait){#toast{font-size:.8em;padding:8px 12px;line-height:1.3}}
 @media (orientation:landscape) and (min-width:900px){#toast{left:16px;bottom:20px;transform:none;max-width:clamp(170px,calc(50vw - 440px),300px);text-align:left}}
 #toast b{font-family:var(--font-serif-victorian);color:var(--color-primary);display:block;font-size:1.1em}
@@ -187,6 +209,8 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
 
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="live" class="sr" aria-live="polite"></div>
+<div id="achtoast" role="status" aria-live="polite"></div>
+<div id="tip" role="group" aria-label="Tip"><span id="tip-text"></span><button id="tip-skip" type="button">Skip tips</button></div>
 
 <section class="screen" id="sc-title" aria-label="Title">
   <div class="brand">
@@ -211,6 +235,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
 <section class="screen overlay" id="sc-pause" aria-label="Paused">
   <div class="panel" style="width:min(380px,100%)">
     <h2>Paused</h2>
+    <p class="muted" id="pause-goal" style="margin:0 0 4px"></p>
     <div class="row col">
       <button class="primary" id="b-resume">Resume</button>
       <button id="b-restart">Restart</button>
@@ -262,9 +287,14 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
 </section>
 
 <section class="screen overlay" id="sc-records" aria-label="Records">
-  <div class="panel" style="width:min(460px,100%)">
+  <div class="panel" style="width:min(520px,100%)">
     <h2>Records</h2>
     <dl class="grid2" id="rec-stats"></dl>
+    <h3>Daily Soak</h3>
+    <p id="rec-streak" style="margin:0 0 8px"></p>
+    <div class="cal" id="rec-cal" role="img"></div>
+    <h3 id="rec-goals-h">Goals</h3>
+    <ul class="goals" id="rec-goals"></ul>
     <p id="rec-age"></p>
     <div class="row"><button data-back>Back</button></div>
   </div>
@@ -296,6 +326,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
       <tr><td>Keyboard</td><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> or <kbd>Tab</kbd> pick a piece · arrows move · <kbd>Enter</kbd>/<kbd>Space</kbd> place · <kbd>U</kbd> undo · <kbd>M</kbd> mute · <kbd>Esc</kbd> cancel or pause</td></tr>
     </table>
     <p class="muted">Undo: one per round by default (change it in Settings).</p>
+    <div class="row"><button id="b-tips-help" type="button">Show tips again</button></div>
     <h3>About the pictures</h3>
     <p class="muted">The backdrops are game art of downtown Hot Springs seen from the hills above Central Avenue and Bathhouse Row, one per era, from the wild creek valley before 1804 to today. Times of day, seasons and small details are artistic; landmarks follow sources listed in the game files. Terrain: USGS 3D Elevation Program (public domain). Building footprints: © OpenStreetMap contributors (ODbL). Font: Fraunces (SIL Open Font License).</p>
     <div class="row"><button data-back class="primary">Back</button></div>
@@ -317,6 +348,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
     <label class="set"><span>Undos per round</span><select id="s-undo"><option value="0">0</option><option value="1">1</option><option value="3">3</option></select></label>
     <label class="set"><span>Tap to place (touch)</span><input type="checkbox" id="s-tapplace"></label>
     <label class="set"><span>Large text</span><input type="checkbox" id="s-big"></label>
+    <label class="set"><span>First-game tips</span><button id="b-tips" type="button">Show tips again</button></label>
     <label class="set"><span>Effects</span><select id="s-effects"><option value="full">Full (live water)</option><option value="lite">Lite (faster)</option></select></label>
     <label class="set"><span>Menu theme</span><select id="s-theme"><option value="system">Follow system</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
     <div class="row"><button data-back class="primary">Done</button></div>
@@ -715,8 +747,9 @@ const W8 = { pool:'#1F5F6B', pool2:'#25697A'/*d*/, surface:'#174A54', algae:'#2A
 // ===================================================================== STATE + SAVE
 const STORE_KEY = 'hs-thermal-blocks-v1';
 function defaultSave() {
-  return { v: 1, settings: { sound: true, volume: 0.7, sfx: true, music: true, musicVol: 0.5, ambience: true, ambVol: 0.5, motion: 'system', patterns: true, undo: 1, bigText: false, theme: 'system', effects: 'full', tapPlace: false },
-    best: { classic: 0, springs: 0, daily: {} }, trail: { done: [], stars: {} }, stats: { games: 0, lines: 0, bestHeat: 0, springs: 0 }, resume: null };
+  return { v: 1, settings: { sound: true, volume: 0.7, sfx: true, music: true, musicVol: 0.5, ambience: true, ambVol: 0.5, motion: 'system', patterns: true, undo: 1, bigText: false, theme: 'system', effects: 'full', tapPlace: false, tipsSeen: false },
+    best: { classic: 0, springs: 0, daily: {} }, trail: { done: [], stars: {} }, stats: { games: 0, lines: 0, bestHeat: 0, springs: 0 },
+    daily: { longest: 0, played: [] }, ach: {}, goals: { boiled: 0 }, resume: null };
 }
 // SAVE MERGE CORE (portable regression extracts this same function)
 function createSaveStore(storage, defaults, revision) {
@@ -730,6 +763,8 @@ function createSaveStore(storage, defaults, revision) {
     if (!object(data)) return def;
     const out = { ...def, ...data, v: 1 };
     for (const name of ['settings', 'best', 'trail', 'stats']) out[name] = { ...def[name], ...(object(data[name]) ? data[name] : {}) };
+    // A save written before first-run tips existed belongs to someone who already knows the game: no tips for them.
+    if (Object.hasOwn(def.settings, 'tipsSeen') && !(object(data.settings) && Object.hasOwn(data.settings, 'tipsSeen'))) out.settings.tipsSeen = true;
     for (const [key, value] of Object.entries(def.settings)) {
       if (typeof out.settings[key] !== typeof value || (typeof value === 'number' && !number(out.settings[key]))) out.settings[key] = value;
     }
@@ -738,6 +773,14 @@ function createSaveStore(storage, defaults, revision) {
     out.trail.done = [...new Set(Array.isArray(out.trail.done) ? out.trail.done.filter(value => typeof value === 'string') : [])];
     out.trail.stars = Object.fromEntries(Object.entries(object(out.trail.stars) ? out.trail.stars : {}).filter(([, value]) => Number.isInteger(value) && value >= 1 && value <= 3));
     for (const key of Object.keys(def.stats)) if (!number(out.stats[key])) out.stats[key] = def.stats[key];
+    // Return loop: daily history, goals earned (id -> date) and lifetime goal counters. Damaged parts fall back to empty.
+    const day = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+    if (def.daily) {
+      const d = object(data.daily) ? data.daily : {};
+      out.daily = { longest: number(d.longest) ? Math.floor(d.longest) : 0, played: [...new Set(Array.isArray(d.played) ? d.played.filter(day) : [])].sort().slice(-120) };
+    }
+    if (def.ach) out.ach = Object.fromEntries(Object.entries(object(data.ach) ? data.ach : {}).filter(([id, when]) => id.length < 40 && day(when)));
+    if (def.goals) out.goals = { boiled: object(data.goals) && number(data.goals.boiled) ? Math.floor(data.goals.boiled) : 0 };
     for (const key of ['resumeGeneration', 'resumeRevision']) if (Object.hasOwn(out, key) && (typeof out[key] !== 'string' || !out[key])) delete out[key];
     // Resume is an opaque v1 JSON object. Do not newly reject shipped optional fields.
     if (out.resume !== null && !object(out.resume)) out.resume = null;
@@ -796,6 +839,12 @@ function createSaveStore(storage, defaults, revision) {
       if (n > (baseStars[id] || 0)) put(merged.trail.stars, id, Math.max(merged.trail.stars[id] || 0, n));
     }
     for (const key of ['games', 'lines', 'springs']) merged.stats[key] += Math.max(0, value.stats[key] - base.stats[key]);
+    if (def.daily && value.daily) {
+      merged.daily.longest = Math.max(merged.daily.longest, value.daily.longest);
+      merged.daily.played = [...new Set([...merged.daily.played, ...value.daily.played])].sort().slice(-120);
+    }
+    if (def.ach && value.ach) for (const [id, when] of Object.entries(value.ach)) if (!Object.hasOwn(merged.ach, id)) put(merged.ach, id, when);
+    if (def.goals && value.goals) merged.goals.boiled += Math.max(0, value.goals.boiled - base.goals.boiled);
     if (value.stats.bestHeat > base.stats.bestHeat) merged.stats.bestHeat = Math.max(merged.stats.bestHeat, value.stats.bestHeat);
     let wroteResume = false, conflict = false;
     if (pending) {
@@ -877,7 +926,7 @@ function persist(intent = 'none') {
 let S = freshGame('classic');
 S.scene = 'title';
 let SEED_PENDING = null;
-const UI = { sel: -1, cur: null, ghost: null, drag: null, hover: null, returnTo: 'title', overAt: 0, fxFrozen: null, lastTap: null, lastInput: 0 };
+const UI = { sel: -1, cur: null, ghost: null, drag: null, hover: null, returnTo: 'title', overAt: 0, fxFrozen: null, lastTap: null, lastInput: 0, input: (window.matchMedia && matchMedia('(pointer:coarse)').matches) ? 'touch' : 'mouse', tip: null, earned: [] };
 
 function todayStr(d = new Date()) {
   const p = n => String(n).padStart(2, '0');
@@ -973,7 +1022,7 @@ function hiss(t, dur, vol, f1, f2, q = 1.2, type = 'bandpass') {
   s.connect(f); f.connect(g); g.connect(cueDest()); s.start(t, JIT.o); s.stop(t + dur + 0.05);
 }
 const PENTA = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24];
-const CUES = ['click', 'pick', 'place', 'invalid', 'deal', 'undo', 'clear', 'vent', 'era', 'over', 'win', 'bonus'];
+const CUES = ['click', 'pick', 'place', 'invalid', 'deal', 'undo', 'clear', 'vent', 'era', 'over', 'win', 'bonus', 'ach'];
 const semi = (f, st) => f * Math.pow(2, st / 12);
 // o.n: tiles in the piece (place), o.k: tray slot (pick), o.G / o.heat: groups and water temperature (clear).
 function playCue(name, o, t) {
@@ -1011,6 +1060,10 @@ function playCue(name, o, t) {
     case 'era': [0, 7, 12, 16].forEach((st, k) => { tone(semi(330, st), t + k * 0.12, 1.0, 'sine', 0.2); tone(semi(165, st), t + k * 0.12, 1.2, 'sine', 0.08); }); break;
     case 'over': [12, 7, 4, 0].forEach((st, k) => { tone(semi(330, st), t + k * 0.18, 0.6, 'triangle', 0.22); tone(semi(165, st), t + k * 0.18, 0.7, 'sine', 0.08); }); break;
     case 'win': [0, 4, 7, 12, 16, 19, 24].forEach((st, k) => tone(semi(392, st), t + k * 0.08, 0.5, 'sine', 0.2)); tone(196, t, 1.2, 'sine', 0.1); hiss(t, 1.2, 0.12, 800, 4000); break;
+    case 'ach': {      // a goal earned: three bell notes (brass-bright) with a little shimmer
+      [0, 7, 12].forEach((st, k) => { const f = semi(660, st); tone(f, t + k * 0.1, 0.55, 'sine', 0.2); tone(f * 2.76, t + k * 0.1, 0.3, 'sine', 0.05); });
+      hiss(t, 0.35, 0.05, 3200, 6500, 1.2); break;
+    }
     case 'bonus': [0, 5, 9, 12].forEach((st, k) => { tone(semi(523, st), t + k * 0.06, 0.4, 'triangle', 0.2); tone(semi(1046, st), t + k * 0.06, 0.2, 'sine', 0.05); }); break;
   }
 }
@@ -1022,6 +1075,7 @@ function sfx(name, o = {}) {
     if (AU.kit && !AU.kit.held) {
       if (name === 'clear') AU.kit.music.duck(3, 350);
       else if (name === 'era' || name === 'win' || name === 'over') AU.kit.music.duck(6, 500);
+      else if (name === 'ach') AU.kit.music.duck(3, 400);
     }
   } catch (e) { /* audio is optional */ }
 }
@@ -2432,12 +2486,14 @@ function newGame(opts = {}) {
   UI.sel = -1; UI.ghost = null; UI.drag = null; UI.overAt = 0; FX.length = 0;
   if (mode === 'classic' || mode === 'springs') { SAVE.resume = null; persist('replace'); }
   hideToast();
+  UI.earned = [];
+  if (!kept && (mode === 'classic' || mode === 'springs' || mode === 'daily')) tipStart(); else tipStart(true);
   showScene('game');
   if (mode === 'trail') {
     const L = LEVELS.find(l => l.id === S.level);
     toast(L.name, L.hint, 5000);
   }
-  announce('New ' + modeLabel() + ' game. ' + trayDesc());
+  announce('New ' + modeLabel() + ' game. ' + trayDesc() + (UI.tip && UI.tip.cur ? ' Tip: ' + tipText(UI.tip.cur) : ''));
   return S;
 }
 function modeLabel() {
@@ -2486,6 +2542,7 @@ function doPlace(slot, r, c) {
     }
   }
   audioPressure(); if (AU.kit) AU.kit.amb.set('heat', Math.min(1, S.heat / 12));
+  goalsOnPlace(res); tipAfterPlace(res);
   let msg = 'Placed. ';
   if (res.G) msg += 'Cleared ' + res.G + (res.G > 1 ? ' groups' : ' group') + ' for ' + (res.clearPts + res.ventPts + res.bonus) + '. ';
   msg += 'Score ' + S.score + '. Heat ' + tempF(S.heat) + ' degrees. ';
@@ -2533,6 +2590,136 @@ function doUndo() {
   saveResume(); updateHud(); dirty = true;
   return { ok: true };
 }
+// ---------------------------------------------------------------- return loop: daily streak and lifetime goals
+// Goals are earned by play the game can verify, checked after every placement and when a game ends. SAVE.ach maps id -> date.
+const GOALS = [
+  ['first-soak', 'First Soak', 'Clear your first row, column or pool.'],
+  ['four-at-once', 'Four at Once', 'Clear 4 groups with a single piece.'],
+  ['boiling', 'Boiling Point', 'Bring the water to 143°F, Boiling.'],
+  ['bathhouse-regular', 'Bathhouse Regular', 'Reach Boiling in 10 games.'],
+  ['gilded-spa', 'Gilded Spa', 'Reach the Gilded Spa era.'],
+  ['modern-spa-city', 'Modern Spa City', 'Reach the Modern Spa City era.'],
+  ['clear-spring', 'Clear Spring', 'Empty the whole floor with one clear.'],
+  ['every-spring', 'Every Spring Flowing', 'Win Springs by tapping all 47 vents.'],
+  ['steady-hand', 'Steady Hand', 'Solve a Spring Trail puzzle with no undos.'],
+  ['three-days', 'Three Days Running', 'Finish a Daily Soak three days in a row.'],
+  ['week-at-springs', 'A Week at the Springs', 'Finish a Daily Soak seven days in a row.'],
+  ['four-thousand-years', 'Four Thousand Years', 'Clear 440 groups in all: 4,400 years of water.'],
+];
+const GOAL_TOAST_MS = 3400;
+let goalQueue = [], goalBusy = false;
+function showGoalToast() {
+  const el = $('achtoast'), g = goalQueue.shift();
+  if (!g) { goalBusy = false; el.classList.remove('on'); return; }
+  goalBusy = true;
+  el.innerHTML = ''; const b = document.createElement('b'); b.textContent = 'Goal: ' + g[1]; const sp = document.createElement('span'); sp.textContent = g[2];
+  el.append(b, sp); el.classList.add('on');
+  setTimeout(showGoalToast, GOAL_TOAST_MS);
+}
+function earn(id) {
+  if (SAVE.ach[id]) return false;
+  const g = GOALS.find(x => x[0] === id);
+  if (!g) return false;
+  SAVE.ach[id] = todayStr(); persist();
+  (UI.earned = UI.earned || []).push(g[1]);
+  goalQueue.push(g); if (!goalBusy) showGoalToast();
+  sfx('ach');
+  return true;
+}
+function goalsOnPlace(res) {
+  if (res.G >= 1) earn('first-soak');
+  if (res.G >= 4) earn('four-at-once');
+  if (S.heat >= 12) earn('boiling');
+  if (res.bonus) earn('clear-spring');
+  if (S.mode !== 'trail') { if (S.era >= 3) earn('gilded-spa'); if (S.era >= 6) earn('modern-spa-city'); }
+}
+function goalsOnEnd() {
+  if (S.bestHeat >= 12) { SAVE.goals.boiled++; if (SAVE.goals.boiled >= 10) earn('bathhouse-regular'); }
+  if (S.mode === 'springs' && S.won) earn('every-spring');
+  if (S.mode === 'trail' && S.won && trailStars(S.undosUsed || 0) === 3) earn('steady-hand');
+  if (S.mode === 'daily' && S.daily) {
+    const d = SAVE.daily;
+    d.played = [...new Set([...d.played, S.daily])].sort().slice(-120);
+    const run = dailyStreak(S.daily);
+    d.longest = Math.max(d.longest, run);
+    if (run >= 3) earn('three-days');
+    if (run >= 7) earn('week-at-springs');
+  }
+  if (SAVE.stats.lines >= 440) earn('four-thousand-years');
+}
+function addDays(day, n) { const [y, m, d] = day.split('-').map(Number); return todayStr(new Date(y, m - 1, d + n)); }
+function dailyDays() { return new Set([...SAVE.daily.played, ...Object.keys(SAVE.best.daily)]); }
+// Consecutive Daily Soak days ending on `end` (or the day before, when `end` is not played yet, so today keeps the streak alive).
+function dailyStreak(end = todayStr()) {
+  const days = dailyDays(); let d = days.has(end) ? end : addDays(end, -1), n = 0;
+  while (days.has(d)) { n++; d = addDays(d, -1); }
+  return n;
+}
+function dailyLongest() {
+  const list = [...dailyDays()].filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
+  let best = SAVE.daily.longest, run = 0;
+  list.forEach((d, i) => { run = i && addDays(list[i - 1], 1) === d ? run + 1 : 1; best = Math.max(best, run); });
+  return best;
+}
+
+// ---------------------------------------------------------------- first-run tips: taught in play, one idea at a time
+// Shown once (settings.tipsSeen) in Classic, Daily Soak and Springs. A save from before tips existed counts as seen.
+const TIP_MS = { goal: 6500, verb: 14000, heat: 7000, rule: 7000 };
+const TIP_END_PLACEMENTS = 14;   // tips end by themselves after this many placements
+function tipGoal() { return S.mode === 'springs' ? 'Clear a row, column or pool that holds a vent.' : 'Fill a row, column or 3×3 pool to clear it.'; }
+function tipText(k) {
+  if (k === 'goal') return tipGoal();
+  if (k === 'verb') {
+    if (UI.input === 'key') return 'Pick with 1, 2 or 3, move with arrows, Enter places.';
+    if (UI.input === 'touch') return SAVE.settings.tapPlace ? 'Tap a piece, tap the board, tap again to place.' : 'Touch a piece and drag it onto the board.';
+    return 'Drag a piece from the tray onto the board.';
+  }
+  if (k === 'heat') return 'Each clear heats the water. Hotter water scores more.';
+  return 'Pieces never turn. The game ends when none fit.';
+}
+function tipRender() {
+  const t = UI.tip, el = $('tip'), on = !!(t && t.cur && S.scene === 'game' && !S.over);
+  el.classList.toggle('on', on);
+  if (on) $('tip-text').textContent = tipText(t.cur);
+}
+function tipShow(k) {
+  const t = UI.tip; if (!t) return;
+  clearTimeout(t.timer); t.cur = k; t.shown.add(k);
+  t.timer = setTimeout(() => tipExpire(k), TIP_MS[k]);
+  tipRender(); announce(tipText(k));
+}
+function tipExpire(k) {
+  const t = UI.tip; if (!t || t.cur !== k) return;
+  if (k === 'goal' && !t.shown.has('verb')) return tipShow('verb');
+  t.cur = null; tipRender();
+  if (t.shown.size >= 4 || t.placed >= TIP_END_PLACEMENTS) tipEnd();
+}
+function tipEnd() {
+  const t = UI.tip; if (!t) return;
+  clearTimeout(t.timer); UI.tip = null; tipRender();
+  if (!SAVE.settings.tipsSeen) { SAVE.settings.tipsSeen = true; persist(); }
+}
+function tipStart(off) {
+  if (UI.tip) clearTimeout(UI.tip.timer);
+  UI.tip = null; tipRender();
+  if (off || SAVE.settings.tipsSeen) return;
+  UI.tip = { cur: null, shown: new Set(), placed: 0, timer: 0 };
+  tipShow('goal');
+}
+function tipPicked() { const t = UI.tip; if (t && t.cur === 'goal') tipShow('verb'); }
+function tipAfterPlace(res) {
+  const t = UI.tip; if (!t) return;
+  t.placed++;
+  if (t.placed >= TIP_END_PLACEMENTS) return tipEnd();
+  if (res.G && !t.shown.has('heat')) tipShow('heat');
+  else if (t.placed >= 2 && !t.shown.has('rule')) tipShow('rule');
+  else if (t.cur === 'goal' || t.cur === 'verb') { t.cur = null; tipRender(); }
+}
+function replayTips() {
+  SAVE.settings.tipsSeen = false; persist();
+  for (const id of ['b-tips', 'b-tips-help']) $(id).textContent = 'Tips on for your next game';
+  announce('Tips will show in your next game.');
+}
 function endGame() {
   if (S.mode === 'trail' || S.mode === 'daily') clearRun();
   if (S.mode !== 'trail' || S.won) S.undoStack = [];
@@ -2550,6 +2737,7 @@ function endGame() {
     if (UI.trailWin.first) SAVE.trail.done.push(S.level);
     if (stars > prev) SAVE.trail.stars[S.level] = stars;
   }
+  goalsOnEnd();
   persist(S.mode === 'classic' || S.mode === 'springs' ? 'clear' : 'none');
   UI.overAt = performance.now() + (reducedMotion() ? 350 : 1000);
   setTimeout(() => sfx(S.won ? 'win' : 'over'), 300);
@@ -2576,6 +2764,8 @@ function fillOver() {
   $('ov-new').classList.toggle('hit', !!UI.newBest);
   const rows = [['Groups cleared', S.groups], ['Pieces placed', S.placed], ['Hottest water', S.bestHeat >= 12 ? '143°F (boiling)' : tempF(S.bestHeat) + '°F'], ['Era reached', ERAS[S.era].name]];
   if (S.mode === 'springs') rows.unshift(['Springs tapped', S.springs + ' / 47']);
+  if (S.mode === 'daily') rows.push(['Daily streak', dailyStreak(S.daily) + (dailyStreak(S.daily) === 1 ? ' day' : ' days')]);
+  if (UI.earned && UI.earned.length) rows.push(['Goals earned', UI.earned.join(', ')]);
   const dl = $('ov-stats'); dl.innerHTML = '';
   for (const [k, v] of rows) { const dt = document.createElement('dt'); dt.textContent = k; const dd = document.createElement('dd'); dd.textContent = v; dl.append(dt, dd); }
 }
@@ -2622,6 +2812,7 @@ function showWinTrail() {
 const SCREENS = { title: 'sc-title', pause: 'sc-pause', over: 'sc-over', win: 'sc-win', trail: 'sc-trail', cards: 'sc-cards', records: 'sc-records', help: 'sc-help', settings: 'sc-settings' };
 function showScene(name) {
   if (name === 'game' && !S.tray) name = 'title';
+  setTimeout(tipRender, 0);
   const prev = S.scene;
   if (['help', 'settings', 'trail', 'cards', 'records'].includes(name) && prev !== name) UI.returnTo = (prev === 'game' || prev === 'pause') ? 'pause' : (prev === 'trail' && name !== 'trail' ? 'trail' : 'title');
   S.scene = name;
@@ -2667,7 +2858,8 @@ function fillTitle() {
   $('b-continue').style.display = r && !r.over ? '' : 'none';
   if (r && !r.over) $('b-continue').textContent = 'Continue ' + ({ classic: 'Classic', springs: 'Springs' }[r.mode] || '') + ' · ' + r.score.toLocaleString('en-US');
   const d = SAVE.best.daily[todayStr()];
-  $('daily-sub').textContent = savedRun('daily', todayStr()) ? 'Run in progress · tap to continue' : d ? 'Today’s best: ' + d.toLocaleString('en-US') : 'Same board for everyone today.';
+  const run = dailyStreak(), streak = run ? run + '-day streak · ' : '';
+  $('daily-sub').textContent = savedRun('daily', todayStr()) ? 'Run in progress · tap to continue' : d ? streak + 'Today’s best: ' + d.toLocaleString('en-US') : run ? streak + 'play today to keep it' : 'Same board for everyone today.';
   $('trail-sub').textContent = SAVE.trail.done.length + ' of ' + LEVELS.length + ' solved · ' + trailStarTotal() + ' stars.';
   $('ticker').textContent = TICKER[tickerI % TICKER.length];
 }
@@ -2716,15 +2908,44 @@ function fillRecords() {
   const st = SAVE.stats, dl = $('rec-stats'); dl.innerHTML = '';
   const rows = [['Classic best', SAVE.best.classic.toLocaleString('en-US')], ['Springs best', SAVE.best.springs.toLocaleString('en-US')],
     ['Today’s Daily Soak', (SAVE.best.daily[todayStr()] || 0).toLocaleString('en-US')], ['Spring Trail', SAVE.trail.done.length + ' / ' + LEVELS.length], ['Trail stars', trailStarTotal() + ' / ' + LEVELS.length * 3],
+    ['Best Daily Soak', Math.max(0, ...Object.values(SAVE.best.daily)).toLocaleString('en-US')], ['Daily Soaks played', dailyDays().size],
     ['Games played', st.games], ['Groups cleared (lifetime)', st.lines.toLocaleString('en-US')], ['Hottest water', st.bestHeat >= 12 ? '143°F' : tempF(st.bestHeat) + '°F'],
-    ['Springs tapped (lifetime)', st.springs]];
+    ['Springs tapped (lifetime)', st.springs], ['Games that reached Boiling', SAVE.goals.boiled]];
   for (const [k, v] of rows) { const dt = document.createElement('dt'); dt.textContent = k; const dd = document.createElement('dd'); dd.textContent = v; dl.append(dt, dd); }
+  fillDaily(); fillGoals();
   const yrs = Math.min(4400, st.lines * 10);
   $('rec-age').textContent = yrs >= 4400
     ? 'Water’s age: 4,400 years. Your spring has emerged! USGS dating puts most Hot Springs water at about 4,400 years old.'
     : 'Water’s age: ' + yrs.toLocaleString('en-US') + ' of 4,400 years underground (each group you clear counts 10 years). USGS dating puts most Hot Springs water at about 4,400 years old.';
 }
+function fillDaily() {
+  const today = todayStr(), days = dailyDays(), run = dailyStreak(), cal = $('rec-cal'); cal.innerHTML = '';
+  let n = 0;
+  for (let k = 29; k >= 0; k--) {
+    const d = addDays(today, -k), i = document.createElement('i'), on = days.has(d);
+    i.textContent = String(Number(d.slice(8))); i.setAttribute('aria-hidden', 'true');
+    if (on) { i.className = 'on'; n++; }
+    if (k === 0) i.classList.add('today');
+    cal.appendChild(i);
+  }
+  cal.setAttribute('aria-label', 'Daily Soak played on ' + n + ' of the last 30 days. Today is the last square.');
+  const longest = dailyLongest();
+  $('rec-streak').textContent = (run ? 'Streak: ' + run + (run === 1 ? ' day' : ' days') + (days.has(today) ? '.' : '. Play today to keep it.') : 'No streak yet. Finish a Daily Soak to start one.') + ' Longest: ' + longest + (longest === 1 ? ' day.' : ' days.');
+}
+function fillGoals() {
+  const box = $('rec-goals'); box.innerHTML = '';
+  let got = 0;
+  for (const [id, name, desc] of GOALS) {
+    const when = SAVE.ach[id], li = document.createElement('li');
+    if (when) { got++; li.className = 'got'; }
+    const b = document.createElement('b'); b.textContent = name;
+    const sp = document.createElement('span'); sp.textContent = when ? desc + ' Earned ' + when + '.' : 'Locked. ' + desc;
+    li.append(b, sp); box.appendChild(li);
+  }
+  $('rec-goals-h').textContent = 'Goals · ' + got + ' of ' + GOALS.length;
+}
 function fillSettings() {
+  for (const id of ['b-tips', 'b-tips-help']) $(id).textContent = 'Show tips again';
   const s = SAVE.settings;
   $('s-sound').checked = s.sound; $('s-volume').value = Math.round(s.volume * 100); $('s-motion').value = s.motion;
   $('s-patterns').checked = s.patterns; $('s-undo').value = String(s.undo); $('s-big').checked = s.bigText; $('s-theme').value = s.theme; $('s-effects').value = s.effects;
@@ -2758,6 +2979,10 @@ function wireDom() {
   $('b-again').addEventListener('click', () => { sfx('click'); restart(); });
   $('b-menu1').addEventListener('click', () => { sfx('click'); showScene('title'); });
   $('b-ovundo').addEventListener('click', () => { doUndo(); });
+  $('tip-skip').addEventListener('click', () => { tipEnd(); cv.focus({ preventScroll: true }); });
+  $('tip').addEventListener('click', e => { if (e.target === $('tip-skip') || !UI.tip) return; UI.tip.cur = null; tipRender(); });
+  $('b-tips').addEventListener('click', replayTips);
+  $('b-tips-help').addEventListener('click', replayTips);
   $('b-menu2').addEventListener('click', () => { sfx('click'); showScene('title'); });
   $('b-trail2').addEventListener('click', () => { sfx('click'); showScene('trail'); });
   $('b-next').addEventListener('click', () => { sfx('click'); const i = LEVELS.findIndex(l => l.id === S.level); if (i < LEVELS.length - 1) newGame({ mode: 'trail', level: LEVELS[i + 1].id }); });
@@ -2779,7 +3004,13 @@ function wireDom() {
   $('s-theme').addEventListener('change', e => setSetting('theme', e.target.value));
   $('s-effects').addEventListener('change', e => setSetting('effects', e.target.value));
 }
-function pauseGame() { if (S.scene === 'game') { UI.drag = null; UI.ghost = null; showScene('pause'); } }
+function goalSentence() {
+  if (S.mode === 'trail') { const L = LEVELS.find(l => l.id === S.level); return 'Goal: ' + (L ? goalLabel(L.goal) : 'solve the puzzle') + '.'; }
+  if (S.mode === 'springs') return 'Goal: clear the row, column or pool of each vent to tap it. Tap all 47.';
+  if (S.mode === 'daily') return 'Goal: fill rows, columns and 3×3 pools on today’s shared board until no piece fits.';
+  return 'Goal: fill a row, column or 3×3 pool to clear it, and keep going until no piece fits.';
+}
+function pauseGame() { if (S.scene === 'game') { UI.drag = null; UI.ghost = null; $('pause-goal').textContent = goalSentence(); showScene('pause'); } }
 function restart() {
   if (S.mode === 'trail') newGame({ mode: 'trail', level: S.level });
   else if (S.mode === 'daily') newGame({ mode: 'daily', date: S.daily });
@@ -2789,6 +3020,7 @@ function resumeSaved() {
   const r = SAVE_STORE.readResume(); SAVE = SAVE_STORE.value; if (!r) { fillTitle(); return; }
   if (dropBadResume()) { fillTitle(); badResumeToast(); return; }
   S = Object.assign(JSON.parse(JSON.stringify(r)), { scene: 'game', undoStack: [] });
+  UI.earned = []; tipStart(true);
   UI.sel = -1; UI.ghost = null; FX.length = 0; bgKey = ''; spriteCache.clear();
   showScene('game');
   announce('Game resumed. Score ' + S.score + '. ' + trayDesc());
@@ -2830,13 +3062,13 @@ function dragGhost(d) {
   return best || near;
 }
 function dragHint(k) {
-  addFx({ type: 'nudge', slot: k, dur: reducedMotion() ? 1 : 320 }); sfx('pick', { k });
+  addFx({ type: 'nudge', slot: k, dur: reducedMotion() ? 1 : 320 }); sfx('pick', { k }); tipPicked();
   announce('Drag the piece onto the board.');
-  if (!UI.dragHinted) { UI.dragHinted = true; toast('Drag to place', 'Hold a piece and slide it onto the board. Prefer taps? Turn on Tap to place in Settings.', 3500); }
+  if (!UI.dragHinted && !UI.tip) { UI.dragHinted = true; toast('Drag to place', 'Hold a piece and slide it onto the board. Prefer taps? Turn on Tap to place in Settings.', 3500); }
 }
 function selectSlot(k, withCursor = true) {
   if (!S.tray[k]) { sfx('invalid'); return; }
-  UI.sel = k; sfx('pick', { k });
+  UI.sel = k; sfx('pick', { k }); tipPicked();
   const p = PIECES[S.tray[k].id];
   const fit = fitsAnywhere(S.board, p.id) ? '' : ', no room on the board';
   if (!withCursor) { UI.ghost = null; UI.cur = null; announce('Piece ' + (k + 1) + ' selected, ' + p.n + ' tiles' + fit + '. Tap the board to place it.'); dirty = true; return; }
@@ -2845,7 +3077,11 @@ function selectSlot(k, withCursor = true) {
   announce('Piece ' + (k + 1) + ' selected, ' + p.n + ' tiles' + fit + '. Ghost at row ' + (UI.cur.r + 1) + ', column ' + (UI.cur.c + 1) + (UI.ghost.valid ? '.' : ', blocked.'));
   dirty = true;
 }
-for (const ev of ['pointerdown', 'pointermove', 'keydown']) window.addEventListener(ev, () => { UI.lastInput = performance.now(); }, { capture: true, passive: true });
+for (const ev of ['pointerdown', 'pointermove', 'keydown']) window.addEventListener(ev, e => {
+  UI.lastInput = performance.now();
+  const kind = ev === 'keydown' ? 'key' : e.pointerType === 'touch' ? 'touch' : 'mouse';
+  if (kind !== UI.input) { UI.input = kind; if (UI.tip) tipRender(); }
+}, { capture: true, passive: true });
 cv.addEventListener('pointerdown', e => {
   if (S.scene !== 'game' || S.over) return;
   audioInit();
@@ -2875,7 +3111,7 @@ cv.addEventListener('pointermove', e => {
   const p = pt(e), d = UI.drag;
   if (d && e.pointerId === d.id) {
     d.x = p.x; d.y = p.y;
-    if (!d.moved && Math.hypot(p.x - d.sx, p.y - d.sy) > 8) { d.moved = true; d.t1 = performance.now(); UI.sel = -1; sfx('pick', { k: d.slot }); }
+    if (!d.moved && Math.hypot(p.x - d.sx, p.y - d.sy) > 8) { d.moved = true; d.t1 = performance.now(); UI.sel = -1; sfx('pick', { k: d.slot }); tipPicked(); }
     if (d.moved) UI.ghost = dragGhost(d);
     dirty = true; return;
   }
@@ -2999,6 +3235,9 @@ window.__game = {
       case 'toast': toast(a[0], a[1]); return true;
       case 'hideToast': hideToast(); return true;
       case 'save': return JSON.parse(JSON.stringify(SAVE));
+      case 'tips': return { on: !!UI.tip, cur: UI.tip ? UI.tip.cur : null, text: UI.tip && UI.tip.cur ? tipText(UI.tip.cur) : '', shown: UI.tip ? [...UI.tip.shown] : [], visible: $('tip').classList.contains('on'), seen: SAVE.settings.tipsSeen };
+      case 'goals': return { earned: { ...SAVE.ach }, streak: dailyStreak(), longest: dailyLongest(), queue: goalQueue.length };
+      case 'input': UI.input = a[0]; if (UI.tip) tipRender(); return UI.input;
       case 'resumeSaved': resumeSaved(); return S.scene;
       case 'audio': audioInit(); sfx(a[0] || 'click'); return { ctx: !!AU.ctx, state: AU.ctx ? AU.ctx.state : null, gain: AU.master ? AU.master.gain.value : null };
       case 'audioState': {
