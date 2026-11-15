@@ -42,3 +42,24 @@ test('a tab that rereads does not add the same score twice, and the list stays a
   for (let i = 1; i <= 12; i++) { a.value.stats.recent.daily = [...a.value.stats.recent.daily, i * 10].slice(-10); a.persist(); a.persist(); }
   assert.deepEqual(r.saved.stats.recent.daily, [30, 40, 50, 60, 70, 80, 90, 100, 110, 120]);
 });
+
+// Wave 3 (S3-04): a best per difficulty beside the old Standard slots.
+test('an older save without difficulty bests loads with them at zero and the old bests untouched', () => {
+  const old = copy(defaultSave()); old.best = { classic: 1234, springs: 55, daily: { '2026-11-01': 300 } }; delete old.settings.difficulty;
+  const store = rig(old).tab(); store.load();
+  assert.equal(store.value.best.classic, 1234); assert.equal(store.value.best.springs, 55);
+  assert.deepEqual(store.value.best.diff, { relaxed: { classic: 0, springs: 0 }, master: { classic: 0, springs: 0 } });
+  assert.equal(store.value.settings.difficulty, 'standard');
+});
+test('damaged difficulty bests fall back to zero one by one', () => {
+  const bad = copy(defaultSave());
+  bad.best.diff = { relaxed: { classic: 'x', springs: 90 }, master: 'no', extra: { classic: 5 } };
+  const store = rig(bad).tab(); store.load();
+  assert.deepEqual(store.value.best.diff, { relaxed: { classic: 0, springs: 90 }, master: { classic: 0, springs: 0 } });
+});
+test('two tabs each setting a Master best keep the higher, and a lower score never lowers it', () => {
+  const r = rig(), a = r.tab(), b = r.tab(); a.load(); b.load();
+  a.value.best.diff.master.classic = 500; a.persist();
+  b.value.best.diff.master.classic = 300; b.value.best.diff.relaxed.springs = 80; b.persist();
+  assert.equal(r.saved.best.diff.master.classic, 500); assert.equal(r.saved.best.diff.relaxed.springs, 80);
+});

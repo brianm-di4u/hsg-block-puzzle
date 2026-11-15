@@ -1,4 +1,8 @@
 // Council wave 3, batch A: saves, lifecycle and robustness (S1-03, S3-07, S5-07, S5-09, S6-03, S6-07, S6-16, S6-17, S3-04).
+import { loadRules } from '../tools/rules-node.mjs';
+import { measure } from '../tools/difficulty-sim.mjs';
+
+const R = loadRules();
 const KEY = 'hs-thermal-blocks-v1';
 
 const empty = () => new Array(81).fill(0);
@@ -452,6 +456,162 @@ export const tests = [
       await t.game('act', 'undo');
       t.equal(await t.page.textContent('#h-undo'), '0', 'none left after three');
       t.expect(await t.page.isDisabled('#b-undo'), 'and the button is disabled');
+    },
+  },
+
+  // ------------------------------------------------------------------ S3-04 difficulty
+  {
+    name: 'S3-04 Standard deals exactly what the game dealt before the option existed',
+    node: true,
+    async run(t) {
+      const seq = (mode, score, diff) => {
+        const g = R.freshGame(mode); g.mode = mode; g.score = score; g.rng = 4242;
+        if (diff) g.diff = diff;
+        const out = []; for (let i = 0; i < 24; i++) out.push(R.pickPiece(g)); return out.join(',');
+      };
+      // the first eight pieces of each deal, recorded from the wave-2 rules (before difficulty) with the same seed
+      t.equal(seq('classic', 2500, 'standard').split(',').slice(0, 8).join(','), 't4a,c3d,o9,j4b,i5h,c3d,c3c,o4', 'Classic at 2,500: Standard is the deal recorded before the option');
+      t.equal(seq('springs', 0, 'standard').split(',').slice(0, 8).join(','), 'o4,i3v,v5d,i4v,j4b,c3a,i3v,c3c', 'Springs: Standard is the deal recorded before the option');
+      for (const score of [0, 9000]) t.equal(seq('classic', score, 'standard'), seq('classic', score), 'Classic at ' + score + ': Standard equals no setting');
+      for (const mode of ['daily', 'trail']) for (const diff of ['relaxed', 'master']) t.equal(seq(mode, 5000, diff), seq(mode, 5000), mode + ' ignores ' + diff);
+    },
+  },
+  {
+    name: 'S3-04 Relaxed deals fewer big pieces and more helpers than Standard, and Master the reverse, in every era',
+    node: true,
+    async run(t) {
+      const HARD = ['x5', 'u5a', 'u5b', 'v5a', 'v5b', 'v5c', 'v5d', 'o9', 'r6h', 'r6v', 'i5h', 'i5v'], EASY = ['o1', 'i2h', 'i2v'];
+      const share = (mode, score, diff, ids) => { const g = R.freshGame(mode); g.mode = mode; g.score = score; g.diff = diff; g.rng = 99; let k = 0; for (let i = 0; i < 6000; i++) if (ids.includes(R.pickPiece(g))) k++; return k / 6000; };
+      // 6000 draws with a fixed seed: the same answer every run, and neighbouring shares differ by far more than the draw noise (a hard-piece gap of 3 points is about 10 standard errors; a helper ratio of 1.3 on a share of 0.006 is about 5)
+      for (const [mode, scores] of [['classic', R.ERAS.map(e => e.at)], ['springs', [0]]]) for (const score of scores) {
+        const h = ['relaxed', 'standard', 'master'].map(d => share(mode, score, d, HARD)), e = ['relaxed', 'standard', 'master'].map(d => share(mode, score, d, EASY));
+        t.log(mode + ' ' + score + ': hard ' + h.map(v => v.toFixed(3)).join(' / ') + '; easy ' + e.map(v => v.toFixed(3)).join(' / '));
+        t.expect(h[0] + 0.03 < h[1] && h[1] + 0.03 < h[2], mode + ' ' + score + ': big pieces get likelier relaxed -> standard -> master');
+        t.expect(e[0] > e[1] * 1.3 && e[1] > e[2] * 1.3, mode + ' ' + score + ': helpers get rarer relaxed -> standard -> master');
+      }
+    },
+  },
+  {
+    name: 'S3-04 the mercy deal is strongest at Relaxed and thinnest at Master',
+    node: true,
+    async run(t) {
+      const rescued = (diff, score) => {
+        let saved = 0;
+        for (let seed = 1; seed <= 400; seed++) {
+          const g = R.freshGame('classic'); g.rng = seed; g.score = score; g.diff = diff;
+          g.board = new Array(81).fill(1); g.board[40] = 0;   // only o1 fits
+          R.dealTray(g);
+          if (g.tray.some(x => R.fitsAnywhere(g.board, x.id))) saved++;
+        }
+        return saved;
+      };
+      for (const score of [0, 8000]) {
+        const [a, b, c] = ['relaxed', 'standard', 'master'].map(d => rescued(d, score));
+        t.log('rescued of 400 at ' + score + ': relaxed ' + a + ', standard ' + b + ', master ' + c);
+        t.expect(a >= b && b >= c, 'at ' + score + ' rescues go relaxed >= standard >= master');
+      }
+      t.expect(rescued('relaxed', 8000) > rescued('standard', 8000) * 3, 'in the last era Relaxed still rescues several times what Standard does');
+      t.expect(rescued('master', 8000) < rescued('standard', 0), 'and Master rescues less late than Standard does early');
+    },
+  },
+  {
+    name: 'S3-04 a greedy bot lasts longest at Relaxed and least at Master, and wins Springs more often',
+    node: true,
+    async run(t) {
+      const rows = measure(['relaxed', 'standard', 'master'], 20);
+      const get = (mode, diff) => rows.find(r => r.mode === mode && r.diff === diff);
+      for (const r of rows) t.log(r.mode + ' ' + r.diff + ': moves p10/p50/p90 ' + r.moves.join('/') + ', score ' + r.score.join('/') + (r.won === null ? '' : ', won ' + r.won + '/' + r.games));
+      const m = d => get('classic', d).moves[1];
+      t.expect(m('relaxed') > m('standard') * 1.3 && m('standard') > m('master') * 1.15, 'Classic median game length: ' + m('relaxed') + ' > ' + m('standard') + ' > ' + m('master'));
+      const w = d => get('springs', d).won;
+      t.expect(w('relaxed') >= w('standard') && w('standard') > w('master'), 'Springs wins out of 20: ' + w('relaxed') + ', ' + w('standard') + ', ' + w('master'));
+    },
+  },
+  {
+    name: 'S3-04 Difficulty is in Settings; a new Classic or Springs game takes it, Daily Soak and Spring Trail do not',
+    async run(t) {
+      await t.game('scene', 'settings');
+      t.equal(await t.page.inputValue('#s-difficulty'), 'standard', 'Standard by default');
+      await t.page.selectOption('#s-difficulty', 'master');
+      t.equal((await readSave(t)).settings.difficulty, 'master', 'saved');
+      await t.shot('S3-04-settings');
+      await t.checkLayout({ allowScrollY: true });
+      await t.reload();
+      await t.game('scene', 'settings');
+      t.equal(await t.page.inputValue('#s-difficulty'), 'master', 'kept after a reload');
+      await t.game('newGame', { mode: 'classic' });
+      let s = await t.state();
+      t.equal(s.diff, 'master', 'a new Classic game is Master');
+      t.expect(/Classic · Master/.test(await t.page.textContent('#h-mode')) || t.viewport === 'mobile', 'the header says so');
+      await t.game('newGame', { mode: 'springs' });
+      t.equal((await t.state()).diff, 'master', 'Springs too');
+      await t.game('newGame', { mode: 'daily' });
+      t.equal((await t.state()).diff, 'standard', 'Daily Soak is the same for everyone');
+      await t.game('newGame', { mode: 'trail', level: 'display-spring' });
+      t.equal((await t.state()).diff, 'standard', 'and so is Spring Trail');
+      await t.game('act', 'setting', 'difficulty', 'relaxed');
+      await t.game('newGame', { mode: 'classic' });
+      t.equal((await t.state()).diff, 'relaxed', 'changing it changes the next game');
+      await t.game('act', 'setting', 'difficulty', 'banana');   // a damaged save: fall back to Standard
+      await t.game('newGame', { mode: 'classic' });
+      t.equal((await t.state()).diff, 'standard', 'an unknown value deals Standard');
+    },
+  },
+  {
+    name: 'S3-04 each difficulty keeps its own best; Standard keeps the old save slots',
+    async run(t) {
+      const lose = async (diff, score) => {
+        await t.game('act', 'setting', 'difficulty', diff);
+        await t.game('newGame', { mode: 'classic' });
+        await t.game('act', 'setting', 'tipsSeen', true);
+        await t.game('setState', { score, board: new Array(81).fill(1) });
+        await t.page.waitForFunction(() => window.__game.getState().scene === 'over', null, { timeout: 5000 });
+      };
+      await lose('standard', 300);
+      await lose('master', 900);
+      await lose('relaxed', 150);
+      const save = await readSave(t);
+      t.equal(save.best.classic, 300, 'Standard best is in the old slot');
+      t.equal(save.best.diff.master.classic, 900, 'Master best is its own');
+      t.equal(save.best.diff.relaxed.classic, 150, 'Relaxed best is its own');
+      await lose('master', 400);   // below the Master best: no new best, and the best shown is the Master one
+      t.equal((await t.page.textContent('#ov-new')).trim(), 'Best: 900', 'the game-over card compares with the Master best');
+      t.equal((await readSave(t)).best.diff.master.classic, 900, 'a lower score changes nothing');
+      await lose('relaxed', 700);
+      t.equal((await t.page.textContent('#ov-new')).trim(), 'New best!', 'but a Relaxed 700 beats the Relaxed 150');
+      await t.game('scene', 'records');
+      const rec = await t.page.textContent('#rec-stats');
+      t.expect(/Classic best\s*300/.test(rec) && /Classic best, Master\s*900/.test(rec) && /Classic best, Relaxed\s*700/.test(rec), 'Records lists all three (' + rec.replace(/\s+/g, ' ').slice(0, 160) + ')');
+      await t.shot('S3-04-records');
+    },
+  },
+  {
+    name: 'S3-04 a saved run keeps its difficulty, and the Continue button names it',
+    async run(t) {
+      await t.game('act', 'setting', 'difficulty', 'master');
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('setState', { board: new Array(81).fill(0), ...setTray(['o1', 'o1', 'o1']) });
+      await t.game('act', 'place', 0, 4, 4);
+      await t.game('act', 'setting', 'difficulty', 'relaxed');
+      await t.reload();
+      const label = (await t.page.textContent('#b-continue')).replace(/\s+/g, ' ').trim();
+      t.expect(/^Continue Classic · Master · \d+$/.test(label), 'Continue says Master (' + label + ')');
+      await t.page.click('#b-continue');
+      t.equal((await t.state()).diff, 'master', 'the run is still Master although the setting is Relaxed');
+    },
+  },
+  {
+    name: 'S3-04 a save from before difficulty loads as Standard with every best intact',
+    async run(t) {
+      await storeAndReload(t, { v: 1, settings: { sound: true, volume: 0.7, undo: 3 }, best: { classic: 1234, springs: 55, daily: { '2026-11-01': 300 } }, trail: { done: ['display-spring'], stars: {} }, stats: { games: 20, lines: 100, bestHeat: 9, springs: 12 }, resume: null });
+      const s = await t.game('act', 'save');
+      t.equal(s.settings.difficulty, 'standard', 'Standard');
+      t.equal(s.best.classic, 1234, 'Classic best kept'); t.equal(s.best.springs, 55, 'Springs best kept'); t.equal(s.settings.undo, 3, 'undos kept');
+      t.equal(JSON.stringify(s.best.diff), '{"relaxed":{"classic":0,"springs":0},"master":{"classic":0,"springs":0}}', 'the other difficulties start empty');
+      await t.game('newGame', { mode: 'classic' });
+      t.equal((await t.state()).diff, 'standard', 'a new game is Standard');
+      t.equal((await t.state()).best, 1234, 'and shows the old best');
     },
   },
 ];

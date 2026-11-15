@@ -332,6 +332,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
       <li><b>Classic</b>: endless. Score carries you through the town's seven eras.</li>
       <li><b>Daily Soak</b>: everyone gets the same tufa stones and the same pieces today.</li>
       <li><b>Springs</b>: vents sit on the floor. Clear a vent's row, column or pool to tap it (+40 × the heat multiplier). Tap 47 to win. Hot Springs is usually said to have 47 springs; one source says 43 still flow, and NPS says "about four dozen".</li>
+      <li><b>Difficulty</b> (Settings): Relaxed serves more small pieces and keeps the rescue deal strong; Master serves more big ones and thins it. It applies to Classic and Springs, each difficulty keeps its own best, and Daily Soak and Spring Trail are the same for everyone.</li>
       <li><b>Spring Trail</b>: hand-made puzzles with a goal and a fixed set of pieces. Undo is unlimited there, but each puzzle earns up to three stars: fewer undos, more stars.</li>
     </ul>
     <h3>Controls</h3>
@@ -360,6 +361,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
     <label class="set"><span>Ambience volume</span><input type="range" id="s-ambvol" min="0" max="100" step="5" aria-label="Ambience volume"></label>
     <label class="set"><span>Motion</span><select id="s-motion"><option value="system">Follow system</option><option value="full">Full</option><option value="reduced">Reduced</option></select></label>
     <label class="set"><span>Tile patterns (colorblind aid)</span><input type="checkbox" id="s-patterns"></label>
+    <label class="set"><span>Difficulty (Classic, Springs)</span><select id="s-difficulty"><option value="relaxed">Relaxed</option><option value="standard">Standard</option><option value="master">Master</option></select></label>
     <label class="set"><span>Undos per round</span><select id="s-undo"><option value="0">0</option><option value="1">1</option><option value="3">3</option></select></label>
     <label class="set"><span>Tap to place (touch)</span><input type="checkbox" id="s-tapplace"></label>
     <label class="set" id="row-haptics"><span>Vibration (touch)</span><input type="checkbox" id="s-haptics"></label>
@@ -572,12 +574,25 @@ const HARD_PIECES = ['x5', 'u5a', 'u5b', 'v5a', 'v5b', 'v5c', 'v5d', 'o9', 'r6h'
 const ERA_EASY_MULT = [1, 1, 0.7, 0.5, 0.33, 0.22, 0.12];   // was 1 in every era
 const ERA_HARD_MULT = [1, 1, 1.5, 2.5, 3.5, 4.8, 6];        // was 1 in every era
 const MERCY_TRIES = [12, 12, 12, 12, 5, 3, 1];            // by era; was 12 in every era
-const ERA_WEIGHTS = ERA_EASY_MULT.map((easy, e) => {
-  const w = PIECE_DEFS.map(d => d[1] * (EASY_PIECES.includes(d[0]) ? easy : HARD_PIECES.includes(d[0]) ? ERA_HARD_MULT[e] : 1));
+// Difficulty (S3-04), Classic and Springs only: Daily Soak and Spring Trail are the same for everyone. Standard is exactly
+// the numbers above. Relaxed serves more small helpers and fewer big pieces and keeps the mercy deal at full strength all
+// game; Master the reverse, with a thin mercy deal. To retune, edit these three lines; to remove the options, set all to 1 / 12.
+const DIFFICULTIES = ['relaxed', 'standard', 'master'];
+const DIFF_EASY = { relaxed: 1.6, standard: 1, master: 0.6 };      // scales the small helper pieces' weight
+const DIFF_HARD = { relaxed: 0.5, standard: 1, master: 1.5 };      // scales the big and awkward pieces' weight
+const DIFF_MERCY = { relaxed: [12, 12, 12, 12, 12, 12, 12], master: [4, 4, 4, 3, 2, 1, 1] };   // mercy tries by era; standard uses MERCY_TRIES
+function diffOf(g) { return (g.mode === 'classic' || g.mode === 'springs') && DIFFICULTIES.includes(g.diff) ? g.diff : 'standard'; }
+function weightsFor(easy, hard) {
+  const w = PIECE_DEFS.map(d => d[1] * (EASY_PIECES.includes(d[0]) ? easy : HARD_PIECES.includes(d[0]) ? hard : 1));
   return { w, sum: w.reduce((a, v) => a + v, 0) };
-});
+}
+const ERA_WEIGHTS = ERA_EASY_MULT.map((easy, e) => weightsFor(easy, ERA_HARD_MULT[e]));
+const DIFF_ERA_WEIGHTS = Object.fromEntries(DIFFICULTIES.map(d => [d, ERA_EASY_MULT.map((easy, e) => weightsFor(easy * DIFF_EASY[d], ERA_HARD_MULT[e] * DIFF_HARD[d]))]));
+const DIFF_PLAIN_WEIGHTS = Object.fromEntries(DIFFICULTIES.map(d => [d, weightsFor(DIFF_EASY[d], DIFF_HARD[d])]));
 function pickPiece(g) {
-  const t = g.mode === 'classic' ? ERA_WEIGHTS[eraFor(g.score)] : { w: PIECE_DEFS.map(d => d[1]), sum: WEIGHT_SUM };
+  const d = diffOf(g);
+  let t = g.mode === 'classic' ? ERA_WEIGHTS[eraFor(g.score)] : { w: PIECE_DEFS.map(d => d[1]), sum: WEIGHT_SUM };
+  if (d !== 'standard') t = g.mode === 'classic' ? DIFF_ERA_WEIGHTS[d][eraFor(g.score)] : DIFF_PLAIN_WEIGHTS[d];
   let x = rand(g) * t.sum;
   for (let i = 0; i < PIECE_DEFS.length; i++) { x -= t.w[i]; if (x < 0) return PIECE_DEFS[i][0]; }
   return PIECE_DEFS[PIECE_DEFS.length - 1][0];
@@ -596,7 +611,7 @@ function dealTray(g) {
       // mercy deal: redraw the biggest piece until something fits (max 12 tries)
       let slot = 0;
       g.tray.forEach((t, i) => { if (PIECES[t.id].n > PIECES[g.tray[slot].id].n) slot = i; });
-      const tries = g.mode === 'classic' ? MERCY_TRIES[eraFor(g.score)] : 12;
+      const d = diffOf(g), tries = d !== 'standard' ? (g.mode === 'classic' ? DIFF_MERCY[d][eraFor(g.score)] : DIFF_MERCY[d][0]) : g.mode === 'classic' ? MERCY_TRIES[eraFor(g.score)] : 12;
       for (let k = 0; k < tries; k++) {
         g.tray[slot] = { id: pickPiece(g) };
         if (fitsAnywhere(g.board, g.tray[slot].id)) break;
@@ -679,7 +694,7 @@ function applyMove(g, slot, r, c) {
 function freshGame(mode) {
   return { v: 1, mode, board: new Array(81).fill(0), tray: [null, null, null], queue: [], score: 0, heat: 0, bestHeat: 0,
     groups: 0, placed: 0, round: 0, undoLeft: 1, undosUsed: 0, undoStack: [], era: 0, springs: 0, level: null, goal: null,
-    daily: null, over: false, won: false, rng: 1 };
+    daily: null, over: false, won: false, rng: 1, diff: 'standard' };
 }
 function setupGame(g, opts) {
   if (g.mode === 'trail') {
@@ -763,8 +778,8 @@ const W8 = { pool:'#1F5F6B', pool2:'#25697A'/*d*/, surface:'#174A54', algae:'#2A
 // ===================================================================== STATE + SAVE
 const STORE_KEY = 'hs-thermal-blocks-v1';
 function defaultSave() {
-  return { v: 1, settings: { sound: true, volume: 0.7, sfx: true, music: true, musicVol: 0.5, ambience: true, ambVol: 0.5, motion: 'system', patterns: true, undo: 1, bigText: false, theme: 'system', effects: 'full', tapPlace: false, tipsSeen: false, haptics: true },
-    best: { classic: 0, springs: 0, daily: {} }, trail: { done: [], stars: {} }, stats: { games: 0, lines: 0, bestHeat: 0, springs: 0, bestCombo: 0, longest: 0, recent: { classic: [], springs: [], daily: [] } },
+  return { v: 1, settings: { sound: true, volume: 0.7, sfx: true, music: true, musicVol: 0.5, ambience: true, ambVol: 0.5, motion: 'system', patterns: true, undo: 1, bigText: false, theme: 'system', effects: 'full', tapPlace: false, tipsSeen: false, haptics: true, difficulty: 'standard' },
+    best: { classic: 0, springs: 0, daily: {}, diff: { relaxed: { classic: 0, springs: 0 }, master: { classic: 0, springs: 0 } } }, trail: { done: [], stars: {} }, stats: { games: 0, lines: 0, bestHeat: 0, springs: 0, bestCombo: 0, longest: 0, recent: { classic: [], springs: [], daily: [] } },
     daily: { longest: 0, played: [] }, ach: {}, goals: { boiled: 0 }, resume: null };
 }
 // SAVE MERGE CORE (portable regression extracts this same function)
@@ -786,6 +801,11 @@ function createSaveStore(storage, defaults, revision) {
     }
     for (const key of ['classic', 'springs']) if (!number(out.best[key])) out.best[key] = 0;
     out.best.daily = Object.fromEntries(Object.entries(object(out.best.daily) ? out.best.daily : {}).filter(([, value]) => number(value)));
+    // Classic and Springs bests at the other difficulties (Standard keeps best.classic and best.springs, as before).
+    if (object(def.best.diff)) {
+      const d = object(out.best.diff) ? out.best.diff : {};
+      out.best.diff = Object.fromEntries(Object.keys(def.best.diff).map(name => [name, Object.fromEntries(['classic', 'springs'].map(mode => [mode, object(d[name]) && number(d[name][mode]) ? d[name][mode] : 0]))]));
+    }
     out.trail.done = [...new Set(Array.isArray(out.trail.done) ? out.trail.done.filter(value => typeof value === 'string') : [])];
     out.trail.stars = Object.fromEntries(Object.entries(object(out.trail.stars) ? out.trail.stars : {}).filter(([, value]) => Number.isInteger(value) && value >= 1 && value <= 3));
     for (const key of Object.keys(def.stats)) if (typeof def.stats[key] === 'number' && !number(out.stats[key])) out.stats[key] = def.stats[key];
@@ -849,6 +869,9 @@ function createSaveStore(storage, defaults, revision) {
     }
     for (const key of ['classic', 'springs']) {
       if (value.best[key] > base.best[key]) merged.best[key] = Math.max(merged.best[key], value.best[key]);
+    }
+    if (def.best.diff) for (const name of Object.keys(def.best.diff)) for (const mode of ['classic', 'springs']) {
+      if (value.best.diff[name][mode] > base.best.diff[name][mode]) merged.best.diff[name][mode] = Math.max(merged.best.diff[name][mode], value.best.diff[name][mode]);
     }
     for (const [key, n] of Object.entries(value.best.daily)) {
       if (number(n) && n > (base.best.daily[key] || 0)) put(merged.best.daily, key, Math.max(merged.best.daily[key] || 0, n));
@@ -964,10 +987,12 @@ function todayStr(d = new Date()) {
 }
 function dateSeed(s) { return parseInt(s.replace(/-/g, ''), 10) >>> 0; }
 function undoMax() { return S.mode === 'trail' ? Infinity : SAVE.settings.undo; }
+// Classic and Springs keep one best per difficulty: Standard in best.classic / best.springs (as before), the others in best.diff.
+function bestSlot(mode, diff) { return diff && diff !== 'standard' && SAVE.best.diff && SAVE.best.diff[diff] ? SAVE.best.diff[diff] : SAVE.best; }
 function bestFor(mode) {
   if (mode === 'daily') return SAVE.best.daily[S.daily] || 0;
   if (mode === 'trail') return 0;
-  return SAVE.best[mode] || 0;
+  return bestSlot(mode, S.diff)[mode] || 0;
 }
 function eraId() { return ERAS[S.era].id; }
 
@@ -2549,6 +2574,7 @@ function newGame(opts = {}) {
     else if (SEED_PENDING != null) g.rng = SEED_PENDING >>> 0;
     else g.rng = (Date.now() ^ Math.floor(Math.random() * 0xFFFFFFFF)) >>> 0;
     g.undoLeft = mode === 'trail' ? 999 : SAVE.settings.undo;
+    g.diff = (mode === 'classic' || mode === 'springs') && DIFFICULTIES.includes(SAVE.settings.difficulty) ? SAVE.settings.difficulty : 'standard';
     UI.trailWin = null;
     setupGame(g, opts);
   } else g.undoStack = [];
@@ -2566,8 +2592,10 @@ function newGame(opts = {}) {
   announce('New ' + modeLabel() + ' game. ' + trayDesc() + (UI.tip && UI.tip.cur ? ' Tip: ' + tipText(UI.tip.cur) : ''));
   return S;
 }
+// "· Relaxed" or "· Master" after the mode name; Standard says nothing, as before.
+function diffSuffix(g) { return (g.mode === 'classic' || g.mode === 'springs') && g.diff && g.diff !== 'standard' && DIFFICULTIES.includes(g.diff) ? ' · ' + g.diff[0].toUpperCase() + g.diff.slice(1) : ''; }
 function modeLabel() {
-  return { classic: 'Classic', daily: 'Daily Soak', springs: 'Springs', trail: 'Spring Trail' }[S.mode] || S.mode;
+  return ({ classic: 'Classic', daily: 'Daily Soak', springs: 'Springs', trail: 'Spring Trail' }[S.mode] || S.mode) + diffSuffix(S);
 }
 function trayDesc() {
   return 'Tray: ' + S.tray.map((t, k) => (t ? (k + 1) + ' ' + PIECES[t.id].n + '-tile piece' + (fitsAnywhere(S.board, t.id) ? '' : ' (no room)') : (k + 1) + ' empty')).join(', ') + '.';
@@ -2804,7 +2832,8 @@ function endGame() {
   if (st.recent[S.mode]) st.recent[S.mode] = [...st.recent[S.mode], S.score].slice(-10);
   UI.newBest = false;
   if (S.mode === 'classic' || S.mode === 'springs') {
-    if (S.score > (SAVE.best[S.mode] || 0)) { SAVE.best[S.mode] = S.score; UI.newBest = true; }
+    const slot = bestSlot(S.mode, S.diff);
+    if (S.score > (slot[S.mode] || 0)) { slot[S.mode] = S.score; UI.newBest = true; }
     SAVE.resume = null;
   } else if (S.mode === 'daily') {
     if (S.score > (SAVE.best.daily[S.daily] || 0)) { SAVE.best.daily[S.daily] = S.score; UI.newBest = true; }
@@ -2935,7 +2964,7 @@ let tickerI = 0;
 function fillTitle() {
   const r = SAVE.resume;
   $('b-continue').style.display = r && !r.over ? '' : 'none';
-  if (r && !r.over) $('b-continue').textContent = 'Continue ' + ({ classic: 'Classic', springs: 'Springs' }[r.mode] || '') + ' · ' + r.score.toLocaleString('en-US');
+  if (r && !r.over) $('b-continue').textContent = 'Continue ' + ({ classic: 'Classic', springs: 'Springs' }[r.mode] || '') + diffSuffix(r) + ' · ' + r.score.toLocaleString('en-US');
   const d = SAVE.best.daily[todayStr()];
   const run = dailyStreak(), streak = run ? run + '-day streak · ' : '';
   $('daily-sub').textContent = savedRun('daily', todayStr()) ? 'Run in progress · tap to continue' : d ? streak + 'Today’s best: ' + d.toLocaleString('en-US') : run ? streak + 'play today to keep it' : 'Same board for everyone today.';
@@ -2988,6 +3017,7 @@ function fillRecords() {
   const rows = [['Classic best', SAVE.best.classic.toLocaleString('en-US')], ['Springs best', SAVE.best.springs.toLocaleString('en-US')],
     ['Today’s Daily Soak', (SAVE.best.daily[todayStr()] || 0).toLocaleString('en-US')], ['Spring Trail', SAVE.trail.done.length + ' / ' + LEVELS.length], ['Trail stars', trailStarTotal() + ' / ' + LEVELS.length * 3],
     ['Best Daily Soak', Math.max(0, ...Object.values(SAVE.best.daily)).toLocaleString('en-US')], ['Daily Soaks played', dailyDays().size],
+    ...diffBestRows(),
     ['Games played', st.games], ['Longest game (pieces placed)', st.longest], ['Biggest clear (groups at once)', st.bestCombo], ['Groups cleared (lifetime)', st.lines.toLocaleString('en-US')], ['Hottest water', st.bestHeat >= 12 ? '143°F' : tempF(st.bestHeat) + '°F'],
     ['Springs tapped (lifetime)', st.springs], ['Games that reached Boiling', SAVE.goals.boiled]];
   for (const [k, v] of rows) { const dt = document.createElement('dt'); dt.textContent = k; const dd = document.createElement('dd'); dd.textContent = v; dl.append(dt, dd); }
@@ -2998,6 +3028,15 @@ function fillRecords() {
     : 'Water’s age: ' + yrs.toLocaleString('en-US') + ' of 4,400 years underground (each group you clear counts 10 years). USGS dating puts most Hot Springs water at about 4,400 years old.';
 }
 // The last ten scores per mode, newest first, with their average, so a player can see whether they are improving.
+// Bests at Relaxed and Master, listed once there is one.
+function diffBestRows() {
+  const rows = [];
+  for (const d of ['relaxed', 'master']) for (const [mode, name] of [['classic', 'Classic'], ['springs', 'Springs']]) {
+    const v = SAVE.best.diff && SAVE.best.diff[d] ? SAVE.best.diff[d][mode] : 0;
+    if (v > 0) rows.push([name + ' best, ' + d[0].toUpperCase() + d.slice(1), v.toLocaleString('en-US')]);
+  }
+  return rows;
+}
 function fillRecent() {
   const box = $('rec-recent'); box.innerHTML = '';
   for (const [mode, name] of [['classic', 'Classic'], ['springs', 'Springs'], ['daily', 'Daily Soak']]) {
@@ -3041,7 +3080,7 @@ function fillSettings() {
   for (const id of ['b-tips', 'b-tips-help']) $(id).textContent = 'Show tips again';
   const s = SAVE.settings;
   $('s-sound').checked = s.sound; $('s-volume').value = Math.round(s.volume * 100); $('s-motion').value = s.motion;
-  $('s-patterns').checked = s.patterns; $('s-undo').value = String(s.undo); $('s-big').checked = s.bigText; $('s-theme').value = s.theme; $('s-effects').value = s.effects;
+  $('s-patterns').checked = s.patterns; $('s-undo').value = String(s.undo); $('s-difficulty').value = DIFFICULTIES.includes(s.difficulty) ? s.difficulty : 'standard'; $('s-big').checked = s.bigText; $('s-theme').value = s.theme; $('s-effects').value = s.effects;
   $('s-tapplace').checked = s.tapPlace; $('s-haptics').checked = s.haptics; $('row-haptics').style.display = canVibrate() ? '' : 'none';
   $('s-sfx').checked = s.sfx; $('s-music').checked = s.music; $('s-musicvol').value = Math.round(s.musicVol * 100);
   $('s-ambience').checked = s.ambience; $('s-ambvol').value = Math.round(s.ambVol * 100);
@@ -3094,6 +3133,7 @@ function wireDom() {
   $('s-motion').addEventListener('change', e => setSetting('motion', e.target.value));
   $('s-patterns').addEventListener('change', e => setSetting('patterns', e.target.checked));
   $('s-undo').addEventListener('change', e => setSetting('undo', +e.target.value));
+  $('s-difficulty').addEventListener('change', e => setSetting('difficulty', e.target.value));
   $('s-tapplace').addEventListener('change', e => setSetting('tapPlace', e.target.checked));
   $('s-haptics').addEventListener('change', e => { setSetting('haptics', e.target.checked); buzz(10); });
   $('s-big').addEventListener('change', e => setSetting('bigText', e.target.checked));

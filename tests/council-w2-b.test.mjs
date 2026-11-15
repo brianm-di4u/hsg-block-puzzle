@@ -252,7 +252,8 @@ tests.push(
       const after = await readSave(t);
       t.equal(after.trail.done, RING1, 'still twelve solved');
       t.equal(after.trail.stars['display-spring'], 3, 'stars arrive on the next win');
-      t.equal(after.best, before.best, 'bests untouched');
+      // wave 3 adds best.diff (zeros) to a loaded save; the three bests that existed must be untouched
+      t.equal({ classic: after.best.classic, springs: after.best.springs, daily: after.best.daily }, { classic: before.best.classic, springs: before.best.springs, daily: before.best.daily }, 'bests untouched');
       t.equal(after.stats.games, before.stats.games + 1, 'only the games counter moved');
     },
   },
