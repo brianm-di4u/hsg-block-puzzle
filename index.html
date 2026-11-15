@@ -265,6 +265,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
     <div class="ov-hero" id="ov-hero" aria-hidden="true"></div>
     <h2 id="ov-title">No room left</h2>
     <p class="muted" id="ov-sub" style="margin:0"></p>
+    <p class="muted" id="ov-era" style="margin:6px 0 0"></p>
     <div class="big-score"><span id="ov-count" aria-hidden="true">0</span><span class="sr" id="ov-score">0</span></div>
     <div class="newbest" id="ov-new"></div>
     <p class="muted" id="ov-tip" style="margin:8px 0 0"></p>
@@ -2908,8 +2909,10 @@ function endGame() {
     if (S.score > (SAVE.best.daily[S.daily] || 0)) { SAVE.best.daily[S.daily] = S.score; UI.newBest = true; }
   } else if (S.mode === 'trail' && S.won) {
     const stars = trailStars(S.undosUsed || 0), prev = SAVE.trail.stars[S.level] || 0;
+    const titled = !!trailTitle(), finished = trailAllDone();
     UI.trailWin = { stars, prev, undos: S.undosUsed || 0, first: !SAVE.trail.done.includes(S.level) };
     if (UI.trailWin.first) SAVE.trail.done.push(S.level);
+    UI.trailWin.crown = !finished && trailAllDone() ? 'all' : !titled && trailTitle() ? 'title' : '';   // the solve that finishes the first ring, or the whole Trail (S4-04)
     if (stars > prev) SAVE.trail.stars[S.level] = stars;
   }
   goalsOnEnd(fresh);
@@ -2918,8 +2921,22 @@ function endGame() {
   persist(S.mode === 'classic' || S.mode === 'springs' ? 'clear' : 'none');
   UI.overAt = performance.now() + (reducedMotion() ? 350 : 1000);
   setTimeout(() => sfx(S.won ? 'win' : 'over'), 300);
+  if (S.won && S.mode === 'springs') winSteam();
   if (UI.newBest) setTimeout(() => { if (S.over) sfx('best'); }, 1500);
   if ((UI.trailWin && UI.trailWin.first && CARDS[S.level]) || UI.newCards.length) setTimeout(() => { if (S.over) sfx('card'); }, 1400);
+}
+// The Springs win (S4-04): steam rises across the whole floor for about three seconds and "Valley of Vapors" (the valley's old
+// nickname, from the first era's caption) hangs over the board before the card. Reduced motion gets the banner only, and shorter.
+function winSteam() {
+  const b = LAY.board, cell = b.cell, red = reducedMotion();
+  if (!red) {
+    const R = seeded(47), n = liteFx() ? 36 : 72;
+    for (let k = 0; k < n; k++) {
+      const c = k % 9, r = Math.floor(k / 9) % 9;
+      addFx({ type: 'steam', x: b.gx + (c + 0.2 + R() * 0.6) * cell, y: b.gy + (r + 0.2 + R() * 0.6) * cell, dur: 1100 + R() * 600, h: cell * (2 + R() * 2), ph: R() * 6, w: cell * (0.5 + R() * 0.3), delay: 250 + (k / n) * 1700 });
+    }
+  }
+  popup('Valley of Vapors', b.x + b.size / 2, b.y + b.size * 0.4, '#F7CF62', Math.round(cell * 0.8), { dur: red ? 900 : 2900, delay: red ? 0 : 200 });
 }
 function showEnd() {
   if (!S.over || !GAME_SCENES.has(S.scene)) return;
@@ -2932,6 +2949,8 @@ function fillOver() {
   $('ov-title').textContent = won ? 'All 47 springs flowing!' : outOf ? 'Out of pieces' : 'No room left';
   $('ov-sub').textContent = trail ? (LEVELS.find(l => l.id === S.level).name + ' · goal not reached. Undo a move or try again.')
     : modeLabel() + (S.mode === 'daily' ? ' · ' + S.daily : '') + (won ? ' · you tapped every spring' : ' · none of your pieces fits');
+  const era = ERAS[S.era];
+  $('ov-era').textContent = trail ? '' : won ? ERAS[0].cap : 'You reached ' + era.name + ' (' + era.years + '). ' + era.cap;
   $('b-ovundo').style.display = trail && undoAvail() ? '' : 'none';
   $('b-again').textContent = trail ? 'Try again' : 'Play again';
   $('ov-score').textContent = S.score.toLocaleString('en-US');
@@ -2986,13 +3005,14 @@ function cardEl(id, locked) {
 }
 function showWinTrail() {
   const idx = LEVELS.findIndex(l => l.id === S.level);
-  $('win-title').textContent = LEVELS[idx].name + ': solved';
   const w = UI.trailWin || { stars: trailStars(S.undosUsed || 0), prev: 0, undos: S.undosUsed || 0, first: false };
+  $('win-title').textContent = w.crown === 'all' ? 'Spring Trail complete' : w.crown === 'title' ? TRAIL_TITLE : LEVELS[idx].name + ': solved';
   const sb = $('win-stars'); sb.innerHTML = ''; sb.appendChild(starsEl(w.stars));
   const how = w.undos === 0 ? 'No undos used.' : w.undos + (w.undos === 1 ? ' undo' : ' undos') + ' used.';
   const next = w.stars < 3 ? ' Solve it again with ' + (w.stars === 2 ? 'no undos' : 'two undos or fewer') + ' for ' + (w.stars + 1) + ' stars.' : '';
   const best = w.stars > w.prev && w.prev > 0 ? ' New best: up from ' + w.prev + '.' : '';
-  $('win-sub').textContent = how + best + next + ' ' + SAVE.trail.done.length + ' of ' + LEVELS.length + ' solved, ' + trailStarTotal() + ' stars.';
+  const crown = w.crown === 'all' ? LEVELS[idx].name + ' was the last one: every puzzle is solved. ' : w.crown === 'title' ? LEVELS[idx].name + ' was the last on the Row: every first-ring puzzle is solved. ' : '';
+  $('win-sub').textContent = crown + how + best + next + ' ' + SAVE.trail.done.length + ' of ' + LEVELS.length + ' solved, ' + trailStarTotal() + ' stars.';
   announce(LEVELS[idx].name + ' solved with ' + w.stars + ' stars.');
   const box = $('win-card'); box.innerHTML = '';
   if (CARDS[S.level]) box.appendChild(cardEl(S.level, false)); else box.appendChild(factEl(LEVELS[idx]));
@@ -3052,7 +3072,7 @@ function fillTitle() {
   const d = SAVE.best.daily[todayStr()];
   const run = dailyStreak(), streak = run ? run + '-day streak · ' : '';
   $('daily-sub').textContent = savedRun('daily', todayStr()) ? 'Run in progress · tap to continue' : d ? streak + 'Today’s best: ' + d.toLocaleString('en-US') : run ? streak + 'play today to keep it' : 'Same board for everyone today.';
-  $('trail-sub').textContent = SAVE.trail.done.length + ' of ' + LEVELS.length + ' solved · ' + trailStarTotal() + ' stars.';
+  $('trail-sub').textContent = (trailTitle() ? trailTitle() + ' · ' : '') + SAVE.trail.done.length + ' of ' + LEVELS.length + ' solved · ' + trailStarTotal() + ' stars.';
   $('ticker').textContent = TICKER[tickerI % TICKER.length];
 }
 setInterval(() => { if (S.scene === 'title') { tickerI++; $('ticker').textContent = TICKER[tickerI % TICKER.length]; } }, 8000);
@@ -3089,6 +3109,10 @@ function fillTrail() {
     box.appendChild(b);
   });
 }
+// The first ring is Bathhouse Row's own puzzles; solving all of them earns the title (S4-04). Nothing is saved for it: it is read from the solved list.
+const TRAIL_TITLE = 'Row Walker';
+function trailTitle() { return LEVELS.every(l => l.ring || SAVE.trail.done.includes(l.id)) ? TRAIL_TITLE : ''; }
+function trailAllDone() { return LEVELS.every(l => SAVE.trail.done.includes(l.id)); }
 function goalLabel(g) { return g === 'stones' ? 'Clear the tufa' : g === 'vents' ? 'Tap the vents' : 'Clear ' + g.slice(6) + ' groups'; }
 function waterCardEl(c) {
   const open = waterCardOpen(c), el = document.createElement('article'); el.className = 'card' + (open ? '' : ' locked');
@@ -3110,7 +3134,7 @@ function fillCards() {
 function fillRecords() {
   const st = SAVE.stats, dl = $('rec-stats'); dl.innerHTML = '';
   const rows = [['Classic best', SAVE.best.classic.toLocaleString('en-US')], ['Springs best', SAVE.best.springs.toLocaleString('en-US')],
-    ['Today’s Daily Soak', (SAVE.best.daily[todayStr()] || 0).toLocaleString('en-US')], ['Spring Trail', SAVE.trail.done.length + ' / ' + LEVELS.length], ['Trail stars', trailStarTotal() + ' / ' + LEVELS.length * 3],
+    ['Today’s Daily Soak', (SAVE.best.daily[todayStr()] || 0).toLocaleString('en-US')], ['Spring Trail', SAVE.trail.done.length + ' / ' + LEVELS.length + (trailTitle() ? ' · ' + trailTitle() : '')], ['Trail stars', trailStarTotal() + ' / ' + LEVELS.length * 3],
     ['Best Daily Soak', Math.max(0, ...Object.values(SAVE.best.daily)).toLocaleString('en-US')], ['Daily Soaks played', dailyDays().size],
     ...diffBestRows(),
     ['Games played', st.games], ['Longest game (pieces placed)', st.longest], ['Biggest clear (groups at once)', st.bestCombo], ['Groups cleared (lifetime)', st.lines.toLocaleString('en-US')], ['Hottest water', st.bestHeat >= 12 ? '143°F' : tempF(st.bestHeat) + '°F'],
