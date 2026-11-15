@@ -297,6 +297,9 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
     <h2>Fact cards</h2>
     <p class="muted" style="margin-top:0" id="cards-sub"></p>
     <div class="cards" id="cards"></div>
+    <h3>Water cards</h3>
+    <p class="muted" style="margin-top:0" id="cards-water-sub"></p>
+    <div class="cards" id="cards-water"></div>
     <div class="row"><button data-back>Back</button></div>
   </div>
 </section>
@@ -777,6 +780,19 @@ const TICKER = [
   'Dunbar and Hunter counted four principal springs and two lesser ones in 1804.',
   'A prescribed bath "course" in 1920 was 21 baths (NPS 1920 brochure).',
 ];
+// Water cards (S3-15): collected by play in any mode, not only Spring Trail. Each shows one of the ticker's sourced lines above
+// (the source is in the line). `lines` is lifetime groups cleared (10 years of water's age each); `streak` is the longest run of Daily Soak days.
+const WATER_CARDS = [
+  { id: 'w250', lines: 25, title: 'Water’s age: 250 years', text: TICKER[7] },
+  { id: 'w500', lines: 50, title: 'Water’s age: 500 years', text: TICKER[6] },
+  { id: 'w1000', lines: 100, title: 'Water’s age: 1,000 years', text: TICKER[2] },
+  { id: 'w2000', lines: 200, title: 'Water’s age: 2,000 years', text: TICKER[3] },
+  { id: 'w3000', lines: 300, title: 'Water’s age: 3,000 years', text: TICKER[4] },
+  { id: 'w4400', lines: 440, title: 'Water’s age: 4,400 years', text: TICKER[1] },
+  { id: 'd3', streak: 3, title: 'Daily Soak: 3 days running', text: TICKER[10] },
+  { id: 'd7', streak: 7, title: 'Daily Soak: 7 days running', text: TICKER[8] },
+];
+const waterCardOpen = (c, lines = SAVE.stats.lines, streak = dailyLongest()) => c.lines ? lines >= c.lines : streak >= c.streak;
 const CARDS = {
   'display-spring': { place:'Display Spring', year:'uncovered 1930s', facts:[
     'Behind the Maurice Bathhouse, it was covered by a grate for decades before it was opened in the 1930s.',
@@ -2873,6 +2889,7 @@ function replayTips() {
   announce('Tips will show in your next game.');
 }
 function endGame() {
+  const linesBefore = SAVE.stats.lines, streakBefore = dailyLongest();
   if (S.mode === 'trail' || S.mode === 'daily') clearRun();
   if (S.mode !== 'trail' || S.won) S.undoStack = [];
   const st = SAVE.stats, fresh = !S.counted;   // a Trail loss that is undone and finished again is one game, not two (S6-05)
@@ -2896,11 +2913,13 @@ function endGame() {
     if (stars > prev) SAVE.trail.stars[S.level] = stars;
   }
   goalsOnEnd(fresh);
+  const streakNow = dailyLongest();
+  UI.newCards = WATER_CARDS.filter(c => !waterCardOpen(c, linesBefore, streakBefore) && waterCardOpen(c, st.lines, streakNow)).map(c => c.title);
   persist(S.mode === 'classic' || S.mode === 'springs' ? 'clear' : 'none');
   UI.overAt = performance.now() + (reducedMotion() ? 350 : 1000);
   setTimeout(() => sfx(S.won ? 'win' : 'over'), 300);
   if (UI.newBest) setTimeout(() => { if (S.over) sfx('best'); }, 1500);
-  if (UI.trailWin && UI.trailWin.first && CARDS[S.level]) setTimeout(() => { if (S.over) sfx('card'); }, 1400);
+  if ((UI.trailWin && UI.trailWin.first && CARDS[S.level]) || UI.newCards.length) setTimeout(() => { if (S.over) sfx('card'); }, 1400);
 }
 function showEnd() {
   if (!S.over || !GAME_SCENES.has(S.scene)) return;
@@ -2928,6 +2947,7 @@ function fillOver() {
   if (pp + pc + pb === S.score && S.score > 0) { rows.splice(1, 0, ['Points from clears', pc.toLocaleString('en-US')], ['Points from placing', pp.toLocaleString('en-US')]); if (pb) rows.splice(3, 0, ['Clear-spring bonus', pb.toLocaleString('en-US')]); }
   if (S.mode === 'daily') rows.push(['Daily streak', dailyStreak(S.daily) + (dailyStreak(S.daily) === 1 ? ' day' : ' days')]);
   if (UI.earned && UI.earned.length) rows.push(['Goals earned', UI.earned.join(', ')]);
+  if (UI.newCards && UI.newCards.length) rows.push(['Fact card collected', UI.newCards.join(', ')]);
   $('ov-tip').textContent = won || trail ? '' : overTip();
   const dl = $('ov-stats'); dl.innerHTML = '';
   for (const [k, v] of rows) { const dt = document.createElement('dt'); dt.textContent = k; const dd = document.createElement('dd'); dd.textContent = v; dl.append(dt, dd); }
@@ -3070,10 +3090,21 @@ function fillTrail() {
   });
 }
 function goalLabel(g) { return g === 'stones' ? 'Clear the tufa' : g === 'vents' ? 'Tap the vents' : 'Clear ' + g.slice(6) + ' groups'; }
+function waterCardEl(c) {
+  const open = waterCardOpen(c), el = document.createElement('article'); el.className = 'card' + (open ? '' : ' locked');
+  const h = document.createElement('h4'); h.textContent = c.title; el.appendChild(h);
+  const p = document.createElement('p'); p.style.margin = open ? '6px 0 0' : '0'; if (!open) p.className = 'muted';
+  p.textContent = open ? c.text : c.lines ? 'Clear ' + c.lines + ' groups in total, in any mode.' : 'Finish a Daily Soak ' + c.streak + ' days in a row.';
+  el.appendChild(p);
+  return el;
+}
 function fillCards() {
+  const wbox = $('cards-water'); wbox.innerHTML = '';
+  WATER_CARDS.forEach(c => wbox.appendChild(waterCardEl(c)));
+  $('cards-water-sub').textContent = WATER_CARDS.filter(c => waterCardOpen(c)).length + ' of ' + WATER_CARDS.length + ' collected. Clear groups in any mode and keep a Daily Soak streak going.';
   const box = $('cards'); box.innerHTML = '';
   const withCards = LEVELS.filter(l => CARDS[l.id]);
-  $('cards-sub').textContent = withCards.filter(l => SAVE.trail.done.includes(l.id)).length + ' of ' + withCards.length + ' collected. Solve Spring Trail puzzles to collect cards. Facts are from the Hot Springs research corpus; sources are listed on each card.';
+  $('cards-sub').textContent = withCards.filter(l => SAVE.trail.done.includes(l.id)).length + ' of ' + withCards.length + ' collected. Solve Spring Trail puzzles to collect cards. Facts are from the Hot Springs research corpus; sources are listed on each card. Water cards, earned in any mode, follow below.';
   withCards.forEach(L => box.appendChild(cardEl(L.id, !SAVE.trail.done.includes(L.id))));
 }
 function fillRecords() {

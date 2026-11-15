@@ -414,4 +414,53 @@ export const tests = [
     },
   },
 
+  // ------------------------------------------------------------------ S3-15 fact cards from every mode
+  {
+    name: 'S3-15 Water cards are collected by clearing groups and by Daily Soak streaks, in any mode',
+    async run(t) {
+      await t.game('scene', 'cards');
+      const open = () => t.page.evaluate(() => [...document.querySelectorAll('#cards-water .card')].map(c => !c.classList.contains('locked')));
+      t.equal(await open(), new Array(8).fill(false), 'a new player has none, and sees what each one needs');
+      t.expect((await t.page.textContent('#cards-water')).includes('Clear 25 groups in total, in any mode.'), 'the condition is in plain words');
+      const save = await t.game('act', 'save');
+      save.stats.lines = 120;
+      save.daily = { ...save.daily, longest: 3 };
+      await storeAndReload(t, save);
+      await t.game('scene', 'cards');
+      t.equal(await open(), [true, true, true, false, false, false, true, false], '120 groups and a 3-day streak open four cards');
+      t.expect((await t.page.textContent('#cards-water-sub')).startsWith('4 of 8 collected'), 'the count says so');
+      t.expect((await t.page.textContent('#cards-water')).includes('Tufa is the white-to-tan rock'), 'an open card shows its sourced line');
+      await t.page.evaluate(() => document.getElementById('cards-water').scrollIntoView({ block: 'start' }));
+      await t.waitFrames(2);
+      await t.shot('S3-15-cards');
+    },
+  },
+  {
+    name: 'S3-15 the game-over card announces a Water card the moment a game earns it',
+    async run(t) {
+      const save = await t.game('act', 'save');
+      save.stats.lines = 24;
+      await storeAndReload(t, save);
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      const board = empty(); for (let c = 1; c < 9; c++) board[c] = 1;
+      await t.game('setState', { board, ...setTray(['o1', 'o1', 'o1']) });
+      await t.game('act', 'clearCues');
+      await t.game('act', 'place', 0, 0, 0);
+      await t.game('setState', { board: new Array(81).fill(1), ...setTray(['o9', 'o9', null]) });
+      t.equal((await t.game('act', 'save')).stats.lines, 25, 'the game counted its group: 25 in all');
+      await t.game('scene', 'over');
+      await t.waitFrames(2);
+      const rows = await t.page.evaluate(() => [...document.querySelectorAll('#ov-stats dt')].map(d => [d.textContent, d.nextElementSibling.textContent]));
+      t.expect(rows.some(r => r[0] === 'Fact card collected' && r[1] === 'Water’s age: 250 years'), 'the card is announced: ' + JSON.stringify(rows));
+      await t.page.waitForFunction(() => window.__game.act('cues').includes('card'), null, { timeout: 5000 });
+      // a second game that earns nothing new says nothing
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('setState', { board: new Array(81).fill(1), ...setTray(['o9', 'o9', null]) });
+      await t.game('scene', 'over');
+      await t.waitFrames(2);
+      const rows2 = await t.page.evaluate(() => [...document.querySelectorAll('#ov-stats dt')].map(d => d.textContent));
+      t.expect(!rows2.includes('Fact card collected'), 'and a game that earns none does not repeat it');
+    },
+  },
 ];
