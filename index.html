@@ -1039,7 +1039,7 @@ function hiss(t, dur, vol, f1, f2, q = 1.2, type = 'bandpass') {
   s.connect(f); f.connect(g); g.connect(cueDest()); s.start(t, JIT.o); s.stop(t + dur + 0.05);
 }
 const PENTA = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24];
-const CUES = ['click', 'pick', 'place', 'invalid', 'deal', 'undo', 'clear', 'vent', 'era', 'over', 'win', 'bonus', 'ach'];
+const CUES = ['click', 'pick', 'place', 'invalid', 'deal', 'undo', 'clear', 'vent', 'era', 'over', 'win', 'bonus', 'ach', 'heat', 'warn', 'best', 'card', 'pause', 'resume'];
 const semi = (f, st) => f * Math.pow(2, st / 12);
 // o.n: tiles in the piece (place), o.k: tray slot (pick), o.G / o.heat: groups and water temperature (clear).
 function playCue(name, o, t) {
@@ -1081,6 +1081,21 @@ function playCue(name, o, t) {
       [0, 7, 12].forEach((st, k) => { const f = semi(660, st); tone(f, t + k * 0.1, 0.55, 'sine', 0.2); tone(f * 2.76, t + k * 0.1, 0.3, 'sine', 0.05); });
       hiss(t, 0.35, 0.05, 3200, 6500, 1.2); break;
     }
+    case 'heat': {     // the water climbs a tier: a rising filtered rush and a note that goes up with the tier
+      const f = semi(392, (o.tier || 2) * 2);
+      hiss(t, 0.5, 0.14, 500, 3200, 0.9); tone(f, t + 0.05, 0.5, 'sine', 0.26); tone(f * 1.5, t + 0.12, 0.4, 'sine', 0.12); break;
+    }
+    case 'warn': tone(147, t, 0.2, 'sine', 0.3, 118); tone(147, t + 0.24, 0.2, 'sine', 0.3, 118); tone(294, t, 0.08, 'sine', 0.05); tone(294, t + 0.24, 0.08, 'sine', 0.05); break;
+    case 'best': {     // a new best: a bright rising arpeggio that rings out
+      [0, 4, 7, 12, 16].forEach((st, k) => { const f = semi(523, st); tone(f, t + k * 0.08, 0.6, 'triangle', 0.2); tone(f * 2, t + k * 0.08, 0.3, 'sine', 0.06); });
+      hiss(t, 0.5, 0.05, 3000, 7000, 1.2); break;
+    }
+    case 'card': {     // a fact card collected: slow glass-bell notes, like a page being turned in an old bathhouse
+      [0, 5, 9, 14].forEach((st, k) => { const f = semi(587, st); tone(f, t + k * 0.13, 0.7, 'sine', 0.2); tone(f * 2.76, t + k * 0.13, 0.35, 'sine', 0.05); tone(f * 0.5, t + k * 0.13, 0.5, 'sine', 0.06); });
+      break;
+    }
+    case 'pause': tone(440, t, 0.22, 'sine', 0.3, 330); tone(220, t + 0.02, 0.2, 'sine', 0.1, 165); hiss(t, 0.18, 0.04, 1800, 600, 0.8); break;
+    case 'resume': tone(330, t, 0.22, 'sine', 0.3, 440); tone(165, t + 0.02, 0.2, 'sine', 0.1, 220); hiss(t, 0.18, 0.04, 600, 1800, 0.8); break;
     case 'bonus': [0, 5, 9, 12].forEach((st, k) => { tone(semi(523, st), t + k * 0.06, 0.4, 'triangle', 0.2); tone(semi(1046, st), t + k * 0.06, 0.2, 'sine', 0.05); }); break;
   }
 }
@@ -1096,7 +1111,10 @@ function hapticFor(name, o) {
   else if (name === 'clear') { const p = []; for (let k = 0; k < Math.min(4, o.G || 1); k++) p.push(18, 30); p.pop(); buzz(p); }
   else if (name === 'invalid') buzz([12, 40, 12]);
 }
+// The last cues asked for, whether or not they were heard (sound off, no context yet): for the test hook.
+const CUE_LOG = [];
 function sfx(name, o = {}) {
+  CUE_LOG.push(name); if (CUE_LOG.length > 60) CUE_LOG.shift();
   hapticFor(name, o);
   if (!AU.ctx || !SAVE.settings.sound || !SAVE.settings.sfx) return;
   try {
@@ -1105,7 +1123,7 @@ function sfx(name, o = {}) {
     if (AU.kit && !AU.kit.held) {
       if (name === 'clear') AU.kit.music.duck(3, 350);
       else if (name === 'era' || name === 'win' || name === 'over') AU.kit.music.duck(6, 500);
-      else if (name === 'ach') AU.kit.music.duck(3, 400);
+      else if (name === 'ach' || name === 'best' || name === 'card') AU.kit.music.duck(3, 400);
     }
   } catch (e) { /* audio is optional */ }
 }
@@ -1905,6 +1923,7 @@ function goalText() {
 }
 function heatCol(frac) { return frac < 0.5 ? mix('#4FC3D9', '#F2A541', frac * 2) : mix('#F2A541', '#FF4A2B', (frac - 0.5) * 2); }
 const HEAT_WORDS = [[0, ''], [90, 'Warm'], [105, 'Hot'], [120, 'Steaming'], [135, 'Scalding'], [143, 'Boiling']];
+function heatTier(heat) { const t = tempF(heat); let k = 0; HEAT_WORDS.forEach(([at], i) => { if (t >= at) k = i; }); return k; }
 function heatWord(heat) { const t = tempF(heat); let w = ''; for (const [at, n] of HEAT_WORDS) if (t >= at) w = n; return w; }
 function capsule(x, y, w, h, a = 0.62) { ctx.fillStyle = 'rgba(8,22,26,' + a + ')'; rr(ctx, x, y, w, h, h / 2); ctx.fill(); }
 function drawInfo(now) {
@@ -2558,6 +2577,7 @@ function doPlace(slot, r, c) {
     spawnClearFx(res);
     sfx('clear', { G: res.G, heat: S.heat, pan });
     clearFeedback(res, cx, cy, snap.heat);
+    if (heatTier(S.heat) > heatTier(snap.heat)) setTimeout(() => sfx('heat', { tier: heatTier(S.heat) }), 180);
     if (res.vents) sfx('vent');
     if (res.bonus) sfx('bonus');
   }
@@ -2573,6 +2593,9 @@ function doPlace(slot, r, c) {
     }
   }
   audioPressure(); if (AU.kit) AU.kit.amb.set('heat', Math.min(1, S.heat / 12));
+  const deadNow = S.tray.filter(x => x && !fitsAnywhere(S.board, x.id)).length;
+  const deadBefore = res.newRound ? 0 : snap.tray.filter((x, k) => x && k !== slot && !fitsAnywhere(snap.board, x.id)).length;
+  if (!S.over && deadNow > deadBefore) setTimeout(() => { if (S.scene === 'game' && !S.over) sfx('warn'); }, res.G ? 650 : 160);
   goalsOnPlace(res); tipAfterPlace(res);
   let msg = 'Placed. ';
   if (res.G) msg += 'Cleared ' + res.G + (res.G > 1 ? ' groups' : ' group') + ' for ' + (res.clearPts + res.ventPts + res.bonus) + '. ';
@@ -2774,6 +2797,8 @@ function endGame() {
   persist(S.mode === 'classic' || S.mode === 'springs' ? 'clear' : 'none');
   UI.overAt = performance.now() + (reducedMotion() ? 350 : 1000);
   setTimeout(() => sfx(S.won ? 'win' : 'over'), 300);
+  if (UI.newBest) setTimeout(() => { if (S.over) sfx('best'); }, 1500);
+  if (UI.trailWin && UI.trailWin.first && CARDS[S.level]) setTimeout(() => { if (S.over) sfx('card'); }, 1400);
 }
 function showEnd() {
   if (!S.over || !GAME_SCENES.has(S.scene)) return;
@@ -3019,8 +3044,8 @@ function wireDom() {
   document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => { audioInit(); sfx('click'); showScene(b.dataset.go); }));
   document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => { sfx('click'); back(); }));
   $('b-continue').addEventListener('click', () => { audioInit(); resumeSaved(); });
-  $('b-pause').addEventListener('click', () => { audioInit(); sfx('click'); pauseGame(); });
-  $('b-resume').addEventListener('click', () => { sfx('click'); showScene('game'); });
+  $('b-pause').addEventListener('click', () => { audioInit(); pauseGame(); });
+  $('b-resume').addEventListener('click', resumeGame);
   $('b-restart').addEventListener('click', () => { sfx('click'); restart(); });
   $('b-quit').addEventListener('click', () => { sfx('click'); saveResume(); showScene('title'); });
   $('b-again').addEventListener('click', () => { sfx('click'); restart(); });
@@ -3058,7 +3083,8 @@ function goalSentence() {
   if (S.mode === 'daily') return 'Goal: fill rows, columns and 3×3 pools on today’s shared board until no piece fits.';
   return 'Goal: fill a row, column or 3×3 pool to clear it, and keep going until no piece fits.';
 }
-function pauseGame() { if (S.scene === 'game') { UI.drag = null; UI.ghost = null; $('pause-goal').textContent = goalSentence(); showScene('pause'); } }
+function pauseGame() { if (S.scene === 'game') { UI.drag = null; UI.ghost = null; $('pause-goal').textContent = goalSentence(); sfx('pause'); showScene('pause'); } }
+function resumeGame() { sfx('resume'); showScene('game'); }
 function restart() {
   if (S.mode === 'trail') newGame({ mode: 'trail', level: S.level });
   else if (S.mode === 'daily') newGame({ mode: 'daily', date: S.daily });
@@ -3213,7 +3239,7 @@ window.addEventListener('keydown', e => {
   if (k === 'Escape') {
     e.preventDefault();
     if (S.scene === 'game') { if (UI.sel >= 0 || UI.drag) { UI.sel = -1; UI.ghost = null; UI.drag = null; dirty = true; } else pauseGame(); }
-    else if (S.scene === 'pause') showScene('game');
+    else if (S.scene === 'pause') resumeGame();
     else if (['help', 'settings', 'trail', 'cards', 'records'].includes(S.scene)) back();
     return;
   }
@@ -3288,6 +3314,8 @@ window.__game = {
       case 'input': UI.input = a[0]; if (UI.tip) tipRender(); return UI.input;
       case 'resumeSaved': resumeSaved(); return S.scene;
       case 'audio': audioInit(); sfx(a[0] || 'click'); return { ctx: !!AU.ctx, state: AU.ctx ? AU.ctx.state : null, gain: AU.master ? AU.master.gain.value : null };
+      case 'cues': return CUE_LOG.slice();
+      case 'clearCues': CUE_LOG.length = 0; return true;
       case 'audioState': {
         const k = AU.kit; if (!k) return { kit: false };
         return { kit: true, state: AU.ctx.state, held: k.held, music: Object.keys(SCORES).find(n => SCORES[n] === k.music.score) || null, amb: Object.keys(SCENES).find(n => SCENES[n] === k.amb.scene) || null, musicGain: k.buses.music.gain.value, ambGain: k.buses.amb.gain.value, musicLevel: musicLevel(), ambLevel: ambienceLevel(), master: AU.master.gain.value, bars: k.music.info() ? k.music.info().bars : -1 };

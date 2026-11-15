@@ -152,4 +152,118 @@ export const tests = [
       t.expect(/Classic\s*No finished games yet/.test(txt), 'history starts empty');
     },
   },
+
+  // ------------------------------------------------------------------ S5-07 cues for heat tiers, no-room, new best, fact card, pause, resume
+  {
+    name: 'S5-07 the six new cues are listed and each stays inside the cue range',
+    viewports: ['desktop'],
+    async run(t) {
+      const list = await t.game('audioList');
+      for (const cue of ['heat', 'warn', 'best', 'card', 'pause', 'resume']) {
+        t.expect(list.cues.includes(cue), cue + ' is a listed cue');
+        const peaks = [];
+        for (let i = 0; i < 5; i++) peaks.push((await t.page.evaluate(n => window.__game.audioRender(n, 2, false), 'cue:' + cue)).peak);
+        peaks.sort((a, b) => a - b);
+        t.log(cue + ' peaks ' + peaks.join(', '));
+        t.expect(peaks[2] >= 0.2 && peaks[2] <= 0.45, cue + ': median peak ' + peaks[2] + ' is within 0.2 to 0.45');
+      }
+    },
+  },
+  {
+    name: 'S5-07 crossing a heat tier sounds the heat cue; a clear inside a tier does not',
+    async run(t) {
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('act', 'setting', 'sound', false);   // the cue log records the cue whether or not it is heard
+      await t.game('setState', { board: rowReady(), heat: 4, ...setTray(['o1', 'o1', 'o1']) });
+      await t.game('act', 'clearCues');
+      await t.game('act', 'place', 0, 0, 0);   // heat 4 -> 5 = 90 F, "Warm"
+      await t.page.waitForFunction(() => window.__game.act('cues').includes('heat'), null, { timeout: 3000 });
+      await t.game('setState', { board: rowReady(), heat: 5, ...setTray(['o1', 'o1', 'o1']) });
+      await t.game('act', 'clearCues');
+      await t.game('act', 'place', 0, 0, 0);   // heat 5 -> 6 = 97 F, still "Warm"
+      await t.page.waitForFunction(() => window.__game.act('cues').includes('clear'), null, { timeout: 3000 });
+      await t.page.waitForTimeout(700);        // an absence check: the heat cue would follow the clear by 180 ms
+      t.expect(!(await t.game('act', 'cues')).includes('heat'), 'no heat cue inside a tier');
+    },
+  },
+  {
+    name: 'S5-07 a piece that no longer fits sounds the warning; a placement that leaves everything fitting does not',
+    async run(t) {
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      // one 3x3 hole in the top-left corner and gaps elsewhere in every row, column and pool, so nothing is complete
+      const holed = () => { const b = new Array(81).fill(1); for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) b[r * 9 + c] = 0; for (let k = 3; k < 9; k++) b[k * 9 + k] = 0; for (const [r, c] of [[0, 3], [0, 6], [3, 0], [6, 0], [4, 7], [7, 4]]) b[r * 9 + c] = 0; return b; };
+      await t.game('setState', { board: holed(), ...setTray(['o1', 'o1', 'o9']) });
+      t.equal(JSON.stringify((await t.state()).fits), '[true,true,true]', 'everything fits to begin with');
+      await t.game('act', 'clearCues');
+      const r = await t.game('act', 'place', 0, 1, 1);
+      t.expect(r.ok && r.G === 0, 'o1 dropped in the middle of the hole');
+      t.equal(JSON.stringify((await t.state()).fits), '[null,true,false]', 'the big piece has lost its room');
+      await t.page.waitForFunction(() => window.__game.act('cues').includes('warn'), null, { timeout: 3000 });
+      await t.game('setState', { board: new Array(81).fill(0), ...setTray(['o1', 'o1', 'o1']) });
+      await t.game('act', 'clearCues');
+      await t.game('act', 'place', 0, 4, 4);
+      await t.page.waitForFunction(() => window.__game.act('cues').includes('place'), null, { timeout: 3000 });
+      await t.page.waitForTimeout(500);
+      t.expect(!(await t.game('act', 'cues')).includes('warn'), 'no warning on an open board');
+    },
+  },
+  {
+    name: 'S5-07 a new best sounds after the game-over cue; a score that does not beat the best does not',
+    async run(t) {
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('act', 'clearCues');
+      await t.game('setState', { score: 500, board: new Array(81).fill(1) });
+      await t.page.waitForFunction(() => { const c = window.__game.act('cues'); return c.includes('over') && c.includes('best'); }, null, { timeout: 6000 });
+      const cues = await t.game('act', 'cues');
+      t.expect(cues.indexOf('best') > cues.indexOf('over'), 'best follows over');
+      await t.game('newGame', { mode: 'classic' });   // the best is now 500
+      await t.game('act', 'clearCues');
+      await t.game('setState', { score: 100, board: new Array(81).fill(1) });
+      await t.page.waitForFunction(() => window.__game.act('cues').includes('over'), null, { timeout: 3000 });
+      await t.page.waitForTimeout(1900);               // an absence check: the best cue comes 1.5 s after the end
+      t.expect(!(await t.game('act', 'cues')).includes('best'), 'no best cue for a lower score');
+    },
+  },
+  {
+    name: 'S5-07 collecting a Trail fact card sounds the card cue once; replaying the puzzle does not',
+    async run(t) {
+      const SOL = JSON.parse((await import('node:fs')).readFileSync(new URL('../tools/solutions.json', import.meta.url), 'utf8'));
+      const solve = async () => {
+        await t.game('newGame', { mode: 'trail', level: 'display-spring' });
+        await t.game('act', 'setting', 'tipsSeen', true);
+        await t.game('act', 'clearCues');
+        for (const [pid, r, c] of SOL['display-spring'].solution) {
+          const s = await t.state();
+          await t.game('act', 'place', s.tray.findIndex(x => x && x.id === pid), r, c);
+        }
+      };
+      await solve();
+      await t.page.waitForFunction(() => window.__game.act('cues').includes('card'), null, { timeout: 6000 });
+      const first = await t.game('act', 'cues');
+      t.expect(first.indexOf('card') > first.indexOf('win'), 'the card follows the win cue');
+      await solve();
+      await t.page.waitForFunction(() => window.__game.act('cues').includes('win'), null, { timeout: 3000 });
+      await t.page.waitForTimeout(1700);
+      t.expect(!(await t.game('act', 'cues')).includes('card'), 'a card already collected is silent');
+    },
+  },
+  {
+    name: 'S5-07 Pause and Resume each have their own cue, from the button and from Escape',
+    async run(t) {
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('act', 'clearCues');
+      await t.page.click('#b-pause');
+      t.equal(JSON.stringify(await t.game('act', 'cues')), '["pause"]', 'the Pause button sounds pause, not the generic click');
+      await t.game('act', 'clearCues');
+      await t.page.click('#b-resume');
+      t.equal(JSON.stringify(await t.game('act', 'cues')), '["resume"]', 'Resume sounds resume');
+      await t.page.keyboard.press('Escape');
+      await t.page.keyboard.press('Escape');
+      t.equal(JSON.stringify(await t.game('act', 'cues')), '["resume","pause","resume"]', 'Escape pauses and resumes with the same cues');
+    },
+  },
 ];
