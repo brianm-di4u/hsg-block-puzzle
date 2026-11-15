@@ -1263,6 +1263,7 @@ function buzz(pattern) {
   try { navigator.vibrate(pattern); } catch (e) { /* haptics are optional */ }
 }
 function hapticFor(name, o) {
+  if (o.soft) return;
   if (name === 'place') buzz(10);
   else if (name === 'clear') { const p = []; for (let k = 0; k < Math.min(4, o.G || 1); k++) p.push(18, 30); p.pop(); buzz(p); }
   else if (name === 'invalid') buzz([12, 40, 12]);
@@ -1276,6 +1277,7 @@ function sfx(name, o = {}) {
   if (!AU.ctx || !SAVE.settings.sound || !SAVE.settings.sfx) return;
   try {
     JIT = jitter(o.pan || 0);
+    if (o.soft) JIT.g *= o.soft;
     // On a context that has only just started, the output device is not pulling samples yet: a cue at the very start of
     // its clock is mostly lost (the first click measured 0.003 against 0.049 later). Start the first cues a little later.
     const now = AU.ctx.currentTime;
@@ -3611,6 +3613,7 @@ function endDrag(e, cancel) {
   if (gh && gh.valid) { doPlace(d.slot, gh.r, gh.c); return; }
   UI.ghost = null;
   if (gh) sfx('invalid');
+  else if (!cancel) { sfx('invalid', { soft: 0.6 }); announce('Drop the piece on the board.'); }   // let go away from the board: say the game saw it
   const p = PIECES[S.tray[d.slot].id], [x, y] = dragTopLeft(d, p);
   addFx({ type: 'return', slot: d.slot, x, y, dur: reducedMotion() ? 1 : 220 });
 }

@@ -59,4 +59,45 @@ export const tests = [
       }
     },
   },
+
+  // ------------------------------------------------------------------ S2-06 letting go of a piece away from the board
+  {
+    name: 'S2-06 a piece dropped off the board sounds the soft invalid cue and says where to drop it; a tap and a cancel stay quiet',
+    async run(t) {
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('act', 'setting', 'sound', false);   // the cue log records a cue whether or not it is heard
+      await t.game('setState', { board: new Array(81).fill(0), tray: ['o1', 'o1', 'o1'].map(id => ({ id })) });
+      const L = await t.game('layout'), b = L.board;
+      const drag = async (tx, ty, release = true, slot = 1) => {
+        const sl = L.slots[slot], sx = sl.x + sl.w / 2, sy = sl.y + sl.h / 2;
+        await t.page.mouse.move(sx, sy); await t.page.mouse.down();
+        await t.page.mouse.move((sx + tx) / 2, (sy + ty) / 2, { steps: 5 }); await t.page.mouse.move(tx, ty, { steps: 5 });
+        if (release) await t.page.mouse.up();
+      };
+      const cues = () => t.game('act', 'cues');
+      // a tap on a slot is not a drop
+      await t.game('act', 'clearCues'); await t.page.mouse.click(L.slots[2].x + L.slots[2].w / 2, L.slots[2].y + L.slots[2].h / 2);
+      t.expect(!(await cues()).includes('invalid'), 'a tap on the tray is quiet');
+      // a drag released over the board's own cells is a legal placement: no invalid cue
+      await t.game('act', 'clearCues'); await t.game('act', 'setting', 'tipsSeen', true);
+      await drag(b.gx + 2.5 * b.cell, b.gy + 2.5 * b.cell, true, 0);
+      await t.page.waitForFunction(() => window.__game.getState().board.some(Boolean), null, { timeout: 3000 });
+      t.expect(!(await cues()).includes('invalid'), 'a good drop does not sound invalid');
+      // a drag cancelled by the browser (pointercancel) says nothing
+      await t.game('act', 'clearCues');
+      await drag(b.gx + b.cell * 4.5, Math.max(10, b.gy - 2 * b.cell), false);
+      await t.page.evaluate(() => { const c = document.getElementById('cv'); c.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 1, bubbles: true })); });
+      await t.page.mouse.up();
+      t.expect(!(await cues()).includes('invalid'), 'a cancelled drag is quiet');
+      // let go well above the board: the soft cue and the sentence
+      await t.game('act', 'clearCues');
+      await t.page.evaluate(() => { document.getElementById('live').textContent = ''; });
+      await drag(b.gx + b.cell * 4.5, Math.max(10, b.gy - 2 * b.cell));
+      await t.page.waitForFunction(() => window.__game.act('cues').includes('invalid'), null, { timeout: 3000 });
+      await t.page.waitForFunction(() => /Drop the piece on the board/.test(document.getElementById('live').textContent), null, { timeout: 3000 });
+      t.expect(true, 'the cue sounded and the live region says where to drop');
+      t.equal((await t.state()).tray.filter(Boolean).length, 2, 'the piece went back to its slot (only the good drop used one)');
+    },
+  },
 ];
