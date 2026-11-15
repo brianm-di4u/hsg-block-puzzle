@@ -59,4 +59,48 @@ export const tests = [
       await touch('touchEnd', ex, ey);
     },
   },
+
+  // ------------------------------------------------------------------ S2-05 the phone play screen
+  {
+    name: 'S2-05 a portrait phone: a taller tray, bigger pieces, and a 14 px line that names the mode',
+    viewports: ['mobile'],
+    async run(t) {
+      await t.game('newGame', { mode: 'classic' });
+      await calm(t);
+      await t.game('setState', { board: empty(), ...setTray(['t4a', 'o1', 'i5h']) });
+      await t.waitFrames(3);
+      const L = await t.game('layout');
+      t.expect(!L.land, 'portrait');
+      // before S2-05: slots 166 px high, pieces at 30.9 px, 158 px of empty backdrop under the tray
+      t.expect(L.slots[0].h >= 200, 'the tray slots are at least 200 px high: ' + L.slots[0].h);
+      t.expect(L.trayScale >= 34, 'tray pieces are at least 34 px: ' + L.trayScale);
+      const gap = 844 - (L.slots[0].y + L.slots[0].h);
+      t.expect(gap < 110, 'less than 110 px of empty screen under the tray: ' + gap);
+      t.expect(L.info.h >= 56, 'the info strip has room for its three rows');
+      t.equal(await t.game('act', 'infoLine'), 'Classic · Lines 0', 'the strip names the mode the HUD hides on a phone');
+      await t.game('newGame', { mode: 'springs' });
+      t.expect((await t.game('act', 'infoLine')).startsWith('Springs opened 0 / 47'), 'Springs already says its name');
+      await t.game('newGame', { mode: 'daily' });
+      t.expect((await t.game('act', 'infoLine')).startsWith('Daily Soak · '), 'Daily Soak too');
+      await t.game('newGame', { mode: 'trail', level: 'hale-bathhouse' });
+      t.expect((await t.game('act', 'infoLine')).startsWith('Spring Trail · '), 'a Trail puzzle names Spring Trail: ' + await t.game('act', 'infoLine'));
+      await calm(t);
+      await t.game('newGame', { mode: 'trail', level: 'quapaw-bathhouse' });
+      await t.shot('S2-05-phone-trail');
+      await t.game('newGame', { mode: 'classic' });
+      await calm(t);
+      await t.waitFrames(3);
+      await t.checkLayout();
+      await t.shot('S2-05-phone-play');
+    },
+  },
+  {
+    name: 'S2-05 on a desktop-sized window the HUD names the mode, so the line does not repeat it',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.game('newGame', { mode: 'classic' });
+      t.equal(await t.game('act', 'infoLine'), 'Lines 0', 'no prefix when the HUD shows the mode');
+      t.expect(await t.page.isVisible('#h-mode'), 'the HUD mode name is showing');
+    },
+  },
 ];
