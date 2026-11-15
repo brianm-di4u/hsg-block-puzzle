@@ -816,7 +816,7 @@ function setupGame(g, opts) {
 // ===================================================================== CONTENT (sourced; see research/town-content.md)
 const TICKER = [
   // The words are the game's; where each fact comes from is on the Help screen (Sources) and in the CARDS src fields.
-  'Hold your hand to it: the water averages about 143°F, the hottest springs east of the Rockies.',
+  'The water averages about 143°F, the hottest springs east of the Rockies.',
   'Most of the water steaming here fell as rain about 4,400 years ago.',
   'Rain soaks into Bigfork Chert and Arkansas Novaculite, then heats to about 160°F a mile down.',
   'Two thrust faults, "alpha" and "beta", carry the heated water up like pipes.',
@@ -3192,7 +3192,7 @@ function showWinTrail() {
   const how = w.undos === 0 ? 'No undos used.' : w.undos + (w.undos === 1 ? ' undo' : ' undos') + ' used.';
   const next = w.stars < 3 ? ' Solve it again with ' + (w.stars === 2 ? 'no undos' : 'two undos or fewer') + ' for ' + (w.stars + 1) + ' stars.' : '';
   const best = w.stars > w.prev && w.prev > 0 ? ' New best: up from ' + w.prev + '.' : '';
-  const crown = w.crown === 'all' ? LEVELS[idx].name + ' was the last one: every puzzle is solved. ' : w.crown === 'title' ? LEVELS[idx].name + ' was the last on the Row: every first-ring puzzle is solved. ' : '';
+  const crown = w.crown === 'all' ? LEVELS[idx].name + ' was the last one: every puzzle is solved. ' : w.crown === 'title' ? LEVELS[idx].name + ' was the last of the first ring, and every first-ring puzzle is solved. ' : '';
   $('win-sub').textContent = crown + how + best + next + ' ' + SAVE.trail.done.length + ' of ' + LEVELS.length + ' solved, ' + trailStarTotal() + ' stars.';
   announce(LEVELS[idx].name + ' solved with ' + w.stars + ' stars.');
   const box = $('win-card'); box.innerHTML = '';
@@ -3699,7 +3699,7 @@ window.addEventListener('keydown', e => {
   }
   // M mutes and unmutes on every screen (a click confirms the unmute). P pauses and resumes on the cards that show the game's header.
   const typing = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA';
-  const typesText = tag === 'TEXTAREA' || tag === 'SELECT' || (tag === 'INPUT' && !['checkbox', 'radio', 'range', 'button'].includes(document.activeElement.type));   // a checkbox or a slider takes no letters, so M still mutes there
+  const typesText = tag === 'TEXTAREA' || tag === 'SELECT' || (tag === 'INPUT' && !['checkbox', 'radio', 'range', 'button'].includes(document.activeElement.type));   // a checkbox or the slider does not take letters, so M still mutes there
   if ((k === 'm' || k === 'M') && !typesText && !e.ctrlKey && !e.metaKey && !e.altKey) { audioInit(); setSetting('sound', !SAVE.settings.sound); sfx('click'); return; }
   if (GAME_SCENES.has(S.scene) && !typing) {
     if ((k === 'p' || k === 'P') && S.scene === 'pause') { resumeGame(); return; }

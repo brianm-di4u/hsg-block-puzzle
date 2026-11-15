@@ -1,4 +1,4 @@
-// Council wave 3, follow-up pass after verification (S4-14, S2-12, S6-16, S5-10).
+// Council wave 3, follow-up pass after verification (S4-14, S2-12, S6-16, S5-10, S4-04, S4-01).
 const KEY = 'hs-thermal-blocks-v1';
 const readSave = t => t.page.evaluate(k => JSON.parse(localStorage.getItem(k)), KEY);
 
@@ -97,4 +97,16 @@ export const tests = [
     },
   },
 
+  // ------------------------------------------------------------------ S4-04, S4-01: words
+  {
+    name: 'S4-04 S4-01 no line says the Cascade is on the Row, and the first ticker line does not tell anyone to touch 143F water',
+    viewports: ['desktop'],
+    async run(t) {
+      const w = await t.game('act', 'words');
+      t.expect(!w.ticker.some(l => /hold your hand/i.test(l)), 'no ticker line says to hold a hand to the water');
+      t.expect(w.ticker[0].includes('143°F'), 'the first line still gives the 143°F fact: ' + w.ticker[0]);
+      const page = await t.page.evaluate(() => document.documentElement.outerHTML);
+      t.expect(!/last on the Row/.test(page), 'nothing in the game says a puzzle was "the last on the Row"');
+    },
+  },
 ];
