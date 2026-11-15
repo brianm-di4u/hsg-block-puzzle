@@ -267,6 +267,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
     <p class="muted" id="ov-sub" style="margin:0"></p>
     <div class="big-score"><span id="ov-count" aria-hidden="true">0</span><span class="sr" id="ov-score">0</span></div>
     <div class="newbest" id="ov-new"></div>
+    <p class="muted" id="ov-tip" style="margin:8px 0 0"></p>
     <dl class="grid2" id="ov-stats"></dl>
     <div class="row"><button class="primary" id="b-again">Play again</button><button id="b-ovundo" style="display:none">Undo last move</button><button id="b-menu1">Menu</button></div>
   </div>
@@ -718,11 +719,12 @@ function applyMove(g, slot, r, c) {
     if (g.board.every(v => !v)) bonus = 300;
   } else {
     g.dry = (g.dry | 0) + 1;
-    if (g.dry >= (g.heat >= HEAT_SLOW_BELOW ? 1 : HEAT_SLOW_DRY)) { g.heat = Math.max(0, g.heat - 1); g.dry = 0; }
+    if (g.dry >= (g.heat >= HEAT_SLOW_BELOW ? 1 : HEAT_SLOW_DRY)) { if (g.heat > 0) g.cooled = (g.cooled | 0) + 1; g.heat = Math.max(0, g.heat - 1); g.dry = 0; }
   }
   g.bestHeat = Math.max(g.bestHeat, g.heat);
   points += clearPts + ventPts + bonus;
   g.score += points;
+  g.ptsPlace = (g.ptsPlace | 0) + p.n; g.ptsClear = (g.ptsClear | 0) + clearPts + ventPts; g.ptsBonus = (g.ptsBonus | 0) + bonus;   // where the score came from (S3-12)
   g.tray[slot] = null;
   let newRound = false, vent = -1;
   if (!g.tray.some(Boolean) && (g.mode !== 'trail' || g.queue.length)) {
@@ -737,7 +739,7 @@ function applyMove(g, slot, r, c) {
 function freshGame(mode) {
   return { v: 1, mode, board: new Array(81).fill(0), tray: [null, null, null], queue: [], score: 0, heat: 0, bestHeat: 0,
     groups: 0, placed: 0, round: 0, undoLeft: 1, undosUsed: 0, undoStack: [], era: 0, springs: 0, level: null, goal: null,
-    daily: null, over: false, won: false, rng: 1, diff: 'standard', dry: 0 };
+    daily: null, over: false, won: false, rng: 1, diff: 'standard', dry: 0, cooled: 0, ptsPlace: 0, ptsClear: 0, ptsBonus: 0 };
 }
 function setupGame(g, opts) {
   if (g.mode === 'trail') {
@@ -2221,6 +2223,7 @@ function clearFeedback(res, cx, cy, prevHeat) {
   px = b.gx + px / res.cleared.length * cell; py = b.gy + py / res.cleared.length * cell;
   if (banner) { const by = b.y + b.size * 0.42, bs = bannerSize(Math.min(5, res.G)); if (Math.abs(py - by) < bs * 1.6) py = by + bs * 1.9; }
   popup(pts, px, py, '#FFFFFF', psize, { delay: reducedMotion() ? 0 : 120, rise: !banner });
+  if (!banner) popup(res.G + (res.G > 1 ? ' groups' : ' group') + ' · heat ×' + res.mult.toFixed(2).replace(/0$/, ''), px, py + psize * 0.95, '#E9F4F1', Math.round(cell * 0.3), { delay: reducedMotion() ? 0 : 120, rise: !banner });   // why this many points (S3-12)
   if (banner) {
     const main = res.bonus ? 'Clear Spring!' : head || word + '!';
     const sub = res.bonus ? '+300' : (head && word ? word + ' · ×' + res.mult.toFixed(2).replace(/0$/, '') : '×' + res.mult.toFixed(2).replace(/0$/, ''));
@@ -2921,10 +2924,22 @@ function fillOver() {
   $('ov-new').classList.toggle('hit', !!UI.newBest);
   const rows = [['Groups cleared', S.groups], ['Pieces placed', S.placed], ['Hottest water', S.bestHeat >= 12 ? '143°F (boiling)' : tempF(S.bestHeat) + '°F'], ['Era reached', ERAS[S.era].name]];
   if (S.mode === 'springs') rows.unshift(['Springs tapped', S.springs + ' / 47']);
+  const pp = S.ptsPlace | 0, pc = S.ptsClear | 0, pb = S.ptsBonus | 0;
+  if (pp + pc + pb === S.score && S.score > 0) { rows.splice(1, 0, ['Points from clears', pc.toLocaleString('en-US')], ['Points from placing', pp.toLocaleString('en-US')]); if (pb) rows.splice(3, 0, ['Clear-spring bonus', pb.toLocaleString('en-US')]); }
   if (S.mode === 'daily') rows.push(['Daily streak', dailyStreak(S.daily) + (dailyStreak(S.daily) === 1 ? ' day' : ' days')]);
   if (UI.earned && UI.earned.length) rows.push(['Goals earned', UI.earned.join(', ')]);
+  $('ov-tip').textContent = won || trail ? '' : overTip();
   const dl = $('ov-stats'); dl.innerHTML = '';
   for (const [k, v] of rows) { const dt = document.createElement('dt'); dt.textContent = k; const dd = document.createElement('dd'); dd.textContent = v; dl.append(dt, dd); }
+}
+// One line on what to try next, picked from how this game went (S3-12). Only the game's own rules are quoted.
+function overTip() {
+  const cooled = S.cooled | 0;
+  if (S.placed < 8) return 'Early losses come from scattered pieces. Keep the board open and build toward a full row.';
+  if (S.groups > 0 && (S.bestG || 0) <= 1) return 'Try setting up two groups for one piece: 2 at once scores 72, against 18 for a single.';
+  if (cooled >= 6 && S.bestHeat < 6) return 'The water cooled ' + cooled + ' times. Clearing on back-to-back pieces keeps it hot and multiplies your points.';
+  if (S.groups === 0) return 'Nothing cleared this game. Fill a whole row, column or 3×3 pool to clear it.';
+  return 'Keep a gap open for the big pieces: a stranded piece ends the game.';
 }
 function countUp(el, to) { // the summary score counts up (instant under reduced motion)
   const dur = reducedMotion() ? 0 : Math.min(900, 300 + to / 8), t0 = performance.now();

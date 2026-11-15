@@ -347,4 +347,71 @@ export const tests = [
     },
   },
 
+  // ------------------------------------------------------------------ S3-12 why the score came
+  {
+    name: 'S3-12 the points from placing, clearing and bonuses always add up to the score',
+    node: true,
+    async run(t) {
+      for (const mode of ['classic', 'springs']) for (let seed = 0; seed < 3; seed++) {
+        const { g } = botGame(mode, seed);
+        t.equal(g.ptsPlace + g.ptsClear + g.ptsBonus, g.score, mode + ' ' + seed + ': ' + g.ptsPlace + ' + ' + g.ptsClear + ' + ' + g.ptsBonus + ' = ' + g.score);
+        t.expect(g.ptsClear > g.ptsPlace, mode + ' ' + seed + ': clears are where the points are');
+      }
+      const g = R.freshGame('classic'); g.board = empty(); g.board[40] = 1; g.tray = [{ id: 'o1' }, null, null]; g.rng = 3;
+      for (let c = 0; c < 9; c++) if (c !== 4) g.board[36 + c] = 1;
+      g.board[40] = 0;
+      const res = R.applyMove(g, 0, 4, 4);
+      t.expect(res.G >= 1 && g.ptsPlace === 1 && g.ptsClear === res.clearPts, 'one placed tile is one point and the clear is counted apart');
+    },
+  },
+  {
+    name: 'S3-12 the score popup says how many groups and what the heat multiplies, and the game-over card shows where the points came from',
+    async run(t) {
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      const board = empty(); for (let c = 1; c < 9; c++) board[c] = 1;
+      board[40] = 1;
+      await t.game('setState', { board, ...setTray(['o1', 'o1', 'o4']), heat: 0 });
+      const r = await t.game('act', 'place', 0, 0, 0);
+      t.equal(r.G, 1, 'one group cleared');
+      const pops = await t.game('act', 'fxList');
+      t.expect(pops.some(p => p.type === 'popup' && p.text === '1 group · heat ×1.25'), 'the popup explains itself: ' + JSON.stringify(pops.map(p => p.text)));
+      t.expect(pops.some(p => p.type === 'popup' && /^\+\d+$/.test(p.text)), 'and the number is still there');
+      await t.game('act', 'freezeFx', 600);
+      await t.shot('S3-12-popup');
+      // end the game and read the card
+      await t.game('setState', { board: new Array(81).fill(1), ...setTray(['o9', 'o9', null]) });
+      await t.game('act', 'unfreezeFx');
+      await t.game('scene', 'over');
+      await t.waitFrames(3);
+      const rows = await t.page.evaluate(() => [...document.querySelectorAll('#ov-stats dt')].map(d => [d.textContent, d.nextElementSibling.textContent]));
+      const get = k => (rows.find(x => x[0] === k) || [])[1];
+      const score = (await t.state()).score;
+      const num = s => +String(s).replace(/,/g, '');
+      t.expect(get('Points from clears') !== undefined && get('Points from placing') !== undefined, 'the card has both rows: ' + JSON.stringify(rows));
+      t.equal(num(get('Points from clears')) + num(get('Points from placing')), score, 'and they add up to the score ' + score);
+      const tip = await t.page.textContent('#ov-tip');
+      t.expect(tip.length > 20, 'there is a line on what to try next: ' + tip);
+      await t.shot('S3-12-game-over');
+    },
+  },
+  {
+    name: 'S3-12 the tip follows how the game went',
+    async run(t) {
+      const tipFor = async over => {
+        await t.game('newGame', { mode: 'classic' });
+        await t.game('act', 'setting', 'tipsSeen', true);
+        await t.game('setState', { board: new Array(81).fill(1), ...setTray(['o9', 'o9', null]), ...over });
+        await t.game('scene', 'over');
+        await t.waitFrames(2);
+        return t.page.textContent('#ov-tip');
+      };
+      t.expect((await tipFor({ placed: 3, groups: 0 })).startsWith('Early losses'), 'a very short game: keep the board open');
+      t.expect((await tipFor({ placed: 40, groups: 6, bestG: 1, cooled: 0 })).includes('2 at once scores 72'), 'only single clears: try for two at once');
+      const cool = await tipFor({ placed: 40, groups: 6, bestG: 2, cooled: 9, bestHeat: 3 });
+      t.expect(cool.includes('cooled 9 times'), 'the water kept cooling: ' + cool);
+      t.expect((await tipFor({ placed: 40, groups: 0, bestG: 0 })).startsWith('Nothing cleared'), 'no clears at all');
+    },
+  },
+
 ];
