@@ -106,4 +106,42 @@ export const tests = [
       t.expect((await text(t, '#win-title')).endsWith(': solved'), 'a replay is an ordinary solve');
     },
   },
+
+  // ------------------------------------------------------------------ S4-06 the Trail in street order, eras by date
+  {
+    name: 'S4-06 Trail puzzles carry the era of the year on their fact card',
+    async run(t) {
+      const levels = await t.game('getLevels');
+      const era = id => levels.find(l => l.id === id).era;
+      // era 2 is 1875-1920, era 3 is 1921-1946, era 5 is 1968-1999 (the era table)
+      const byYear = { 'hale-bathhouse': 2, 'maurice-spring-fountain': 2, 'buckstaff-bathhouse': 2, 'fordyce-bathhouse': 2, 'superior-bathhouse': 2,
+        'quapaw-bathhouse': 3, 'ozark-bathhouse': 3, 'lamar-bathhouse': 3, 'display-spring': 3, 'grand-promenade': 3, 'thermal-water-cascade': 5 };
+      for (const [id, e] of Object.entries(byYear)) t.equal(era(id), e, id + ' era');
+    },
+  },
+  {
+    name: 'S4-06 the Trail shows Bathhouse Row as a strip in street order that lights as puzzles are solved; the list keeps its numbers',
+    async run(t) {
+      await t.game('scene', 'trail');
+      const strip = () => t.page.evaluate(() => [...document.querySelectorAll('#row-strip button')].map(b => ({ n: b.textContent, done: b.classList.contains('done'), off: b.disabled, label: b.getAttribute('aria-label') })));
+      let s = await strip();
+      t.equal(s.map(b => b.n), ['Superior', 'Hale', 'Maurice Spring Fountain', 'Fordyce', 'Quapaw', 'Ozark', 'Buckstaff', 'Lamar'], 'street order, north to south, as in research/backdrop-notes.md');
+      t.expect(s.every(b => !b.done && b.off), 'a new player has solved none and only the earlier puzzles are open');
+      t.equal(await text(t, '#row-strip .end'), 'N', 'the north end is marked');
+      const levels = await t.game('getLevels');
+      const save = await t.game('act', 'save'); save.trail.done = ['display-spring', 'hale-bathhouse'];
+      await storeAndReload(t, save);
+      await t.game('scene', 'trail');
+      s = await strip();
+      t.equal(s.map(b => b.done), [false, true, false, false, false, false, false, false], 'Hale is lit');
+      t.expect(!s[2].off && s[1].label === 'Hale Bathhouse, solved' && s[3].off, 'Maurice is the next one open: ' + JSON.stringify(s.map(b => b.off)));
+      const names = await t.page.evaluate(() => [...document.querySelectorAll('#levels button b')].map(b => b.textContent));
+      t.equal(names.slice(0, 3), ['1. Display Spring', '2. Hale Bathhouse', '3. Maurice Spring Fountain'], 'the list below is still in Trail order');
+      t.equal(names.length, levels.length, 'and still has every puzzle');
+      await t.page.click('#row-strip button:nth-of-type(3)');
+      await t.page.waitForFunction(() => window.__game.getState().level === 'maurice-spring-fountain', null, { timeout: 4000 });
+      await t.game('scene', 'trail');
+      await t.shot('S4-06-trail-strip');
+    },
+  },
 ];

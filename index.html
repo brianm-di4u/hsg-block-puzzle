@@ -144,6 +144,10 @@ button.big{width:100%;font-size:1.1em;padding:12px}
 .levels button{display:flex;flex-direction:column;align-items:flex-start;text-align:left;min-height:64px}
 .levels .st{font-size:.8em;color:var(--color-muted)}
 .levels .done .st{color:var(--color-success)}
+.rowstrip{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 12px;padding:8px;border-radius:var(--radius-lg);background:rgba(120,100,60,.12)}
+.rowstrip .end{font-weight:800;color:var(--color-primary);padding:0 4px}
+.rowstrip button{min-height:44px;padding:6px 10px}
+.rowstrip .done{border-color:var(--color-success);color:var(--color-success);font-weight:700}
 .levels h3.ring{grid-column:1/-1;margin:8px 0 0;font-size:1em;color:var(--color-primary)}
 .stars{letter-spacing:.12em;color:var(--color-primary);font-size:.95em}
 .winstars{text-align:center;font-size:2em;margin:0 0 4px}
@@ -288,6 +292,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
   <div class="panel" style="width:min(720px,100%)">
     <h2>Spring Trail</h2>
     <p class="muted" style="margin-top:0" id="trail-intro"></p>
+    <div class="rowstrip" id="row-strip" role="group" aria-label="Bathhouse Row, north to south"></div>
     <div class="levels" id="levels"></div>
     <div class="row"><button data-back>Back</button></div>
   </div>
@@ -431,7 +436,7 @@ const WEIGHT_SUM = PIECE_DEFS.reduce((a, d) => a + d[1], 0);
 // Spring Trail levels. Board rows: '.' empty, 's' tufa stone, 'v' spring vent, '1'-'6' glazed tile.
 // Layouts and piece lists are game design; the card text is sourced (research/town-content.md §4).
 const LEVELS = [
-  { id:'display-spring', name:'Display Spring', era:0, goal:'vents', hint:'Fill the gap in the bottom row to tap the vent.',
+  { id:'display-spring', name:'Display Spring', era:3, goal:'vents', hint:'Fill the gap in the bottom row to tap the vent.',
     board:['.........','.........','.........','.........','.........','.........','.........','.........','v12...456'],
     pieces:['i3h','o4','o1'] },
   { id:'hale-bathhouse', name:'Hale Bathhouse', era:2, goal:'stones', hint:'Two rows can clear with the right two pieces.',
@@ -446,25 +451,25 @@ const LEVELS = [
   { id:'fordyce-bathhouse', name:'Fordyce Bathhouse', era:2, goal:'stones', hint:'Order matters: one piece can clear a row and a column together.',
     board:['....s....','....s....','....s....','.........','.sss.ssss','.........','....s....','....s....','....s....'],
     pieces:['i3v','i2h','o1'] },
-  { id:'superior-bathhouse', name:'Superior Bathhouse', era:3, goal:'vents', hint:'Two vents in two corners. Save the right pieces for each row.',
+  { id:'superior-bathhouse', name:'Superior Bathhouse', era:2, goal:'vents', hint:'Two vents in two corners. Save the right pieces for each row.',
     board:['v123456..','1........','2........','3........','4........','5........','6........','.........','1234..61v'],
     pieces:['i2v','i2h','c3a','o1','l4a','i2h'] },
   { id:'quapaw-bathhouse', name:'Quapaw Bathhouse', era:3, goal:'stones', hint:'The tufa cave hides under three rows.',
     board:['.........','.........','.........','.........','.........','.........','sss.sssss','ss...ssss','s..ssss..'],
     pieces:['i2h','t4b','i2h','c3a'] },
-  { id:'ozark-bathhouse', name:'Ozark Bathhouse', era:4, goal:'lines:4', hint:'Twin towers: one piece can clear four groups at once.',
+  { id:'ozark-bathhouse', name:'Ozark Bathhouse', era:3, goal:'lines:4', hint:'Twin towers: one piece can clear four groups at once.',
     board:['..s...s..','..s...s..','..s...s..','..sssss..','ss.....ss','..sssss..','..s...s..','..s...s..','..s...s..'],
     pieces:['o1','i3h','i5h'] },
-  { id:'lamar-bathhouse', name:'Lamar Bathhouse', era:4, goal:'stones', hint:'Complete the Row: every stone must go.',
+  { id:'lamar-bathhouse', name:'Lamar Bathhouse', era:3, goal:'stones', hint:'Complete the Row: every stone must go.',
     board:['.........','.........','.........','sssss..ss','sssss..ss','sssss..ss','..sssssss','..sssssss','..sssssss'],
     pieces:['r6v','i2v','o4','r6v','i3h','i2v'] },
-  { id:'grand-promenade', name:'Grand Promenade', era:5, goal:'stones', hint:'A long brick walk: plan for the longest pieces.',
+  { id:'grand-promenade', name:'Grand Promenade', era:3, goal:'stones', hint:'A long brick walk: plan for the longest pieces.',
     board:['.........','.........','.........','ssss....s','s.....sss','sss....ss','.........','.........','.........'],
     pieces:['c3a','i4h','o1','i2v','i5h','i4h'] },
   { id:'tufa-terrace-trail', name:'Tufa Terrace Trail', era:5, goal:'stones', hint:'Terraces step down. Clear them from the top.',
     board:['sss......','sss......','ss.......','...sss...','...ss....','...s.....','......sss','......s..','......s..'],
     pieces:['o1','c3b','i2h','c3d','i2v','i4h','o4','i3h','i2h'] },
-  { id:'thermal-water-cascade', name:'Thermal Water Cascade', era:6, goal:'vents', hint:'Let the water run: tap every vent down the cascade, pool by pool.',
+  { id:'thermal-water-cascade', name:'Thermal Water Cascade', era:5, goal:'vents', hint:'Let the water run: tap every vent down the cascade, pool by pool.',
     board:['v........','.v.......','..v......','...vs....','....v....','...s.v...','......v..','.......v.','........v'],
     pieces:['c3b','o1','c3c','o1','i2h','o1','c3b','o1','c3c'] },
   // Second ring (S3-03): twelve harder puzzles, every one proven solvable by tools/rules-node.mjs (tools/solutions.json).
@@ -528,6 +533,8 @@ function parseLevel(L) {
 }
 
 // Spring Trail mastery (S3-03). Stars come from undos used in one attempt. To change the curve, edit these two lines.
+// Bathhouse Row from north to south (research/backdrop-notes.md section 2). The Trail screen draws them as a strip in this order (S4-06).
+const ROW_ORDER = ['superior-bathhouse', 'hale-bathhouse', 'maurice-spring-fountain', 'fordyce-bathhouse', 'quapaw-bathhouse', 'ozark-bathhouse', 'buckstaff-bathhouse', 'lamar-bathhouse'];
 const TRAIL_STAR_UNDOS = [0, 2];   // three stars: no undos; two stars: up to 2 undos; one star: more
 const TRAIL_RING2_STARS = 18;      // total stars that open the second ring
 function trailStars(undos) { return undos <= TRAIL_STAR_UNDOS[0] ? 3 : undos <= TRAIL_STAR_UNDOS[1] ? 2 : 1; }
@@ -3085,10 +3092,28 @@ function unlocked(i) {
   if (ring2Gate(i)) return trailStarTotal() >= TRAIL_RING2_STARS && SAVE.trail.done.includes(LEVELS[i - 1].id);
   return SAVE.trail.done.includes(LEVELS[i - 1].id);
 }
+// A strip of Bathhouse Row in street order above the list: each building is a button that lights once its puzzle is solved.
+function fillRowStrip() {
+  const strip = $('row-strip'); strip.innerHTML = '';
+  const end = t => { const e = document.createElement('span'); e.className = 'end'; e.textContent = t; e.setAttribute('aria-hidden', 'true'); return e; };
+  strip.appendChild(end('N'));
+  ROW_ORDER.forEach(id => {
+    const i = LEVELS.findIndex(l => l.id === id); if (i < 0) return;
+    const b = document.createElement('button'), done = SAVE.trail.done.includes(id);
+    b.textContent = LEVELS[i].name.replace(/ Bathhouse$/, '');
+    b.setAttribute('aria-label', LEVELS[i].name + (done ? ', solved' : unlocked(i) ? '' : ', locked'));
+    if (done) b.classList.add('done');
+    b.disabled = !unlocked(i);
+    b.addEventListener('click', () => { sfx('click'); newGame({ mode: 'trail', level: id, resume: true }); });
+    strip.appendChild(b);
+  });
+  strip.appendChild(end('S'));
+}
 function fillTrail() {
   const box = $('levels'); box.innerHTML = '';
   const total = trailStarTotal();
   $('trail-intro').textContent = LEVELS.length + ' puzzles named for Hot Springs places. Each has a fixed set of pieces and one goal. Solve one to open the next. Finish with no undos for three stars, up to two for two, more for one. ' + TRAIL_RING2_STARS + ' stars open the second ring. You have ' + total + '.';
+  fillRowStrip();
   LEVELS.forEach((L, i) => {
     if (ring2Gate(i)) {
       const h = document.createElement('h3'); h.className = 'ring';
