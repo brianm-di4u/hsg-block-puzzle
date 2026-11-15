@@ -80,6 +80,7 @@ button.primary{background:var(--color-primary) linear-gradient(rgba(255,255,255,
 #b-undo .cnt{font-weight:800;font-family:var(--font-sans)}
 @media (max-width:520px){ #hud .mode{display:none} #hud .mid{gap:12px} #hud .stat.score .num{font-size:2em} }
 @media (orientation:landscape) and (min-width:900px){:root.big{--hud-h:88px}}
+@media (orientation:landscape) and (max-height:480px){:root{--hud-h:52px} #hud{padding-top:calc(9px + env(safe-area-inset-top))} #hud .stat.score .num{font-size:2.2em}}
 
 /* Screens */
 .screen{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:16px;overflow:auto;z-index:10}
@@ -1740,7 +1741,9 @@ function computeLayout() {
   const land = W > H * 1.05;
   const L = { W, H, land, hud };
   if (land) {
-    const capH = 34, top = hud + 10, availH = H - top - capH - 12;
+    // A phone on its side (S1-07): the HUD is thinner and the caption row slimmer, so the board and the tray pieces get the height.
+    const short = H < 480, capH = short ? 30 : 34, top = hud + (short ? 6 : 10), availH = H - top - capH - (short ? 8 : 12);
+    L.short = short;
     const size = Math.floor(Math.min(availH, W * 0.56, 720));
     const trayW = Math.max(150, Math.min(250, (W - size) / 2 - 40));
     const bx = Math.round((W - size) / 2), by = Math.round(top + (availH - size) / 2);
@@ -1768,7 +1771,8 @@ function computeLayout() {
   if (INS.l) { b.x += INS.l; L.slots.forEach(sl => { sl.x += INS.l; }); L.info.x += INS.l; if (L.cap) L.cap.x += INS.l; }
   b.gx = b.x + b.frame; b.gy = b.y + b.frame;
   // one tray scale for every piece (up to 0.62 of a board cell); long pieces shrink to fit their slot
-  L.trayScale = land ? Math.min(b.cell * 0.62, (L.slots[0].h - 30) / 3.2) : Math.min(b.cell * 0.8, (L.slots[0].h - 24) / 4);
+  L.trayPad = L.short ? 12 : 22;   // room kept round a tray piece inside its slot (22 everywhere before S1-07)
+  L.trayScale = land ? (L.short ? Math.min(b.cell * 0.9, (L.slots[0].h - 16) / 3.2) : Math.min(b.cell * 0.62, (L.slots[0].h - 30) / 3.2)) : Math.min(b.cell * 0.8, (L.slots[0].h - 24) / 4);
   return L;
 }
 function resize() {
@@ -2133,7 +2137,7 @@ function slotPieceGeom(k) {
   const sl = LAY.slots[k], t = S.tray[k];
   if (!t) return null;
   const p = PIECES[t.id];
-  const s = Math.min(LAY.trayScale, (sl.w - 16) / p.wd, (sl.h - 22) / p.h);
+  const s = Math.min(LAY.trayScale, (sl.w - 16) / p.wd, (sl.h - LAY.trayPad) / p.h);
   return { s, x: sl.x + (sl.w - p.wd * s) / 2, y: sl.y + (sl.h - p.h * s) / 2 };
 }
 function drawTray(now) {
@@ -3408,7 +3412,8 @@ function cellAt(p) {
   return r >= 0 && r < 9 && c >= 0 && c < 9 ? { r, c } : null;
 }
 // touch: lift the piece so its bottom edge sits 3/4 of a cell above the fingertip, whatever its height
-function dragLift(d, p, cell) { return d.touch ? p.h * cell / 2 + cell * 0.75 : 0; }
+// On a phone on its side (S1-07) the cells are small, so the lift is never under 40 px: a fingertip would hide the piece.
+function dragLift(d, p, cell) { return d.touch ? p.h * cell / 2 + Math.max(cell * 0.75, LAY.short ? 40 : 0) : 0; }
 function dragTopLeft(d, p) {
   const cell = LAY.board.cell;
   return [d.x - p.wd * cell / 2, d.y - p.h * cell / 2 - dragLift(d, p, cell)];
