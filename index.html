@@ -2083,7 +2083,7 @@ function drawInfo(now) {
   if (LAY.land) {
     const cx = I.x + I.w / 2, ty = I.y + 64, th = I.h - 150, tw = 18, bulb = 20;
     capsule(I.x - 6, I.y - 15, I.w + 12, 67, 0.7);
-    text('HEAT', cx, I.y - 6, 11, '#E9E2CF', 'center', 'sans', '700');
+    text('HEAT', cx, I.y - 6, 12, '#E9E2CF', 'center', 'sans', '700');
     text(boiling ? '143°' : tempF(S.heat) + '°', cx, I.y + 18, 19, '#FFFFFF', 'center', 'display', '700');
     text(mtxt, cx, I.y + 38, 14, '#F7CF62', 'center', 'sans', '700');
     // brass thermometer: casing, glass, liquid, bulb, ticks
