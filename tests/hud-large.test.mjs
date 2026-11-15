@@ -15,7 +15,7 @@ export const tests = [{
       await page.waitForFunction(()=>window.__game?.getState().scene==='title'&&document.fonts.status==='loaded');
       await page.locator('#sc-title [data-go="settings"]').click();
       if(await page.locator('#s-big').isChecked()) await page.locator('#s-big').click();
-      await page.locator('#sc-settings [data-back]').click(); await page.locator('[data-mode="classic"]').click(); await page.waitForTimeout(180);
+      await page.locator('#sc-settings [data-back]').click(); await page.locator('[data-mode="classic"]').click(); if (await page.locator('#sc-confirm').isVisible()) await page.locator('#cf-yes').click(); await page.waitForTimeout(180);   // the run saved by the previous profile now asks before it is replaced (wave 3, S6-03)
       const normal=await read(); t.equal(normal.hud.height,68,name+': default HUD unchanged'); t.expect(!normal.bigText,name+': actual default setting');
       await t.shot('hud-'+name+'-default');
       await page.locator('#b-pause').click();await page.locator('#sc-pause [data-go="settings"]').click();await page.locator('#s-big').click();await page.locator('#sc-settings [data-back]').click();await page.locator('#b-resume').click();await page.waitForTimeout(180);
