@@ -325,7 +325,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
     <ul>
       <li>+1 for each tile you place.</li>
       <li>Clearing 1 group scores 18, 2 at once 72, 3 at once 162 (18 × groups²), times the heat multiplier.</li>
-      <li>Every clear heats the water. A placement that clears nothing cools it a step. Heat multiplies clear points up to ×4 at 143°F, the springs' average temperature (NPS). At the top the meter reads "Boiling", after William Dunbar's 1804 name for them: "the boiling springs".</li>
+      <li>Every clear heats the water. Cool water takes two placements in a row that clear nothing to lose a step; warm water loses one with each. Heat multiplies clear points up to ×4 at 143°F, the springs' average temperature (NPS). At the top the meter reads "Boiling", after William Dunbar's 1804 name for them: "the boiling springs".</li>
       <li>Empty the whole floor with a clear for a +300 clear-spring bonus.</li>
     </ul>
     <h3>Modes</h3>
@@ -598,6 +598,10 @@ function pickPiece(g) {
   for (let i = 0; i < PIECE_DEFS.length; i++) { x -= t.w[i]; if (x < 0) return PIECE_DEFS[i][0]; }
   return PIECE_DEFS[PIECE_DEFS.length - 1][0];
 }
+// Heat (P-N01). Below HEAT_SLOW_BELOW steps the water needs HEAT_SLOW_DRY placements in a row that clear nothing to cool one
+// step; from there up every such placement cools one, as before. It was 1 everywhere, which sent a player who clears once a
+// round straight back to 60°F. To undo the retune set HEAT_SLOW_DRY to 1.
+const HEAT_SLOW_BELOW = 3, HEAT_SLOW_DRY = 2;
 function heatMult(heat) { return 1 + heat * 0.25; }
 function tempF(heat) { return Math.round(60 + heat * 83 / 12); }
 function eraFor(score) { let e = 0; for (let i = 0; i < ERAS.length; i++) if (score >= ERAS[i].at) e = i; return e; }
@@ -664,7 +668,7 @@ function applyMove(g, slot, r, c) {
   const cleared = [];
   let vents = 0, stones = 0;
   if (G) {
-    g.heat = Math.min(12, g.heat + G);
+    g.heat = Math.min(12, g.heat + G); g.dry = 0;
     const mult = heatMult(g.heat);
     const set = new Set();
     for (const gr of groups) for (const i of gr.cells) set.add(i);
@@ -680,7 +684,8 @@ function applyMove(g, slot, r, c) {
     g.groups += G;
     if (g.board.every(v => !v)) bonus = 300;
   } else {
-    g.heat = Math.max(0, g.heat - 1);
+    g.dry = (g.dry | 0) + 1;
+    if (g.dry >= (g.heat >= HEAT_SLOW_BELOW ? 1 : HEAT_SLOW_DRY)) { g.heat = Math.max(0, g.heat - 1); g.dry = 0; }
   }
   g.bestHeat = Math.max(g.bestHeat, g.heat);
   points += clearPts + ventPts + bonus;
@@ -699,7 +704,7 @@ function applyMove(g, slot, r, c) {
 function freshGame(mode) {
   return { v: 1, mode, board: new Array(81).fill(0), tray: [null, null, null], queue: [], score: 0, heat: 0, bestHeat: 0,
     groups: 0, placed: 0, round: 0, undoLeft: 1, undosUsed: 0, undoStack: [], era: 0, springs: 0, level: null, goal: null,
-    daily: null, over: false, won: false, rng: 1, diff: 'standard' };
+    daily: null, over: false, won: false, rng: 1, diff: 'standard', dry: 0 };
 }
 function setupGame(g, opts) {
   if (g.mode === 'trail') {

@@ -249,4 +249,46 @@ export const tests = [
     },
   },
 
+  // ------------------------------------------------------------------ P-N01 heat is felt
+  {
+    name: 'P-N01 cool water needs two dry placements to lose a step; warm water loses one with each',
+    node: true,
+    async run(t) {
+      const dry = heat => {
+        const g = R.freshGame('classic'); g.board = empty(); g.tray = [{ id: 'o1' }, { id: 'o1' }, { id: 'o1' }]; g.heat = heat; g.rng = 5;
+        const out = [];
+        for (let k = 0; k < 2; k++) { R.applyMove(g, k, 4, 3 * k + 1); out.push(g.heat); }
+        return { out, g };
+      };
+      t.equal(dry(2).out, [2, 1], 'at 2 the first dry placement holds, the second cools');
+      t.equal(dry(0).out, [0, 0], 'at 0 it stays at 0');
+      t.equal(dry(5).out, [4, 3], 'at 5 every dry placement cools one step');
+      t.equal(dry(3).out, [2, 2], 'at 3 the first dry placement cools, and the cool water then waits for a second');
+      // a clear in between resets the count
+      const g = R.freshGame('classic'); g.board = empty(); for (let c = 1; c < 9; c++) g.board[c] = 1;
+      g.tray = [{ id: 'o1' }, { id: 'o1' }, { id: 'o1' }]; g.heat = 2; g.rng = 5;
+      R.applyMove(g, 0, 4, 4);
+      t.equal([g.heat, g.dry], [2, 1], 'one dry placement is waiting');
+      const res = R.applyMove(g, 1, 0, 0);
+      t.expect(res.G === 1 && g.heat === 3 && g.dry === 0, 'a clear heats the water and starts the count again: heat ' + g.heat + ' dry ' + g.dry);
+      t.equal(g.cooled | 0, 0, 'nothing has cooled yet');
+    },
+  },
+  {
+    name: 'P-N01 a good greedy player spends most of a game with warm water and never boils by routine',
+    node: true,
+    async run(t) {
+      // 10 seeded games with the strong greedy bot of tools/difficulty-sim.mjs: the same answer every run.
+      // Before the change the same games sat at 60°F on about a third of moves and at 90°F or more on a fifth.
+      const hist = new Array(13).fill(0); let moves = 0;
+      for (let seed = 0; seed < 10; seed++) botGame('classic', seed, (g, when) => { if (when === 'before') { hist[g.heat]++; moves++; } });
+      const share = f => hist.reduce((a, v, h) => a + (f(h) ? v : 0), 0) / moves;
+      t.log('moves ' + moves + ': heat 0 ' + (100 * share(h => h === 0)).toFixed(1) + '%, 3+ ' + (100 * share(h => h >= 3)).toFixed(1) + '%, 6+ ' + (100 * share(h => h >= 6)).toFixed(1) + '%, 12 ' + (100 * share(h => h === 12)).toFixed(1) + '%');
+      t.expect(share(h => h === 0) < 0.2, 'heat 0 on under a fifth of moves');
+      t.expect(share(h => h >= 3) > 0.4 && share(h => h >= 3) < 0.8, 'water at Warm or hotter (heat 3+) on 40 to 80% of moves');
+      t.expect(share(h => h >= 6) > 0.03, 'and the glowing bead (heat 6+) is seen');
+      t.expect(share(h => h === 12) < 0.02, 'boiling stays a rare reward');
+    },
+  },
+
 ];
