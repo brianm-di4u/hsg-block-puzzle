@@ -271,4 +271,38 @@ export const tests = [
       await t.checkLayout();
     },
   },
+
+  // ------------------------------------------------------------------ S4-01 a voice, not a bibliography
+  {
+    name: 'S4-01 tickers, cards and Records read as sentences with no citations on their face; the credits are on Help',
+    async run(t) {
+      const w = await t.game('act', 'words');
+      const lines = [...w.ticker, ...Object.values(w.cards).flatMap(c => c.facts), ...(await t.game('getLevels')).map(l => l.fact).filter(Boolean)];
+      t.expect(lines.length >= 11 + 22, 'there are lines to check: ' + lines.length);
+      const cite = /\((NPS|USGS|Wikipedia|HSNP|EOA)|Wikipedia|Encyclopedia|NPS:|corpus/;
+      for (const l of lines) {
+        t.expect(!cite.test(l), 'no citation on the face of: ' + l);
+        t.expect(l.length <= 120, 'under 120 characters (' + l.length + '): ' + l);
+      }
+      for (const [id, c] of Object.entries(w.cards)) t.expect(c.src && c.src.length > 5, 'the card for ' + id + ' keeps its src for audit');
+      // every card open, so the Cards screen shows them all
+      await t.game('act', 'setting', 'tipsSeen', true);
+      const levels = await t.game('getLevels');
+      await t.page.evaluate(([k, ids]) => { const v = JSON.parse(localStorage.getItem(k) || '{}'); v.trail = { ...(v.trail || {}), done: ids, stars: {} }; localStorage.setItem(k, JSON.stringify(v)); }, ['hs-thermal-blocks-v1', levels.map(l => l.id)]);
+      await t.reload();
+      await t.waitFrames(3);
+      await t.game('scene', 'cards');
+      await t.waitFrames(2);
+      const cards = await t.page.textContent('#sc-cards');
+      t.expect(cards.includes('Display Spring') && cards.includes('Thermal Water Cascade'), 'the cards are there');
+      t.expect(!/Source:|research corpus|Wikipedia|Encyclopedia/.test(cards), 'nothing on the Cards screen cites a source or the research corpus');
+      t.expect(cards.includes('Where the facts come from is on the Help screen'), 'and it says where to look');
+      await t.shot('S4-01-cards');
+      await t.game('scene', 'help');
+      const help = await t.page.textContent('#sc-help');
+      t.expect(/Sources/.test(help) && help.includes('Encyclopedia of Arkansas') && help.includes('USGS') && help.includes('Wikipedia'), 'Help has one Sources paragraph');
+      await t.page.evaluate(() => { const p = document.querySelector('#sc-help .panel'); p.scrollTop = p.scrollHeight; });
+      await t.shot('S4-01-help-sources');
+    },
+  },
 ];

@@ -162,7 +162,6 @@ button.big{width:100%;font-size:1.1em;padding:12px}
 .card h4{margin:0 0 4px;font-family:var(--font-serif-victorian);font-size:1.1em;color:var(--color-primary)}
 .card .yr{font-family:var(--font-mono);font-size:.85em;color:var(--color-muted)}
 .card ul{margin:6px 0;padding-left:18px}
-.card .src{font-size:.78em;color:var(--color-muted)}
 .card .pic{height:70px;margin:-12px -12px 8px;border-radius:10px 10px 0 0;background:#1F5F6B center 60%/cover no-repeat}
 .card.locked{opacity:.8;border-style:dashed}
 
@@ -366,6 +365,8 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
     </table>
     <p class="muted">Undo: one per round by default (change it in Settings). Stuck? The lightbulb button (or <kbd>H</kbd>) shows one good move, once for each tray, in Classic, Daily Soak and Springs.</p>
     <div class="row"><button id="b-tips-help" type="button">Show tips again</button></div>
+    <h3>Sources</h3>
+    <p class="muted">The facts in the tickers, cards and Records come from National Park Service (NPS) pages (Maurice Historic Display Spring; History &amp; Culture; Hot Springs &amp; North Mountain Trails; a 1920 brochure), USGS tritium and carbon-14 dating, the Encyclopedia of Arkansas, and Wikipedia (Bathhouse Row; Hot Springs National Park; Hot Springs, Arkansas). Each card keeps its own source in the game files.</p>
     <h3>About the pictures</h3>
     <p class="muted">The backdrops are game art of downtown Hot Springs seen from the hills above Central Avenue and Bathhouse Row, one per era, from the wild creek valley before 1804 to today. Times of day, seasons and small details are artistic; landmarks follow sources listed in the game files. Terrain: USGS 3D Elevation Program (public domain). Building footprints: © OpenStreetMap contributors (ODbL). Font: Fraunces (SIL Open Font License).</p>
     <div class="row"><button data-back class="primary">Back</button></div>
@@ -499,7 +500,7 @@ const LEVELS = [
     board:['4...1.5.5','4132..664','..6.5...2','15455526.','.5...12..','.2.6.66..','3665..545','....1.5..','....3...4'],
     pieces:['c3d','c3d','i3v','i3h','i2h','u5a','i4h'] },
   { id:'hot-springs-creek', name:'Hot Springs Creek', era:2, ring:2, goal:'vents', hint:'Check each vent: which line is closest to full?',
-    fact:'Hot Springs water averages about 143°F, the hottest springs east of the Rockies (NPS).',
+    fact:'Hot Springs water averages about 143°F, the hottest springs east of the Rockies.',
     board:['.........','.....3...','.......v1','.........','.......1.','.....6...','.........','..v.6v..6','.........'],
     pieces:['j4a','v5a','s4v','i5v','c3b','r6h','v5a','u5a'] },
   { id:'noble-fountain', name:'Noble Fountain', era:2, ring:2, goal:'lines:4', hint:'Four groups from a busy floor. Look for gaps that finish two lines at once.',
@@ -507,15 +508,15 @@ const LEVELS = [
     board:['.24.43.2.','.2.1552.2','..3.451..','.25......','4.5...1..','5..1..244','..11...6.','..424..16','436.2113.'],
     pieces:['v5a','c3d','i3v','v5a','j4a','z4h','l4d','c3d'] },
   { id:'thrust-faults', name:'Thrust Faults', era:3, ring:2, goal:'stones', hint:'Each stone clears with its pool, row or column. Fill what is left around it.',
-    fact:'Two thrust faults, "alpha" and "beta", carry the heated water up like pipes (NPS).',
+    fact:'Two thrust faults, "alpha" and "beta", carry the heated water up like pipes.',
     board:['.........','.........','.........','.....s...','...sss...','...ss....','sss......','.s.......','.s.......'],
     pieces:['c3c','u5a','c3b','i2v','x5'] },
   { id:'bigfork-chert', name:'Bigfork Chert', era:3, ring:2, goal:'vents', hint:'Keep your longest pieces for the longest gaps.',
-    fact:'Rain soaks into Bigfork Chert and Arkansas Novaculite, then heats to about 160°F a mile down (NPS).',
+    fact:'Rain soaks into Bigfork Chert and Arkansas Novaculite, then heats to about 160°F a mile down.',
     board:['...6.....','.........','.........','v.....54.','.1.v....4','.....4...','..14.v...','1..2.2...','2....v.62'],
     pieces:['s4h','z4h','z4h','i3h','x5','i3v','s4v','c3a'] },
   { id:'bicarbonate-water', name:'Bicarbonate Water', era:4, ring:2, goal:'lines:3', hint:'Three groups to clear. The order you place pieces matters.',
-    fact:'Bicarbonate, about 130 ppm, is the main mineral dissolved in the water (Wikipedia, HSNP).',
+    fact:'The main mineral in the water is bicarbonate, about 130 ppm.',
     board:['1.31.3.25','......4..','1311.....','.3...3.32','....1566.','455.52...','..2.5....','3.641.543','2..6...3.'],
     pieces:['t4b','c3d','i2v','i2h','s4v','v5a'] },
   { id:'tufa-stone', name:'Tufa Stone', era:4, ring:2, goal:'stones', hint:'A stone clears with its pool, row or column. Save small pieces for tight gaps.',
@@ -527,7 +528,7 @@ const LEVELS = [
     board:['.4.......','v6.......','vv.v..654','...5.....','.........','.3.......','.5.......','...2.....','5..1.....'],
     pieces:['v5a','i3v','s4v','v5a','u5a','j4a','j4b'] },
   { id:'gallons-a-day', name:'Gallons a Day', era:5, ring:2, goal:'lines:5', hint:'Five groups to clear. Chain your clears so the floor never fills.',
-    fact:'The springs give over 700,000 gallons a day (NPS); other sources say up to about a million.',
+    fact:'The springs give over 700,000 gallons a day; other sources say up to about a million.',
     board:['1..6.1..6','.6.2.3264','......133','..51...41','4..1....2','26..3....','......5..','1..115.6.','...5....4'],
     pieces:['t4b','z4h','c3d','i2v','i5h','i3h','r6h','c3a'] },
   { id:'forty-seven-springs', name:'Forty-Seven Springs', era:6, ring:2, goal:'stones', hint:'Take your time: undo is free, but it costs stars.',
@@ -806,20 +807,21 @@ function setupGame(g, opts) {
 
 // ===================================================================== CONTENT (sourced; see research/town-content.md)
 const TICKER = [
-  'Hot Springs water averages about 143°F, the hottest springs east of the Rockies (NPS).',
-  'Most of the spring water fell as rain about 4,400 years ago (USGS tritium and carbon-14 dating).',
-  'Rain soaks into Bigfork Chert and Arkansas Novaculite, then heats to about 160°F a mile down (NPS).',
-  'Two thrust faults, "alpha" and "beta", carry the heated water up like pipes (NPS).',
-  'The springs give over 700,000 gallons a day (NPS); other sources say up to about a million.',
-  'Hot Springs is usually counted as 47 springs; one source says 43 still flow.',
-  'Bicarbonate, about 130 ppm, is the main mineral dissolved in the water (Wikipedia, HSNP).',
+  // The words are the game's; where each fact comes from is on the Help screen (Sources) and in the CARDS src fields.
+  'Hold your hand to it: the water averages about 143°F, the hottest springs east of the Rockies.',
+  'Most of the water steaming here fell as rain about 4,400 years ago.',
+  'Rain soaks into Bigfork Chert and Arkansas Novaculite, then heats to about 160°F a mile down.',
+  'Two thrust faults, "alpha" and "beta", carry the heated water up like pipes.',
+  'Every day the springs give over 700,000 gallons; other sources say up to about a million.',
+  'Hot Springs is usually counted as 47 springs, though one source says only 43 still flow.',
+  'The main mineral in the water is bicarbonate, about 130 ppm.',
   'Tufa is the white-to-tan rock left where spring water evaporates.',
   'In 1904 Bertram Boltwood found the waters slightly radioactive, mostly from dissolved radon.',
   'Dunbar and Hunter counted four principal springs and two lesser ones in 1804.',
-  'A prescribed bath "course" in 1920 was 21 baths (NPS 1920 brochure).',
+  'In 1920 a prescribed bath "course" meant 21 baths.',
 ];
 // Water cards (S3-15): collected by play in any mode, not only Spring Trail. Each shows one of the ticker's sourced lines above
-// (the source is in the line). `lines` is lifetime groups cleared (10 years of water's age each); `streak` is the longest run of Daily Soak days.
+// (its source is on the Help screen). `lines` is lifetime groups cleared (10 years of water's age each); `streak` is the longest run of Daily Soak days.
 const WATER_CARDS = [
   { id: 'w250', lines: 25, title: 'Water’s age: 250 years', text: TICKER[7] },
   { id: 'w500', lines: 50, title: 'Water’s age: 500 years', text: TICKER[6] },
@@ -832,42 +834,43 @@ const WATER_CARDS = [
 ];
 const waterCardOpen = (c, lines = SAVE.stats.lines, streak = dailyLongest()) => c.lines ? lines >= c.lines : streak >= c.streak;
 const CARDS = {
+  // `facts` are what the player reads, one image and one fact to a line. `src` is kept for audit and is listed on the Help screen.
   'display-spring': { place:'Display Spring', year:'uncovered 1930s', facts:[
-    'Behind the Maurice Bathhouse, it was covered by a grate for decades before it was opened in the 1930s.',
-    'Its water emerges at about 143°F and flows into Hot Springs Creek.'], src:'NPS: Maurice Historic Display Spring' },
+    'Behind the Maurice Bathhouse a grate covered it for decades, until it was opened in the 1930s.',
+    'Its water comes up at about 143°F and runs into Hot Springs Creek.'], src:'NPS: Maurice Historic Display Spring' },
   'hale-bathhouse': { place:'Hale Bathhouse', year:'1892–93', facts:[
-    'The oldest surviving bathhouse on Bathhouse Row.',
-    'Its facade was remodeled in Mission style in 1939–40, with a red-tile hipped roof and wrought-iron grilles.'], src:'Encyclopedia of Arkansas; Wikipedia: Bathhouse Row' },
+    'The oldest bathhouse still standing on Bathhouse Row.',
+    'In 1939–40 its front was remodeled in Mission style: red-tile hipped roof, wrought-iron grilles.'], src:'Encyclopedia of Arkansas; Wikipedia: Bathhouse Row' },
   'maurice-spring-fountain': { place:'Maurice Spring Fountain', year:'1903', facts:[
-    'A fountain with a retaining wall, completed on Bathhouse Row in 1903.',
+    'A fountain with a retaining wall, finished on Bathhouse Row in 1903.',
     'The Noble Fountain was moved to the Reserve Avenue end of the Grand Promenade in 1957.'], src:'Wikipedia: Bathhouse Row' },
   'buckstaff-bathhouse': { place:'Buckstaff Bathhouse', year:'1912', facts:[
-    'It has offered baths continuously since 1912, and was the only Row bathhouse still operating after 1985.',
-    'Cream brick with white stucco trim and brass "Buckstaff Baths" letters.'], src:'Encyclopedia of Arkansas; Wikipedia: Bathhouse Row' },
+    'Baths have been offered here since 1912, and after 1985 it was the only Row bathhouse still open.',
+    'Look for cream brick, white stucco trim and brass "Buckstaff Baths" letters.'], src:'Encyclopedia of Arkansas; Wikipedia: Bathhouse Row' },
   'fordyce-bathhouse': { place:'Fordyce Bathhouse', year:'1914–15', facts:[
-    'Built for $212,749.55 including fixtures, the Row’s most luxurious house.',
+    'It cost $212,749.55 to build, fixtures included: the Row’s most luxurious house.',
     '"Spring number 46" sits in a glazed-tile room in its basement. It reopened as the park visitor center in 1989.'], src:'Wikipedia: Bathhouse Row' },
   'superior-bathhouse': { place:'Superior Bathhouse', year:'1916', facts:[
-    'The northernmost house on the Row; concrete on its facade is painted to imitate tile, with green tile medallions.',
+    'The northernmost house on the Row. Its concrete facade is painted to look like tile, with green tile medallions.',
     'Since 2012 it has housed a brewery and distillery.'], src:'Wikipedia: Bathhouse Row; Wikipedia: Hot Springs, Arkansas' },
   'quapaw-bathhouse': { place:'Quapaw Bathhouse', year:'1922', facts:[
-    'It was to be the Platt Bathhouse until Native artifacts and a tufa cave turned up while digging its basement.',
-    'It is crowned by a chevron-mosaic tiled dome with a small copper cupola.'], src:'Encyclopedia of Arkansas; Wikipedia: Bathhouse Row' },
+    'It was to be the Platt Bathhouse, until digging its basement turned up Native artifacts and a tufa cave.',
+    'A chevron-mosaic tiled dome with a small copper cupola crowns it.'], src:'Encyclopedia of Arkansas; Wikipedia: Bathhouse Row' },
   'ozark-bathhouse': { place:'Ozark Bathhouse', year:'1922', facts:[
-    'A Spanish Colonial Revival design by Mann & Stern with twin towers in three-tiered setbacks.',
+    'A Spanish Colonial Revival design by Mann & Stern, with twin towers in three-tiered setbacks.',
     'It reopened in 2014 as a cultural center showing artist-in-residence work.'], src:'Wikipedia: Bathhouse Row' },
   'lamar-bathhouse': { place:'Lamar Bathhouse', year:'1923', facts:[
     'Its 1923 opening completed Bathhouse Row.',
-    'It stopped offering baths in November 1985 and now holds the park store.'], src:'NPS: History & Culture; Wikipedia: Bathhouse Row' },
+    'Baths stopped here in November 1985, and today it holds the park store.'], src:'NPS: History & Culture; Wikipedia: Bathhouse Row' },
   'grand-promenade': { place:'Grand Promenade', year:'begun 1930s', facts:[
     'A brick walk about half a mile long behind Bathhouse Row, and a National Recreation Trail.',
-    'Construction began in the 1930s; the walk was completed in the late 1950s to early 1960s.'], src:'NPS: Hot Springs & North Mountain Trails; Wikipedia: Bathhouse Row' },
+    'Work began in the 1930s; the walk was finished between the late 1950s and early 1960s.'], src:'NPS: Hot Springs & North Mountain Trails; Wikipedia: Bathhouse Row' },
   'tufa-terrace-trail': { place:'Tufa Terrace Trail', year:'0.3 mile', facts:[
     'A paved 0.3-mile trail at a 6% grade, between about 650 and 745 feet.',
-    'Tufa (travertine) is the white-to-tan rock that forms as minerals precipitate from evaporating thermal water.'], src:'NPS: Hot Springs & North Mountain Trails; Wikipedia: HSNP' },
+    'Tufa (travertine) is the white-to-tan rock that forms as minerals leave evaporating thermal water.'], src:'NPS: Hot Springs & North Mountain Trails; Wikipedia: HSNP' },
   'thermal-water-cascade': { place:'Thermal Water Cascade', year:'1982', facts:[
-    'NPS created the Thermal Water Cascade in 1982.',
-    'When the springs were enclosed in 1901, water was diverted to form a thermal cascade.'], src:'Encyclopedia of Arkansas: Hot Springs National Park; EOA photo entry' },
+    'The National Park Service created the Thermal Water Cascade in 1982.',
+    'The springs were enclosed in 1901, and the water was diverted to form a thermal cascade.'], src:'Encyclopedia of Arkansas: Hot Springs National Park; EOA photo entry' },
 };
 
 // Tile glazes are fixed (TILE_HEX in RENDER); eras change the backdrop. Thermal water, tufa and frame colors:
@@ -3130,7 +3133,6 @@ function cardEl(id, locked) {
   if (locked) { const p = document.createElement('p'); p.className = 'muted'; p.style.margin = '0'; p.textContent = 'Solve this Spring Trail puzzle to collect the card.'; el.appendChild(p); return el; }
   const y = document.createElement('div'); y.className = 'yr'; y.textContent = c.year; el.appendChild(y);
   const ul = document.createElement('ul'); for (const f of c.facts) { const li = document.createElement('li'); li.textContent = f; ul.appendChild(li); } el.appendChild(ul);
-  const s = document.createElement('div'); s.className = 'src'; s.textContent = 'Source: ' + c.src; el.appendChild(s);
   return el;
 }
 function showWinTrail() {
@@ -3303,7 +3305,7 @@ function fillCards() {
   $('cards-water-sub').textContent = WATER_CARDS.filter(c => waterCardOpen(c)).length + ' of ' + WATER_CARDS.length + ' collected. Clear groups in any mode and keep a Daily Soak streak going.';
   const box = $('cards'); box.innerHTML = '';
   const withCards = LEVELS.filter(l => CARDS[l.id]);
-  $('cards-sub').textContent = withCards.filter(l => SAVE.trail.done.includes(l.id)).length + ' of ' + withCards.length + ' collected. Solve Spring Trail puzzles to collect cards. Facts are from the Hot Springs research corpus; sources are listed on each card. Water cards, earned in any mode, follow below.';
+  $('cards-sub').textContent = withCards.filter(l => SAVE.trail.done.includes(l.id)).length + ' of ' + withCards.length + ' collected. Solve Spring Trail puzzles to collect cards. Water cards, earned in any mode, follow below. Where the facts come from is on the Help screen.';
   withCards.forEach(L => box.appendChild(cardEl(L.id, !SAVE.trail.done.includes(L.id))));
 }
 function fillRecords() {
@@ -3318,8 +3320,8 @@ function fillRecords() {
   fillRecent(); fillDaily(); fillGoals();
   const yrs = Math.min(4400, st.lines * 10);
   $('rec-age').textContent = yrs >= 4400
-    ? 'Water’s age: 4,400 years. Your spring has emerged! USGS dating puts most Hot Springs water at about 4,400 years old.'
-    : 'Water’s age: ' + yrs.toLocaleString('en-US') + ' of 4,400 years underground (each group you clear counts 10 years). USGS dating puts most Hot Springs water at about 4,400 years old.';
+    ? 'Water’s age: 4,400 years. Your spring has emerged! Most Hot Springs water is about 4,400 years old.'
+    : 'Water’s age: ' + yrs.toLocaleString('en-US') + ' of 4,400 years underground (each group you clear counts 10 years). Most Hot Springs water is about 4,400 years old.';
 }
 // The last ten scores per mode, newest first, with their average, so a player can see whether they are improving.
 // Bests at Relaxed and Master, listed once there is one.
@@ -3717,6 +3719,7 @@ window.__game = {
       case 'audio': audioInit(); sfx(a[0] || 'click'); return { ctx: !!AU.ctx, state: AU.ctx ? AU.ctx.state : null, gain: AU.master ? AU.master.gain.value : null };
       case 'infoLine': return infoLine();
       case 'doomed': return trayDoomed();
+      case 'words': return { ticker: TICKER.slice(), cards: Object.fromEntries(Object.entries(CARDS).map(([k, c]) => [k, { facts: c.facts.slice(), src: c.src }])) };
       case 'hint': return useHint();
       case 'hintState': return { hint: UI.hint ? { ...UI.hint } : null, avail: hintAvail(), round: UI.hintRound };
       case 'cues': return CUE_LOG.slice();
