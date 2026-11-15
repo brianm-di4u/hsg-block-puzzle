@@ -230,7 +230,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
     <button class="play" data-mode="classic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg><span class="t"><b>Play Classic</b><span>Endless. Climb through seven eras.</span></span></button>
     <div class="modes">
       <button data-mode="daily"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg><b>Daily Soak</b><span id="daily-sub">Same board for everyone today.</span></button>
-      <button data-mode="springs"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4c-2 2 2 3 0 6M12 3c-2 2 2 3 0 6M16 4c-2 2 2 3 0 6"/><ellipse cx="12" cy="17" rx="8" ry="3.5"/></svg><b>Springs</b><span>Tap 47 hot-spring vents.</span></button>
+      <button data-mode="springs"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4c-2 2 2 3 0 6M12 3c-2 2 2 3 0 6M16 4c-2 2 2 3 0 6"/><ellipse cx="12" cy="17" rx="8" ry="3.5"/></svg><b>Springs</b><span>Open 47 hot-spring vents.</span></button>
       <button data-go="trail"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-6.2-6-11a6 6 0 0112 0c0 4.8-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/></svg><b>Spring Trail</b><span id="trail-sub">24 puzzles at real places.</span></button>
     </div>
     <div class="links">
@@ -345,8 +345,8 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
     <h3>Modes</h3>
     <ul>
       <li><b>Classic</b>: endless. Score carries you through the town's seven eras. Eras change the backdrop and its caption only; the game plays the same.</li>
-      <li><b>Daily Soak</b>: everyone gets the same tufa stones and the same pieces today.</li>
-      <li><b>Springs</b>: vents sit on the floor. Clear a vent's row, column or pool to tap it (+40 × the heat multiplier). Tap 47 to win. Hot Springs is usually said to have 47 springs; one source says 43 still flow, and NPS says "about four dozen".</li>
+      <li><b>Daily Soak</b>: everyone gets the same tufa stones and the same pieces today, and one best score per day counts.</li>
+      <li><b>Springs</b>: vents sit on the floor. Clear a vent's row, column or pool to open it (+40 × the heat multiplier). Open all 47 to win. Hot Springs is usually said to have 47 springs; one source says 43 still flow, and NPS says "about four dozen".</li>
       <li><b>Difficulty</b> (Settings): Relaxed serves more small pieces and keeps the rescue deal strong; Master serves more big ones and thins it. It applies to Classic and Springs, each difficulty keeps its own best, and Daily Soak and Spring Trail are the same for everyone.</li>
       <li><b>Spring Trail</b>: hand-made puzzles with a goal and a fixed set of pieces. Undo is unlimited there, but each puzzle earns up to three stars: fewer undos, more stars.</li>
     </ul>
@@ -440,7 +440,7 @@ const WEIGHT_SUM = PIECE_DEFS.reduce((a, d) => a + d[1], 0);
 // Spring Trail levels. Board rows: '.' empty, 's' tufa stone, 'v' spring vent, '1'-'6' glazed tile.
 // Layouts and piece lists are game design; the card text is sourced (research/town-content.md §4).
 const LEVELS = [
-  { id:'display-spring', name:'Display Spring', era:3, goal:'vents', hint:'Fill the gap in the bottom row to tap the vent.',
+  { id:'display-spring', name:'Display Spring', era:3, goal:'vents', hint:'Fill the gap in the bottom row to open the vent.',
     board:['.........','.........','.........','.........','.........','.........','.........','.........','v12...456'],
     pieces:['i3h','o4','o1'] },
   { id:'hale-bathhouse', name:'Hale Bathhouse', era:2, goal:'stones', hint:'Two rows can clear with the right two pieces.',
@@ -473,7 +473,7 @@ const LEVELS = [
   { id:'tufa-terrace-trail', name:'Tufa Terrace Trail', era:5, goal:'stones', hint:'Terraces step down. Clear them from the top.',
     board:['sss......','sss......','ss.......','...sss...','...ss....','...s.....','......sss','......s..','......s..'],
     pieces:['o1','c3b','i2h','c3d','i2v','i4h','o4','i3h','i2h'] },
-  { id:'thermal-water-cascade', name:'Thermal Water Cascade', era:5, goal:'vents', hint:'Let the water run: tap every vent down the cascade, pool by pool.',
+  { id:'thermal-water-cascade', name:'Thermal Water Cascade', era:5, goal:'vents', hint:'Let the water run: open every vent down the cascade, pool by pool.',
     board:['v........','.v.......','..v......','...vs....','....v....','...s.v...','......v..','.......v.','........v'],
     pieces:['c3b','o1','c3c','o1','i2h','o1','c3b','o1','c3c'] },
   // Second ring (S3-03): twelve harder puzzles, every one proven solvable by tools/rules-node.mjs (tools/solutions.json).
@@ -632,6 +632,7 @@ function hintOnce(id) {   // true the first time only, and never for a save that
   if (h.all || h[id]) return false;
   h[id] = true; persist(); return true;
 }
+function dayLabel(iso) { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
 function noteEra(e) {
   const fresh = e > eraReached();
   if (e > SAVE.eraMax) { SAVE.eraMax = e; persist(); }
@@ -2054,16 +2055,16 @@ function text(t, x, y, size, col = W8.text, align = 'left', font = 'sans', weigh
   ctx.fillStyle = col; ctx.fillText(t, x, y);
 }
 function goalText() {
-  if (S.mode === 'springs') return 'Springs tapped ' + S.springs + ' / 47';
+  if (S.mode === 'springs') return 'Springs opened ' + S.springs + ' / 47';
   if (S.mode === 'trail') {
     const left = S.tray.filter(Boolean).length + S.queue.length;
     let g = '';
     if (S.goal === 'stones') g = 'Clear the tufa: ' + count(S.board, 7) + ' left';
-    else if (S.goal === 'vents') g = 'Tap the vents: ' + count(S.board, 8) + ' left';
+    else if (S.goal === 'vents') g = 'Open the vents: ' + count(S.board, 8) + ' left';
     else g = 'Clear ' + S.goal.slice(6) + ' groups: ' + S.groups + ' done';
     return g + ' · ' + left + ' piece' + (left === 1 ? '' : 's');
   }
-  if (S.mode === 'daily') return 'Daily Soak · ' + S.daily;
+  if (S.mode === 'daily') return 'Daily Soak · ' + dayLabel(S.daily);
   return 'Lines ' + S.groups;
 }
 function heatCol(frac) { return frac < 0.5 ? mix('#4FC3D9', '#F2A541', frac * 2) : mix('#F2A541', '#FF4A2B', (frac - 0.5) * 2); }
@@ -2285,7 +2286,7 @@ function clearFeedback(res, cx, cy, prevHeat) {
     const sub = res.bonus ? '+300' : (head && word ? word + ' · ×' + res.mult.toFixed(2).replace(/0$/, '') : '×' + res.mult.toFixed(2).replace(/0$/, ''));
     addFx({ type: 'banner', text: main, sub, level: Math.min(5, res.G + (S.heat >= 12 ? 1 : 0)), dur: reducedMotion() ? 900 : 1300 });
   }
-  if (res.vents) popup(res.vents + (res.vents > 1 ? ' springs' : ' spring') + ' tapped', cx, cy - cell * 1.1, '#9FF2E4', Math.round(cell * 0.32));
+  if (res.vents) popup(res.vents + (res.vents > 1 ? ' springs' : ' spring') + ' opened', cx, cy - cell * 1.1, '#9FF2E4', Math.round(cell * 0.32));
 }
 function bannerSize(level) { const b = LAY.board; return Math.min(b.size * 0.13, b.cell * (0.75 + level * 0.08)); }
 function landFx(id, r, c) { if (!reducedMotion()) addFx({ type: 'land', id, r, c, dur: 220 }); }
@@ -2693,7 +2694,8 @@ function newGame(opts = {}) {
   if (mode === 'trail') {
     const L = LEVELS.find(l => l.id === S.level);
     toast(L.name, L.hint, 5000);
-  }
+  } else if (!kept && !UI.tip && mode === 'springs') toast('Springs', 'Open all 47 vents: complete a vent’s row, column or pool.', 4500);
+  else if (!kept && !UI.tip && mode === 'daily') toast('Daily Soak', 'Same board for everyone today. One best score per day.', 4500);
   announce('New ' + modeLabel() + ' game. ' + trayDesc() + (UI.tip && UI.tip.cur ? ' Tip: ' + tipText(UI.tip.cur) : ''));
   return S;
 }
@@ -2988,7 +2990,7 @@ function fillOver() {
   const trail = S.mode === 'trail', outOf = trail && !S.tray.some(Boolean);
   $('ov-title').textContent = won ? 'All 47 springs flowing!' : outOf ? 'Out of pieces' : 'No room left';
   $('ov-sub').textContent = trail ? (LEVELS.find(l => l.id === S.level).name + ' · goal not reached. Undo a move or try again.')
-    : modeLabel() + (S.mode === 'daily' ? ' · ' + S.daily : '') + (won ? ' · you tapped every spring' : ' · none of your pieces fits');
+    : modeLabel() + (S.mode === 'daily' ? ' · ' + dayLabel(S.daily) : '') + (won ? ' · you opened every spring' : ' · none of your pieces fits');
   const era = ERAS[S.era];
   $('ov-era').textContent = trail ? '' : won ? ERAS[0].cap : 'You reached ' + era.name + ' (' + era.years + '). ' + era.cap;
   $('b-ovundo').style.display = trail && undoAvail() ? '' : 'none';
@@ -3001,7 +3003,7 @@ function fillOver() {
   $('ov-new').textContent = UI.newBest ? 'New best!' : 'Best: ' + bestFor(S.mode).toLocaleString('en-US');
   $('ov-new').classList.toggle('hit', !!UI.newBest);
   const rows = [['Groups cleared', S.groups], ['Pieces placed', S.placed], ['Hottest water', S.bestHeat >= 12 ? '143°F (boiling)' : tempF(S.bestHeat) + '°F'], ['Era reached', ERAS[S.era].name]];
-  if (S.mode === 'springs') rows.unshift(['Springs tapped', S.springs + ' / 47']);
+  if (S.mode === 'springs') rows.unshift(['Springs opened', S.springs + ' / 47']);
   const pp = S.ptsPlace | 0, pc = S.ptsClear | 0, pb = S.ptsBonus | 0;
   if (pp + pc + pb === S.score && S.score > 0) { rows.splice(1, 0, ['Points from clears', pc.toLocaleString('en-US')], ['Points from placing', pp.toLocaleString('en-US')]); if (pb) rows.splice(3, 0, ['Clear-spring bonus', pb.toLocaleString('en-US')]); }
   if (S.mode === 'daily') rows.push(['Daily streak', dailyStreak(S.daily) + (dailyStreak(S.daily) === 1 ? ' day' : ' days')]);
@@ -3172,7 +3174,7 @@ function fillTrail() {
 const TRAIL_TITLE = 'Row Walker';
 function trailTitle() { return LEVELS.every(l => l.ring || SAVE.trail.done.includes(l.id)) ? TRAIL_TITLE : ''; }
 function trailAllDone() { return LEVELS.every(l => SAVE.trail.done.includes(l.id)); }
-function goalLabel(g) { return g === 'stones' ? 'Clear the tufa' : g === 'vents' ? 'Tap the vents' : 'Clear ' + g.slice(6) + ' groups'; }
+function goalLabel(g) { return g === 'stones' ? 'Clear the tufa' : g === 'vents' ? 'Open the vents' : 'Clear ' + g.slice(6) + ' groups'; }
 function waterCardEl(c) {
   const open = waterCardOpen(c), el = document.createElement('article'); el.className = 'card' + (open ? '' : ' locked');
   const h = document.createElement('h4'); h.textContent = c.title; el.appendChild(h);
@@ -3210,7 +3212,7 @@ function fillRecords() {
     ['Best Daily Soak', Math.max(0, ...Object.values(SAVE.best.daily)).toLocaleString('en-US')], ['Daily Soaks played', dailyDays().size],
     ...diffBestRows(),
     ['Games played', st.games], ['Longest game (pieces placed)', st.longest], ['Biggest clear (groups at once)', st.bestCombo], ['Groups cleared (lifetime)', st.lines.toLocaleString('en-US')], ['Hottest water', st.bestHeat >= 12 ? '143°F' : tempF(st.bestHeat) + '°F'],
-    ['Springs tapped (lifetime)', st.springs], ['Games that reached Boiling', SAVE.goals.boiled]];
+    ['Springs opened (lifetime)', st.springs], ['Games that reached Boiling', SAVE.goals.boiled]];
   for (const [k, v] of rows) { const dt = document.createElement('dt'); dt.textContent = k; const dd = document.createElement('dd'); dd.textContent = v; dl.append(dt, dd); }
   fillRecent(); fillDaily(); fillGoals();
   const yrs = Math.min(4400, st.lines * 10);
@@ -3333,7 +3335,7 @@ function wireDom() {
 }
 function goalSentence() {
   if (S.mode === 'trail') { const L = LEVELS.find(l => l.id === S.level); return 'Goal: ' + (L ? goalLabel(L.goal) : 'solve the puzzle') + '.'; }
-  if (S.mode === 'springs') return 'Goal: clear the row, column or pool of each vent to tap it. Tap all 47.';
+  if (S.mode === 'springs') return 'Goal: clear the row, column or pool of each vent to open it. Open all 47.';
   if (S.mode === 'daily') return 'Goal: fill rows, columns and 3×3 pools on today’s shared board until no piece fits.';
   return 'Goal: fill a row, column or 3×3 pool to clear it, and keep going until no piece fits.';
 }

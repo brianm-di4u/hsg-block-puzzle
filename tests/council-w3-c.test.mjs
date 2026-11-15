@@ -284,4 +284,56 @@ export const tests = [
       t.expect(!(await crossing()).includes('scenery'), 'an older save is not told');
     },
   },
+
+  // ------------------------------------------------------------------ S2-03 vents are opened by clearing lines, and the words say so
+  {
+    name: 'S2-03 nothing says to tap a vent: the title button, Help, the Trail hint and the results say open',
+    async run(t) {
+      t.equal(await text(t, '#sc-title [data-mode="springs"] span'), 'Open 47 hot-spring vents.', 'the title button');
+      const html = await t.page.evaluate(() => document.documentElement.innerHTML);
+      t.expect(!/Tap 47|Tap the vents|tap the vent|tap every vent|springs? tapped|Springs tapped/i.test(html), 'no page text asks for a tap on a vent');
+      await t.game('scene', 'help');
+      t.expect((await text(t, '#sc-help')).includes('Clear a vent\'s row, column or pool to open it'), 'Help says how');
+      const levels = await t.game('getLevels');
+      t.expect(levels.every(l => !/\btap\b/i.test(l.hint)), 'no Trail hint says tap');
+      await t.game('newGame', { mode: 'springs' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('setState', { springs: 12 });
+      await t.game('scene', 'over');
+      await t.waitFrames(2);
+      t.expect((await text(t, '#ov-stats')).includes('Springs opened12 / 47'), 'the results row: ' + await text(t, '#ov-stats'));
+    },
+  },
+  {
+    name: 'S2-03 Springs opens with its goal in one line when no tip card is teaching it, and never beside a tip card',
+    async run(t) {
+      const toastOn = () => t.page.evaluate(() => { const e = document.getElementById('toast'); return e.classList.contains('on') ? e.textContent : ''; });
+      await t.game('newGame', { mode: 'springs' });   // a new profile: the tip card teaches it
+      t.expect((await t.game('act', 'tips')).visible, 'the tip card is showing');
+      t.equal(await toastOn(), '', 'so there is no toast beside it');
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('newGame', { mode: 'springs' });
+      t.equal(await toastOn(), 'SpringsOpen all 47 vents: complete a vent’s row, column or pool.', 'otherwise the goal comes as a toast');
+      await t.shot('S2-03-springs-start');
+    },
+  },
+
+  // ------------------------------------------------------------------ S2-16 the daily rule, and a date a person can read
+  {
+    name: 'S2-16 Daily Soak shows a readable date and says it is the same board for everyone, one best a day',
+    async run(t) {
+      const toastOn = () => t.page.evaluate(() => { const e = document.getElementById('toast'); return e.classList.contains('on') ? e.textContent : ''; });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('newGame', { mode: 'daily', date: '2026-11-12' });
+      t.equal(await toastOn(), 'Daily SoakSame board for everyone today. One best score per day.', 'the opening toast');
+      await t.game('scene', 'over');
+      await t.waitFrames(2);
+      t.equal((await text(t, '#ov-sub')).split(' · ').slice(0, 2).join(' · '), 'Daily Soak · Nov 12', 'the results card, not 2026-11-12');
+      t.expect((await text(t, '#sc-help')).includes('one best score per day counts'), 'Help says the rule');
+      await t.game('newGame', { mode: 'daily', date: '2026-01-05' });
+      await t.game('scene', 'over');
+      await t.waitFrames(2);
+      t.equal((await text(t, '#ov-sub')).split(' · ').slice(0, 2).join(' · '), 'Daily Soak · Jan 5', 'a single-digit day has no zero');
+    },
+  },
 ];
