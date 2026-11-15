@@ -291,4 +291,60 @@ export const tests = [
     },
   },
 
+  // ------------------------------------------------------------------ S1-01 no forced loss at the deal
+  {
+    name: 'S1-01 a tray that cannot be placed in full is redrawn, in Classic, Springs and Daily Soak',
+    node: true,
+    async run(t) {
+      // five open cells in a row: only straight pieces one tile tall go in, so about half of all trays cannot be played out
+      const board = new Array(81).fill(1);
+      for (const i of [0, 1, 2, 3, 4]) board[i] = 0;
+      for (const mode of ['classic', 'springs', 'daily']) {
+        let bad = 0, plain = 0;
+        for (let seed = 1; seed <= 300; seed++) {
+          const g = R.freshGame(mode); g.rng = seed; g.board = board.slice(); g.score = 0;
+          R.dealTray(g);
+          if (!playable(g.board, g.tray.map(x => x.id))) bad++;
+          const h = R.freshGame(mode); h.rng = seed; const raw = [0, 1, 2].map(() => R.pickPiece(h).toString());
+          if (!playable(board, raw)) plain++;
+        }
+        t.log(mode + ': trays with no way to place all three, of 300 deals: ' + plain + ' as drawn, ' + bad + ' as dealt');
+        t.expect(plain > 100, mode + ': the test board really does produce forced losses as drawn (' + plain + ')');
+        t.expect(bad <= plain * 0.1, mode + ': as dealt, at most a tenth of those remain (' + bad + ' of ' + plain + ')');
+      }
+    },
+  },
+  {
+    name: 'S1-01 Daily Soak keeps its piece stream: redraws come from a side stream, so everyone gets the same pieces',
+    node: true,
+    async run(t) {
+      const board = new Array(81).fill(1);
+      for (const i of [0, 1, 2, 3, 4]) board[i] = 0;
+      let redrawn = 0;
+      for (let seed = 1; seed <= 100; seed++) {
+        const g = R.freshGame('daily'); g.rng = seed; g.board = board.slice();
+        const h = R.freshGame('daily'); h.rng = seed;
+        const raw = [0, 1, 2].map(() => R.pickPiece(h));
+        R.dealTray(g);
+        t.expect(g.rng === h.rng, 'seed ' + seed + ': the main stream advanced by exactly three draws');
+        if (g.tray.map(x => x.id).join() !== raw.join()) redrawn++;
+        // the same tray on an empty board is dealt exactly as drawn
+        const e = R.freshGame('daily'); e.rng = seed; R.dealTray(e);
+        t.equal(e.tray.map(x => x.id), raw, 'seed ' + seed + ': on an open board nothing is redrawn');
+      }
+      t.expect(redrawn > 10, 'the guard does act on the cramped board (' + redrawn + ' of 100)');
+    },
+  },
+  {
+    name: 'S1-01 a greedy game rarely meets a forced-loss deal, and the dealer never makes a tray worse',
+    node: true,
+    async run(t) {
+      let deals = 0, bad = 0;
+      for (let seed = 0; seed < 6; seed++) botGame('classic', seed, (g, when, res) => { if (when === 'after' && res.newRound && !g.over) { deals++; if (!playable(g.board, g.tray.map(x => x.id))) bad++; } });
+      t.log(bad + ' forced-loss deals in ' + deals);
+      t.expect(deals > 500, 'enough deals were looked at (' + deals + ')');
+      t.expect(bad / deals < 0.003, 'under 0.3% of deals are forced losses (the unguarded dealer gave 0.5% with this bot)');
+    },
+  },
+
 ];

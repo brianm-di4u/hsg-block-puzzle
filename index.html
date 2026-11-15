@@ -611,19 +611,52 @@ const PRESSURE_AT = [0, 400, 1000, 2000, 3500, 5500, 8000];
 function pressureEra(score) { let e = 0; for (let i = 0; i < PRESSURE_AT.length; i++) if (score >= PRESSURE_AT[i]) e = i; return e; }
 function count(board, code) { let n = 0; for (const v of board) if (v === code) n++; return n; }
 
+// Can these pieces all be placed, in some order, on this board, honouring the clears each placement makes? (S1-01)
+// A bounded search; if the budget runs out it says yes, so a deal is never held back by a slow answer.
+function jointlyPlaceable(board, ids) {
+  let budget = 1500;
+  const go = (b, left) => {
+    if (!left.length) return true;
+    for (let i = 0; i < left.length; i++) {
+      if (left.indexOf(left[i]) < i) continue;
+      const p = PIECES[left[i]], rest = left.filter((_, j) => j !== i);
+      for (let r = 0; r <= 9 - p.h; r++) for (let c = 0; c <= 9 - p.wd; c++) {
+        if (!canPlace(b, p.id, r, c)) continue;
+        if (--budget < 0) return true;
+        const nb = b.slice();
+        for (const [dr, dc] of p.cells) nb[(r + dr) * 9 + c + dc] = 1;
+        for (const gr of findClears(nb)) for (const x of gr.cells) nb[x] = 0;
+        if (go(nb, rest)) return true;
+      }
+    }
+    return false;
+  };
+  return go(board, ids);
+}
 function dealTray(g) {
   if (g.mode === 'trail') {
     g.tray = [0, 1, 2].map(() => (g.queue.length ? { id: g.queue.shift() } : null));
   } else {
     g.tray = [0, 1, 2].map(() => ({ id: pickPiece(g) }));
+    const d = diffOf(g), tries = d !== 'standard' ? (g.mode === 'classic' ? DIFF_MERCY[d][pressureEra(g.score)] : DIFF_MERCY[d][0]) : g.mode === 'classic' ? MERCY_TRIES[pressureEra(g.score)] : 12;
+    const biggest = () => { let slot = 0; g.tray.forEach((t, i) => { if (PIECES[t.id].n > PIECES[g.tray[slot].id].n) slot = i; }); return slot; };
     if (g.mode !== 'daily' && !g.tray.some(t => fitsAnywhere(g.board, t.id))) {
-      // mercy deal: redraw the biggest piece until something fits (max 12 tries)
-      let slot = 0;
-      g.tray.forEach((t, i) => { if (PIECES[t.id].n > PIECES[g.tray[slot].id].n) slot = i; });
-      const d = diffOf(g), tries = d !== 'standard' ? (g.mode === 'classic' ? DIFF_MERCY[d][pressureEra(g.score)] : DIFF_MERCY[d][0]) : g.mode === 'classic' ? MERCY_TRIES[pressureEra(g.score)] : 12;
+      // mercy deal: redraw the biggest piece until something fits (the tries come from the pressure ramp)
+      const slot = biggest();
       for (let k = 0; k < tries; k++) {
         g.tray[slot] = { id: pickPiece(g) };
         if (fitsAnywhere(g.board, g.tray[slot].id)) break;
+      }
+    }
+    // forced-loss guard (S1-01): when no order places all three, redraw the piece that needs the most room, keeping a redraw only
+    // if it makes the tray playable, with the same tries as the mercy deal. Daily Soak draws its redraws from a side stream seeded by
+    // the round, so the main piece stream, and so everyone's deal that day, is untouched.
+    if (!jointlyPlaceable(g.board, g.tray.map(t => t.id))) {
+      const side = g.mode === 'daily' ? { mode: 'daily', score: g.score, diff: 'standard', rng: (g.rng ^ Math.imul(g.round + 1, 0x9E3779B1)) >>> 0 } : g;
+      const slot = (() => { const nofit = g.tray.findIndex(t => !fitsAnywhere(g.board, t.id)); return nofit >= 0 ? nofit : biggest(); })();
+      for (let k = 0; k < (g.mode === 'daily' ? 12 : tries); k++) {
+        const ids = g.tray.map(t => t.id); ids[slot] = pickPiece(side);
+        if (jointlyPlaceable(g.board, ids)) { g.tray[slot] = { id: ids[slot] }; break; }
       }
     }
   }
