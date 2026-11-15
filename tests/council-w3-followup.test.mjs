@@ -1,4 +1,4 @@
-// Council wave 3, follow-up pass after verification (S4-14, S2-12).
+// Council wave 3, follow-up pass after verification (S4-14, S2-12, S6-16, S5-10).
 const KEY = 'hs-thermal-blocks-v1';
 const readSave = t => t.page.evaluate(k => JSON.parse(localStorage.getItem(k)), KEY);
 
@@ -61,6 +61,39 @@ export const tests = [
         }
       }
       await t.page.setViewportSize({ width: 390, height: 844 });
+    },
+  },
+
+  // ------------------------------------------------------------------ S6-16 and S5-10: M and the Sound checkbox agree
+  {
+    name: 'S6-16 S5-10 pressing M on Settings moves the Sound checkbox, and M works with a checkbox or the slider focused',
+    async run(t) {
+      await t.game('act', 'setting', 'sound', true);
+      await t.game('scene', 'settings');
+      const box = () => t.page.evaluate(() => document.getElementById('s-sound').checked);
+      t.equal(await box(), true, 'Sound starts ticked');
+      await t.page.keyboard.press('m');
+      t.equal((await readSave(t)).settings.sound, false, 'M mutes');
+      t.equal(await box(), false, 'and the Sound checkbox clears');
+      await t.page.keyboard.press('m');
+      t.equal(await box(), true, 'M again ticks it');
+      await t.page.focus('#s-music');
+      await t.page.keyboard.press('m');
+      t.equal((await readSave(t)).settings.sound, false, 'M mutes with the Music checkbox focused');
+      t.equal(await box(), false, 'and the Sound checkbox follows');
+      await t.page.focus('#s-volume');
+      await t.page.keyboard.press('M');
+      t.equal((await readSave(t)).settings.sound, true, 'M unmutes with the Volume slider focused');
+      t.equal(await box(), true, 'and the Sound checkbox follows');
+      await t.page.focus('#s-difficulty');
+      await t.page.keyboard.press('m');
+      t.equal((await readSave(t)).settings.sound, true, 'a select keeps its letters: M there only picks an option');
+      await t.game('scene', 'title');
+      // a hidden select keeps focus until the next frame, and a select takes M as a letter
+      await t.page.waitForFunction(() => document.activeElement.id !== 's-difficulty');
+      await t.page.keyboard.press('m');
+      await t.game('scene', 'settings');
+      t.equal(await box(), false, 'muted from the title, Settings opens with Sound clear');
     },
   },
 

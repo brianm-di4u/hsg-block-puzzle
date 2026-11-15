@@ -144,11 +144,11 @@ export const tests = [
         t.expect(await tones(t) > 0, 'unmuting plays a click on ' + scene);
         await t.page.evaluate(() => { window.__tones = 0; });
       }
-      // typing in a field is not a shortcut
+      // typing in a field is not a shortcut (a select takes letters to jump to an option; a checkbox or a slider does not, see council-w3-followup)
       await t.game('scene', 'settings');
-      await t.page.focus('#s-volume');
+      await t.page.focus('#s-difficulty');
       await t.page.keyboard.press('m');
-      t.equal((await readSave(t)).settings.sound, true, 'M with the Volume slider focused leaves the sound alone');
+      t.equal((await readSave(t)).settings.sound, true, 'M with the Difficulty select focused leaves the sound alone');
     },
   },
 

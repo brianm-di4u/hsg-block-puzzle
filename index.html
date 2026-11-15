@@ -3437,6 +3437,7 @@ function applySettings() {
   root.classList.toggle('theme-dark', s.theme === 'dark');
   root.classList.toggle('theme-light', s.theme === 'light');
   root.classList.toggle('motion-reduced', s.motion === 'reduced');
+  $('s-sound').checked = s.sound;   // M and the speaker button change Sound while the Settings card may be open
   applyVolume(); spriteCache.clear(); WATER.refresh(); resize(); updateHud();
 }
 function setSetting(k, v) {
@@ -3698,7 +3699,8 @@ window.addEventListener('keydown', e => {
   }
   // M mutes and unmutes on every screen (a click confirms the unmute). P pauses and resumes on the cards that show the game's header.
   const typing = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA';
-  if ((k === 'm' || k === 'M') && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) { audioInit(); setSetting('sound', !SAVE.settings.sound); sfx('click'); return; }
+  const typesText = tag === 'TEXTAREA' || tag === 'SELECT' || (tag === 'INPUT' && !['checkbox', 'radio', 'range', 'button'].includes(document.activeElement.type));   // a checkbox or a slider takes no letters, so M still mutes there
+  if ((k === 'm' || k === 'M') && !typesText && !e.ctrlKey && !e.metaKey && !e.altKey) { audioInit(); setSetting('sound', !SAVE.settings.sound); sfx('click'); return; }
   if (GAME_SCENES.has(S.scene) && !typing) {
     if ((k === 'p' || k === 'P') && S.scene === 'pause') { resumeGame(); return; }
     if ((k === 'p' || k === 'P') && S.scene === 'game' && !S.over) { pauseGame(); return; }
