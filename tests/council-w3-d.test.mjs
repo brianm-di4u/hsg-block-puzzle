@@ -1,9 +1,55 @@
 // Council wave 3, batch D: feedback, teaching and help.
 // (S1-07, S1-15, S2-05, S2-12, S4-01)
+import { loadRules } from '../tools/rules-node.mjs';
+
+const R = loadRules();
 const empty = () => new Array(81).fill(0);
 const setTray = ids => ({ tray: ids.map(id => (id ? { id } : null)) });
 const slotCenter = (L, k) => { const s = L.slots[k]; return [s.x + s.w / 2, s.y + s.h / 2]; };
 const calm = async t => { await t.game('act', 'setting', 'tipsSeen', true); };
+
+// An independent check that a tray can be played out in some order: no budget, no shortcuts.
+function playable(board, ids) {
+  const go = (b, left) => {
+    if (!left.length) return true;
+    for (let i = 0; i < left.length; i++) {
+      const p = R.PIECES[left[i]], rest = left.filter((_, j) => j !== i);
+      for (let r = 0; r <= 9 - p.h; r++) for (let c = 0; c <= 9 - p.wd; c++) {
+        if (!R.canPlace(b, p.id, r, c)) continue;
+        const nb = b.slice();
+        for (const [dr, dc] of p.cells) nb[(r + dr) * 9 + c + dc] = 1;
+        for (const gr of R.findClears(nb)) for (const x of gr.cells) nb[x] = 0;
+        if (go(nb, rest)) return true;
+      }
+    }
+    return false;
+  };
+  return go(board, ids);
+}
+const fits = (board, id) => { const p = R.PIECES[id]; for (let r = 0; r <= 9 - p.h; r++) for (let c = 0; c <= 9 - p.wd; c++) if (R.canPlace(board, id, r, c)) return true; return false; };
+// The first (seeded, so always the same) board and tray where one placement leaves two pieces that each fit but cannot both be placed.
+function doomedScenario() {
+  const ids = Object.keys(R.PIECES);
+  for (let seed = 1; seed < 4000; seed++) {
+    let ns = seed * 7919; const rnd = () => ((ns = (ns * 1103515245 + 12345) >>> 0) / 4294967296);
+    const board = new Array(81).fill(0).map(() => (rnd() < 0.62 ? 1 : 0));
+    if (R.findClears(board).length) continue;
+    const tray = [0, 1, 2].map(() => ids[Math.floor(rnd() * ids.length)]);
+    if (!tray.every(id => fits(board, id)) || !playable(board, tray)) continue;
+    for (let slot = 0; slot < 3; slot++) {
+      const p = R.PIECES[tray[slot]], rest = tray.filter((_, k) => k !== slot);
+      for (let r = 0; r <= 9 - p.h; r++) for (let c = 0; c <= 9 - p.wd; c++) {
+        if (!R.canPlace(board, p.id, r, c)) continue;
+        const nb = board.slice();
+        for (const [dr, dc] of p.cells) nb[(r + dr) * 9 + c + dc] = p.color;
+        const probe = nb.map(v => (v ? 1 : 0));
+        for (const gr of R.findClears(probe)) for (const x of gr.cells) { nb[x] = 0; probe[x] = 0; }
+        if (rest.every(id => fits(probe, id)) && !playable(probe, rest)) return { before: board, ids: tray, slot, r, c, after: nb, rest };
+      }
+    }
+  }
+  throw new Error('no doomed scenario found');
+}
 
 export const tests = [
   // ------------------------------------------------------------------ S1-07 a phone on its side
@@ -101,6 +147,43 @@ export const tests = [
       await t.game('newGame', { mode: 'classic' });
       t.equal(await t.game('act', 'infoLine'), 'Lines 0', 'no prefix when the HUD shows the mode');
       t.expect(await t.page.isVisible('#h-mode'), 'the HUD mode name is showing');
+    },
+  },
+
+  // ------------------------------------------------------------------ S1-15 a tray that cannot all be placed says so
+  {
+    name: 'S1-15 a tray whose pieces fit one by one but not all together warns, and says so to a screen reader',
+    async run(t) {
+      const sc = doomedScenario();
+      await t.game('newGame', { mode: 'classic' });
+      await calm(t);
+      await t.game('setState', { board: sc.before, ...setTray(sc.ids) });
+      t.equal(await t.game('act', 'doomed'), false, 'a tray that can be played out has no warning');
+      await t.game('act', 'clearCues');
+      await t.game('act', 'place', sc.slot, sc.r, sc.c);
+      t.equal(await t.game('act', 'doomed'), true, 'after that placement the two pieces left cannot both be placed');
+      await t.page.waitForFunction(() => window.__game.act('cues').includes('warn'), null, { timeout: 3000 });
+      await t.page.waitForFunction(() => document.getElementById('live').textContent.includes('Not all of these pieces will fit'), null, { timeout: 3000 });
+      await t.waitFrames(3);
+      await t.shot('S1-15-doomed-tray');
+    },
+  },
+  {
+    name: 'S1-15 no warning for a tray that can be played out, a single piece, or a piece with no room',
+    viewports: ['desktop'],
+    async run(t) {
+      const sc = doomedScenario();
+      await t.game('newGame', { mode: 'classic' });
+      await calm(t);
+      await t.game('setState', { board: empty(), ...setTray(['o1', 'i2h', 'o4']) });
+      t.equal(await t.game('act', 'doomed'), false, 'an empty board');
+      await t.game('setState', { board: sc.after, ...setTray([sc.rest[0], null, null]) });
+      t.equal(await t.game('act', 'doomed'), false, 'one piece left');
+      await t.game('setState', { board: sc.after, ...setTray(sc.rest.map(id => id)) });
+      t.equal(await t.game('act', 'doomed'), true, 'the same board with both of its pieces is doomed');
+      const full = new Array(81).fill(1); full[0] = 0;
+      await t.game('setState', { board: full, ...setTray(['o1', 'o9', null]) });
+      t.equal(await t.game('act', 'doomed'), false, 'a piece with no room is already flagged as such, not doomed');
     },
   },
 ];
