@@ -49,7 +49,8 @@ export const tests = [
       await t.page.mouse.click(10, 10);
       let a = await t.game('act', 'audio', 'clear');
       t.expect(a.ctx, 'AudioContext created');
-      t.expect(Math.abs(a.gain - 0.7 * 0.6) < 0.01, 'default volume applied: ' + a.gain);
+      const scale = await t.page.evaluate(() => MASTER_SCALE);   // the master gain is Volume x MASTER_SCALE (wave 3 CL-01 raised it from 0.6)
+      t.expect(Math.abs(a.gain - 0.7 * scale) < 0.01, 'default volume applied: ' + a.gain);
       for (const n of ['place', 'invalid', 'deal', 'undo', 'vent', 'era', 'over', 'win', 'bonus', 'pick']) await t.game('act', 'audio', n);
       await t.game('act', 'setting', 'sound', false);
       a = await t.game('act', 'audio', 'place');
@@ -57,7 +58,7 @@ export const tests = [
       await t.game('act', 'setting', 'sound', true);
       await t.game('act', 'setting', 'volume', 0.5);
       a = await t.game('act', 'audio', 'place');
-      t.expect(Math.abs(a.gain - 0.3) < 0.01, 'volume 50%');
+      t.expect(Math.abs(a.gain - 0.5 * scale) < 0.01, 'volume 50%');
       await t.game('newGame', { mode: 'classic' });
       await t.page.focus('#cv');
       await t.page.keyboard.press('m');
