@@ -109,4 +109,47 @@ export const tests = [
       t.expect(!(await (await t.page.$('#s-haptics')).isVisible()), 'the switch is hidden');
     },
   },
+
+  // ------------------------------------------------------------------ S3-07 records trend
+  {
+    name: 'S3-07 Records shows the last ten scores per mode with an average, the biggest clear and the longest game',
+    async run(t) {
+      await t.page.evaluate(k => localStorage.removeItem(k), KEY);
+      await t.reload();
+      await t.game('scene', 'records');
+      let txt = await t.page.textContent('#sc-records');
+      t.expect(/Classic\s*No finished games yet/.test(txt), 'an empty history says so');
+      t.expect(/Longest game \(pieces placed\)\s*0/.test(txt) && /Biggest clear \(groups at once\)\s*0/.test(txt), 'both new rows show');
+      const full = new Array(81).fill(1);
+      for (let i = 1; i <= 12; i++) {
+        await t.game('newGame', { mode: 'classic' });
+        await t.game('act', 'setting', 'tipsSeen', true);
+        await t.game('setState', { score: i * 100, placed: 10 + i, bestG: i === 5 ? 4 : 1, board: full });
+        await t.page.waitForFunction(() => window.__game.getState().over, null, { timeout: 3000 });
+      }
+      const save = await readSave(t);
+      t.equal(JSON.stringify(save.stats.recent.classic), JSON.stringify([300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200]), 'ten kept, oldest dropped');
+      t.equal(save.stats.bestCombo, 4, 'biggest clear'); t.equal(save.stats.longest, 22, 'longest game');
+      await t.game('scene', 'records');
+      txt = await t.page.textContent('#rec-recent');
+      t.expect(/Average 750 over the last 10 games\. Newest first: 1,200, 1,100,/.test(txt), 'average and newest-first list (' + txt.slice(0, 120) + ')');
+      t.expect(/Springs\s*No finished games yet/.test(txt), 'other modes stay empty');
+      t.expect(/Biggest clear \(groups at once\)\s*4/.test(await t.page.textContent('#rec-stats')), 'the biggest clear shows');
+      await t.shot('S3-07-records');
+      await t.checkLayout({ allowScrollY: true });
+      await t.reload();
+      await t.game('scene', 'records');
+      t.expect(/Newest first: 1,200/.test(await t.page.textContent('#rec-recent')), 'the history survives a reload');
+    },
+  },
+  {
+    name: 'S3-07 a save from before the history existed keeps everything and starts the history empty',
+    async run(t) {
+      await storeAndReload(t, { v: 1, settings: { sound: true, volume: 0.7 }, best: { classic: 1234, springs: 55, daily: { '2026-11-01': 300 } }, trail: { done: ['display-spring'], stars: {} }, stats: { games: 20, lines: 100, bestHeat: 9, springs: 12 }, resume: null });
+      await t.game('scene', 'records');
+      const txt = await t.page.textContent('#sc-records');
+      t.expect(/Classic best\s*1,234/.test(txt) && /Games played\s*20/.test(txt), 'old records show');
+      t.expect(/Classic\s*No finished games yet/.test(txt), 'history starts empty');
+    },
+  },
 ];
