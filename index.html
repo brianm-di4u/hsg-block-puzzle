@@ -2382,15 +2382,18 @@ function draw(now) {
   drawTray(now);
   const d = UI.drag;
   if (d && d.moved && S.tray[d.slot]) {
-    const p = PIECES[S.tray[d.slot].id];
-    const [x, y] = dragTopLeft(d, p);
-    const gm = slotPieceGeom(d.slot) || { s: cell }, q = reducedMotion() ? 1 : easeOut(Math.min(1, (now - (d.t1 || now)) / 120));
-    const s = gm.s + (cell * 1.08 - gm.s) * q, ox = (p.wd * (cell - s)) / 2, oy = (p.h * (cell - s)) / 2;
+    const b = dragBody(d, now);
     ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 26; ctx.shadowOffsetX = 6; ctx.shadowOffsetY = 18;
-    const lift = d.touch ? 6 : cell * 0.34;
-    drawPiece(p.id, x + ox - (d.touch ? 0 : cell * 0.12), y + oy - lift, s, d.touch ? 0.97 : 0.86); ctx.restore();
+    drawPiece(b.id, b.x, b.y, b.s, d.touch ? 0.97 : 0.86); ctx.restore();
   }
   drawOverlayFx(now);
+}
+// where the carried piece is painted: its top-left is the ghost's, so body and target agree (S1-06); the shadow gives the height
+function dragBody(d, now) {
+  const cell = LAY.board.cell, p = PIECES[S.tray[d.slot].id], [x, y] = dragTopLeft(d, p);
+  const gm = slotPieceGeom(d.slot) || { s: cell }, q = reducedMotion() ? 1 : easeOut(Math.min(1, (now - (d.t1 || now)) / 120));
+  const s = gm.s + (cell - gm.s) * q;   // was cell * 1.08, lifted 0.34 cell and shifted 0.12 cell left for the mouse
+  return { id: p.id, x: x + (p.wd * (cell - s)) / 2, y: y + (p.h * (cell - s)) / 2, s };
 }
 function needsAnim() {
   if (FX.length > 0 || (UI.drag && UI.drag.moved)) return true;
@@ -3418,6 +3421,7 @@ window.__game = {
       case 'resumeSaved': resumeSaved(); return S.scene;
       case 'audio': audioInit(); sfx(a[0] || 'click'); return { ctx: !!AU.ctx, state: AU.ctx ? AU.ctx.state : null, gain: AU.master ? AU.master.gain.value : null };
       case 'cues': return CUE_LOG.slice();
+      case 'dragBody': return UI.drag && UI.drag.moved && S.tray[UI.drag.slot] ? dragBody(UI.drag, performance.now() + 1000) : null;
       case 'clearCues': CUE_LOG.length = 0; return true;
       case 'audioState': {
         const k = AU.kit; if (!k) return { kit: false };
