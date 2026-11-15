@@ -347,6 +347,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
     <label class="set"><span>Tile patterns (colorblind aid)</span><input type="checkbox" id="s-patterns"></label>
     <label class="set"><span>Undos per round</span><select id="s-undo"><option value="0">0</option><option value="1">1</option><option value="3">3</option></select></label>
     <label class="set"><span>Tap to place (touch)</span><input type="checkbox" id="s-tapplace"></label>
+    <label class="set" id="row-haptics"><span>Vibration (touch)</span><input type="checkbox" id="s-haptics"></label>
     <label class="set"><span>Large text</span><input type="checkbox" id="s-big"></label>
     <label class="set"><span>First-game tips</span><button id="b-tips" type="button">Show tips again</button></label>
     <label class="set"><span>Effects</span><select id="s-effects"><option value="full">Full (live water)</option><option value="lite">Lite (faster)</option></select></label>
@@ -747,7 +748,7 @@ const W8 = { pool:'#1F5F6B', pool2:'#25697A'/*d*/, surface:'#174A54', algae:'#2A
 // ===================================================================== STATE + SAVE
 const STORE_KEY = 'hs-thermal-blocks-v1';
 function defaultSave() {
-  return { v: 1, settings: { sound: true, volume: 0.7, sfx: true, music: true, musicVol: 0.5, ambience: true, ambVol: 0.5, motion: 'system', patterns: true, undo: 1, bigText: false, theme: 'system', effects: 'full', tapPlace: false, tipsSeen: false },
+  return { v: 1, settings: { sound: true, volume: 0.7, sfx: true, music: true, musicVol: 0.5, ambience: true, ambVol: 0.5, motion: 'system', patterns: true, undo: 1, bigText: false, theme: 'system', effects: 'full', tapPlace: false, tipsSeen: false, haptics: true },
     best: { classic: 0, springs: 0, daily: {} }, trail: { done: [], stars: {} }, stats: { games: 0, lines: 0, bestHeat: 0, springs: 0 },
     daily: { longest: 0, played: [] }, ach: {}, goals: { boiled: 0 }, resume: null };
 }
@@ -1067,7 +1068,20 @@ function playCue(name, o, t) {
     case 'bonus': [0, 5, 9, 12].forEach((st, k) => { tone(semi(523, st), t + k * 0.06, 0.4, 'triangle', 0.2); tone(semi(1046, st), t + k * 0.06, 0.2, 'sine', 0.05); }); break;
   }
 }
+// Haptics: short pulses on a drop, a clear and a blocked drop, where the device can vibrate. Off when the player has
+// asked for reduced motion or turned Vibration off; it works with the sound off. The switch is hidden where there is no vibrate().
+const canVibrate = () => typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
+function buzz(pattern) {
+  if (!SAVE.settings.haptics || !canVibrate() || reducedMotion()) return;
+  try { navigator.vibrate(pattern); } catch (e) { /* haptics are optional */ }
+}
+function hapticFor(name, o) {
+  if (name === 'place') buzz(10);
+  else if (name === 'clear') { const p = []; for (let k = 0; k < Math.min(4, o.G || 1); k++) p.push(18, 30); p.pop(); buzz(p); }
+  else if (name === 'invalid') buzz([12, 40, 12]);
+}
 function sfx(name, o = {}) {
+  hapticFor(name, o);
   if (!AU.ctx || !SAVE.settings.sound || !SAVE.settings.sfx) return;
   try {
     JIT = jitter(o.pan || 0);
@@ -2949,7 +2963,7 @@ function fillSettings() {
   const s = SAVE.settings;
   $('s-sound').checked = s.sound; $('s-volume').value = Math.round(s.volume * 100); $('s-motion').value = s.motion;
   $('s-patterns').checked = s.patterns; $('s-undo').value = String(s.undo); $('s-big').checked = s.bigText; $('s-theme').value = s.theme; $('s-effects').value = s.effects;
-  $('s-tapplace').checked = s.tapPlace;
+  $('s-tapplace').checked = s.tapPlace; $('s-haptics').checked = s.haptics; $('row-haptics').style.display = canVibrate() ? '' : 'none';
   $('s-sfx').checked = s.sfx; $('s-music').checked = s.music; $('s-musicvol').value = Math.round(s.musicVol * 100);
   $('s-ambience').checked = s.ambience; $('s-ambvol').value = Math.round(s.ambVol * 100);
 }
@@ -3000,6 +3014,7 @@ function wireDom() {
   $('s-patterns').addEventListener('change', e => setSetting('patterns', e.target.checked));
   $('s-undo').addEventListener('change', e => setSetting('undo', +e.target.value));
   $('s-tapplace').addEventListener('change', e => setSetting('tapPlace', e.target.checked));
+  $('s-haptics').addEventListener('change', e => { setSetting('haptics', e.target.checked); buzz(10); });
   $('s-big').addEventListener('change', e => setSetting('bigText', e.target.checked));
   $('s-theme').addEventListener('change', e => setSetting('theme', e.target.value));
   $('s-effects').addEventListener('change', e => setSetting('effects', e.target.value));
