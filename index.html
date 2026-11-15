@@ -1198,7 +1198,10 @@ function hiss(t, dur, vol, f1, f2, q = 1.2, type = 'bandpass') {
 const PENTA = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24];
 const CUES = ['click', 'pick', 'place', 'invalid', 'deal', 'undo', 'clear', 'vent', 'era', 'over', 'win', 'bonus', 'ach', 'heat', 'warn', 'best', 'card', 'pause', 'resume'];
 const semi = (f, st) => f * Math.pow(2, st / 12);
-// o.n: tiles in the piece (place), o.k: tray slot (pick), o.G / o.heat: groups and water temperature (clear).
+// o.n: tiles in the piece (place), o.k: tray slot (pick), o.G / o.heat / o.run: groups, water temperature and clearing
+// placements in a row (clear).
+const CLEAR_LIFT = 3;   // the ladder starts up to this many steps higher after clears in a row
+const BIG_CLEAR = 3;    // groups at once that earn the long ringing bell on top of the ladder
 function playCue(name, o, t) {
   switch (name) {
     case 'click': tone(660, t, 0.06, 'triangle', 0.12); break;
@@ -1221,12 +1224,18 @@ function playCue(name, o, t) {
     }
     case 'undo': tone(500, t, 0.14, 'triangle', 0.31, 280); tone(250, t + 0.02, 0.12, 'sine', 0.12, 170); hiss(t, 0.12, 0.08, 1800, 600, 0.8); break;
     case 'clear': {    // a water rush, then glass-bell notes that climb with the heat and the chain
-      const G = o.G || 1, h = o.heat || 0, n = G + 2, v = Math.min(0.26, 0.5 / Math.sqrt(n));
-      hiss(t, 0.7 + G * 0.15, 0.26, 900, 5200, 0.7);
+      const G = o.G || 1, h = o.heat || 0, n = G + 2, v = Math.min(0.22, 0.46 / Math.sqrt(n));
+      const first = Math.min(8, Math.floor(h / 2) + Math.min(CLEAR_LIFT, Math.max(0, (o.run || 1) - 1)));   // was floor(h / 2): a clear after a clear starts higher
+      hiss(t, 0.7 + G * 0.15, 0.24, 900, 5200, 0.7);
       hiss(t, 0.5 + G * 0.12, 0.12, 300, 1500, 0.5, 'lowpass');
       for (let k = 0; k < n; k++) {
-        const f = semi(440, PENTA[Math.min(PENTA.length - 1, Math.floor(h / 2) + k)]);
+        const f = semi(440, PENTA[Math.min(PENTA.length - 1, first + k)]);
         tone(f, t + 0.04 + k * 0.07, 0.5, 'sine', v); tone(f * 2.76, t + 0.04 + k * 0.07, 0.25, 'sine', v * 0.22);
+      }
+      if (G >= BIG_CLEAR) {   // a big combo: a low swell under the ladder and one long bell above it, with a shimmer
+        const top = semi(440, PENTA[Math.min(PENTA.length - 1, first + n)]), tt = t + 0.04 + n * 0.07;
+        tone(semi(220, PENTA[first]), t, 0.8, 'triangle', 0.13, null, 0.12);
+        tone(top, tt, 0.9, 'sine', 0.11); tone(top * 2.76, tt, 0.5, 'sine', 0.03); hiss(tt, 0.4, 0.05, 4000, 8000, 1.4);
       }
       break;
     }
@@ -1236,7 +1245,7 @@ function playCue(name, o, t) {
       [12, 7, 4, 0].forEach((st, k) => { tone(semi(330, st), t + k * 0.18, 0.6, 'triangle', 0.22); tone(semi(165, st), t + k * 0.18, 0.7, 'sine', 0.08); });
       tone(82.4, t, 1.5, 'sine', 0.16, null, 0.45); tone(123.5, t, 1.5, 'sine', 0.07, null, 0.45); break;
     }
-    case 'win': [0, 4, 7, 12, 16, 19, 24].forEach((st, k) => tone(semi(392, st), t + k * 0.08, 0.5, 'sine', 0.26)); tone(196, t, 1.2, 'sine', 0.14); hiss(t, 1.2, 0.12, 800, 4000); break;
+    case 'win': [0, 4, 7, 12, 16, 19, 24].forEach((st, k) => tone(semi(392, st), t + k * 0.08, 0.5, 'sine', 0.3)); tone(196, t, 1.2, 'sine', 0.16); hiss(t, 1.2, 0.12, 800, 4000); break;
     case 'ach': {      // a goal earned: three bell notes (brass-bright) with a little shimmer
       [0, 7, 12].forEach((st, k) => { const f = semi(660, st); tone(f, t + k * 0.1, 0.55, 'sine', 0.2); tone(f * 2.76, t + k * 0.1, 0.3, 'sine', 0.05); });
       hiss(t, 0.35, 0.05, 3200, 6500, 1.2); break;
@@ -1671,7 +1680,8 @@ function cueAt(name, o, t, jit) {   // schedules one cue on whatever AU holds ri
 // Renders one piece, one scene, one cue ('cue:place'), or a full mix ('mix:<era id>': that era's music and ambience
 // with a four-group clear every few seconds and the win cue) through the chain the player hears (the master gain at
 // Volume x MASTER_SCALE, then the limiter), and measures it. `opt` overrides the saved defaults: { volume, musicVol,
-// ambVol } and, for a probe of small speakers, { highpass: Hz } before the output.
+// ambVol }, { cue: {...} } to change the cue's arguments (groups, heat, run, piece size) and, for a probe of small speakers,
+// { highpass: Hz } before the output.
 async function audioRender(name, seconds = 30, wantWav = false, opt = {}) {
   const lv = { ...defaultSave().settings, ...opt };
   const chain = (oc, dest) => {   // master gain, then the limiter, then (for a probe) a high-pass standing in for a small speaker
@@ -1696,7 +1706,7 @@ async function audioRender(name, seconds = 30, wantWav = false, opt = {}) {
     return null;
   }, seconds, { wav: wantWav });
   if (name.startsWith('cue:')) return measureAudio((oc, dest) => {
-    withAU(oc, chain(oc, dest), () => cueAt(name.slice(4), { n: 4, k: 1, G: 3, heat: 6, run: 1 }, 0.05));
+    withAU(oc, chain(oc, dest), () => cueAt(name.slice(4), { n: 4, k: 1, G: 3, heat: 6, run: 1, ...lv.cue }, 0.05));
     return null;
   }, seconds, { wav: wantWav });
   if (name.startsWith('mix:')) {
@@ -2783,6 +2793,7 @@ function snapshot() {
   const { scene, undoStack, ...rest } = S;
   return JSON.parse(JSON.stringify(rest));
 }
+const CLEAR_RUN = new WeakMap();   // clearing placements in a row in this game (an undo or a new game starts a new count)
 function doPlace(slot, r, c) {
   if (S.over || S.scene !== 'game') return { ok: false };
   const snap = snapshot();
@@ -2800,11 +2811,12 @@ function doPlace(slot, r, c) {
   const pn = PIECES[res.id];
   const pan = (c + pn.wd / 2 - 4.5) / 4.5 * 0.6;
   sfx('place', { n: pn.n, pan });
+  CLEAR_RUN.set(S, res.G ? (CLEAR_RUN.get(S) || 0) + 1 : 0);
   S.bestG = Math.max(S.bestG || 0, res.G);
   landFx(res.id, r, c);
   if (res.G) {
     spawnClearFx(res);
-    sfx('clear', { G: res.G, heat: S.heat, pan });
+    sfx('clear', { G: res.G, heat: S.heat, pan, run: CLEAR_RUN.get(S) });
     clearFeedback(res, cx, cy, snap.heat);
     if (heatTier(S.heat) > heatTier(snap.heat)) setTimeout(() => sfx('heat', { tier: heatTier(S.heat) }), 180);
     if (res.vents) sfx('vent');

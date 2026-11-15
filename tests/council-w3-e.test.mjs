@@ -36,7 +36,7 @@ export const tests = [
       const list = await t.game('audioList');
       const med = {};
       for (const cue of list.cues) {
-        const r = await medianPeak(t, cue, {});
+        const r = await medianPeak(t, cue, {}, 11);   // eleven repeats keep the median steady enough to order clear and win
         med[cue] = r.med;
         t.log(cue + ': median ' + r.med + ' (' + r.lo + ' to ' + r.hi + ')');
         if (cue !== 'click') {
@@ -44,8 +44,11 @@ export const tests = [
           t.expect(r.lo >= 0.2 * 0.841 && r.hi <= 0.45 * 1.189, cue + ': no repeat more than 1.5 dB outside (' + r.lo + ' to ' + r.hi + ')');
         }
       }
-      t.expect(med.click < med.pick && med.pick < med.place && med.place < med.clear && med.clear < med.win,
-        'click ' + med.click + ' < pick ' + med.pick + ' < place ' + med.place + ' < clear ' + med.clear + ' < win ' + med.win);
+      // the ladder is for an ordinary clear (one group); a three-group clear is the big combo and may sit next to the win cue
+      const one = (await medianPeak(t, 'clear', { cue: { G: 1 } }, 11)).med;
+      t.log('ordinary clear (one group) median ' + one);
+      t.expect(med.click < med.pick && med.pick < med.place && med.place < one && one < med.win,
+        'click ' + med.click + ' < pick ' + med.pick + ' < place ' + med.place + ' < clear ' + one + ' < win ' + med.win);
     },
   },
   {
@@ -202,6 +205,55 @@ export const tests = [
       t.expect(f.place[0][0] >= 300 && f.place[0][0] <= 500, 'the body of place is 300 to 500 Hz (' + f.place[0][0].toFixed(0) + ')');
       const inv = f.invalid.filter(x => x[0] >= 220);
       t.expect(inv.length >= 2 && inv[0][0] <= 340 && inv[1][0] < inv[0][0] && inv[1][1] > inv[0][1], 'invalid is two notes between 220 and 340 Hz, the second lower and later (' + f.invalid.map(x => x[0].toFixed(0)).join(', ') + ')');
+    },
+  },
+
+  // ------------------------------------------------------------------ S5-04 the clear chime climbs with clears in a row, and a big combo has its own bell
+  {
+    name: 'S5-04 a clear after a clear starts the chime higher (up to three steps), and a big combo adds a long bell',
+    viewports: ['desktop'],
+    async run(t) {
+      const r = await t.page.evaluate(() => {
+        const voices = (o) => {
+          const freqs = [], keep = { ...AU }, oc = new OfflineAudioContext(2, 4410, 22050), mk = oc.createOscillator.bind(oc);
+          oc.createOscillator = () => { const osc = mk(), set = osc.frequency.setValueAtTime.bind(osc.frequency); osc.frequency.setValueAtTime = (v, tt) => { freqs.push(v); return set(v, tt); }; return osc; };
+          Object.assign(AU, { ctx: oc, master: oc.createGain(), noise: makeNoiseBuffer(oc), kit: null });
+          try { JIT = { f: 1, g: 1, o: 0, pan: 0 }; playCue('clear', o, 0.01); } finally { Object.assign(AU, keep); }
+          return freqs;
+        };
+        const first = run => voices({ G: 1, heat: 0, run })[0];
+        return { r1: first(1), r2: first(2), r3: first(3), r4: first(4), r9: first(9), hot: voices({ G: 1, heat: 12, run: 9 })[0], g2: voices({ G: 2, heat: 0, run: 1 }).length, g3: voices({ G: 3, heat: 0, run: 1 }).length, g3top: Math.max(...voices({ G: 3, heat: 12, run: 9 })) };
+      });
+      const st = n => 440 * Math.pow(2, n / 12);
+      t.expect(Math.abs(r.r1 - st(0)) < 0.5 && Math.abs(r.r2 - st(2)) < 0.5 && Math.abs(r.r3 - st(4)) < 0.5, 'each clear in a row starts a pentatonic step higher (' + [r.r1, r.r2, r.r3].map(x => x.toFixed(0)).join(', ') + ' Hz)');
+      t.expect(Math.abs(r.r4 - st(7)) < 0.5 && r.r9 === r.r4, 'the lift stops after three steps (' + r.r4.toFixed(0) + ' and ' + r.r9.toFixed(0) + ' Hz)');
+      t.expect(Math.abs(r.hot - st(19)) < 0.5, 'a hot clear is lifted no higher than the ninth pentatonic step (' + r.hot.toFixed(0) + ' Hz)');
+      t.expect(r.g3 >= r.g2 + 5, 'three groups at once have the swell and the long bell on top of one more pair of notes (' + r.g2 + ' voices, then ' + r.g3 + ')');
+      t.expect(r.g3top <= 1760 * 2.76 + 1, 'nothing rings above the old top note and its bell partial (' + r.g3top.toFixed(0) + ' Hz)');
+    },
+  },
+  {
+    name: 'S5-04 the game counts clearing placements in a row: two in a row is 2, a placement that clears nothing starts again',
+    async run(t) {
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('act', 'audio', 'click');
+      await t.page.waitForFunction(() => AU.ctx && AU.ctx.state === 'running', null, { timeout: 5000 });
+      await t.page.evaluate(() => { window.__runs = []; const orig = playCue; playCue = (n, o, at) => { if (n === 'clear') window.__runs.push(o.run); return orig(n, o, at); }; });
+      const two = () => { const b = new Array(81).fill(0); for (let c = 1; c < 9; c++) { b[c] = 1; b[9 + c] = 1; } return b; };
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('setState', { board: two(), tray: ['o1', 'o1', 'o1'].map(id => ({ id })) });
+      await t.game('act', 'place', 0, 0, 0);
+      await t.game('act', 'place', 1, 1, 0);
+      await t.page.waitForFunction(() => window.__runs.length >= 2, null, { timeout: 3000 });
+      t.equal(JSON.stringify(await t.page.evaluate(() => window.__runs)), '[1,2]', 'two clears in a row are 1 then 2');
+      await t.page.evaluate(() => { window.__runs = []; });
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('setState', { board: two(), tray: ['o1', 'o1', 'o1'].map(id => ({ id })) });
+      await t.game('act', 'place', 0, 0, 0);
+      await t.game('act', 'place', 1, 5, 5);
+      await t.game('act', 'place', 2, 1, 0);
+      await t.page.waitForFunction(() => window.__runs.length >= 2, null, { timeout: 3000 });
+      t.equal(JSON.stringify(await t.page.evaluate(() => window.__runs)), '[1,1]', 'a placement in between that clears nothing starts the count again');
     },
   },
 ];
