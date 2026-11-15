@@ -6,6 +6,7 @@ const R = loadRules();
 const empty = () => new Array(81).fill(0);
 const setTray = ids => ({ tray: ids.map(id => (id ? { id } : null)) });
 const slotCenter = (L, k) => { const s = L.slots[k]; return [s.x + s.w / 2, s.y + s.h / 2]; };
+const centre = async (t, sel) => { const b = await t.page.locator(sel).boundingBox(); return [b.x + b.width / 2, b.y + b.height / 2]; };
 const calm = async t => { await t.game('act', 'setting', 'tipsSeen', true); };
 
 // An independent check that a tray can be played out in some order: no budget, no shortcuts.
@@ -184,6 +185,90 @@ export const tests = [
       const full = new Array(81).fill(1); full[0] = 0;
       await t.game('setState', { board: full, ...setTray(['o1', 'o9', null]) });
       t.equal(await t.game('act', 'doomed'), false, 'a piece with no room is already flagged as such, not doomed');
+    },
+  },
+
+  // ------------------------------------------------------------------ S2-12 a hint for a stuck newcomer
+  {
+    name: 'S2-12 the hint button shows the move that clears a row, once for each tray, without touching the game',
+    async run(t) {
+      await t.game('newGame', { mode: 'classic' });
+      await calm(t);
+      const b = empty(); for (let c = 0; c < 9; c++) if (c !== 3 && c !== 4) b[8 * 9 + c] = 1;
+      await t.game('setState', { board: b, ...setTray(['t4a', 'i2h', 'o1']) });
+      const before = await t.state();
+      t.expect(await t.page.isVisible('#b-hint') && await t.page.isEnabled('#b-hint'), 'the hint button is there and ready');
+      if (t.viewport === 'mobile') await t.tap(await centre(t, '#b-hint'));
+      else await t.page.keyboard.press('h');
+      await t.page.waitForFunction(() => window.__game.act('hintState').hint, null, { timeout: 3000 });
+      const hs = await t.game('act', 'hintState');
+      t.equal([hs.hint.slot, hs.hint.r, hs.hint.c].join(), '1,8,3', 'it points the two-tile piece at the gap in the bottom row');
+      const after = await t.state();
+      t.equal(JSON.stringify([after.board, after.score, after.tray]), JSON.stringify([before.board, before.score, before.tray]), 'asking changes nothing on the board, the tray or the score');
+      t.expect(await t.page.isDisabled('#b-hint'), 'the button is spent for this tray');
+      t.equal((await t.game('act', 'hint')).ok, false, 'a second ask is refused');
+      await t.waitFrames(3);
+      await t.shot('S2-12-hint');
+      const r = await t.game('act', 'place', 1, 8, 3);
+      t.expect(r.ok && r.G === 1, 'following the hint clears the row');
+      t.equal(await t.game('act', 'hintState').then(x => x.hint), null, 'the marker goes once a piece is placed');
+    },
+  },
+  {
+    name: 'S2-12 a new tray brings the hint back; the Trail has none',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.game('newGame', { mode: 'classic' });
+      await calm(t);
+      await t.game('setState', { board: empty(), ...setTray(['o1', 'o1', 'o1']) });
+      t.equal((await t.game('act', 'hint')).ok, true, 'first hint');
+      await t.game('act', 'place', 0, 0, 0); await t.game('act', 'place', 1, 0, 1);
+      t.equal((await t.game('act', 'hintState')).avail, false, 'still spent while the same tray is in play');
+      await t.game('act', 'place', 2, 0, 2);
+      t.equal((await t.game('act', 'hintState')).avail, true, 'a fresh tray has a fresh hint');
+      t.equal((await t.game('act', 'hint')).ok, true, 'and it works');
+      await t.game('newGame', { mode: 'trail', level: 'hale-bathhouse' });
+      t.expect(!(await t.page.isVisible('#b-hint')), 'no hint button in a Spring Trail puzzle');
+      t.equal((await t.game('act', 'hint')).ok, false, 'and the key does nothing there');
+    },
+  },
+  {
+    name: 'S2-12 a hint prefers a move after which the other pieces still fit, and undo takes the marker away',
+    viewports: ['desktop'],
+    async run(t) {
+      const sc = doomedScenario();
+      await t.game('newGame', { mode: 'classic' });
+      await calm(t);
+      await t.game('setState', { board: sc.before, ...setTray(sc.ids) });
+      const h = await t.game('act', 'hint');
+      t.expect(h.ok, 'a hint was found');
+      // the hinted move must not leave a tray that cannot be played out
+      const p = R.PIECES[h.id], nb = sc.before.slice();
+      for (const [dr, dc] of p.cells) nb[(h.r + dr) * 9 + h.c + dc] = 1;
+      for (const gr of R.findClears(nb)) for (const x of gr.cells) nb[x] = 0;
+      const rest = sc.ids.filter((_, k) => k !== h.slot);
+      t.expect(playable(nb, rest), 'after the hinted move the other two pieces can still both be placed');
+      await t.game('act', 'place', h.slot, h.r, h.c);
+      t.equal(await t.game('act', 'doomed'), false, 'and the game agrees: not doomed');
+      await t.game('act', 'undo');
+      t.equal((await t.game('act', 'hintState')).hint, null, 'no marker after an undo');
+    },
+  },
+  {
+    name: 'S2-12 on a phone the hint button sits with the others without crowding the score',
+    viewports: ['mobile'],
+    async run(t) {
+      await t.game('newGame', { mode: 'springs' });
+      await calm(t);
+      await t.game('setState', { score: 123456 });
+      await t.waitFrames(3);
+      const box = async s => t.page.locator(s).boundingBox();
+      const ids = ['#b-pause', '#b-hint', '#b-undo', '#b-sound'];
+      const boxes = await Promise.all(ids.map(box));
+      boxes.forEach((bx, i) => t.expect(bx && bx.width >= 38 && bx.height >= 38, ids[i] + ' is a touch-sized target: ' + JSON.stringify(bx)));
+      const stats = await t.page.locator('#hud .stat:not([hidden])').evaluateAll(els => els.map(e => { const r = e.getBoundingClientRect(); return [r.left, r.right]; }));
+      for (const [l, r] of stats) for (const bx of boxes) t.expect(r <= bx.x + 0.5 || l >= bx.x + bx.width - 0.5, 'a score figure does not run under a button');
+      await t.checkLayout();
     },
   },
 ];

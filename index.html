@@ -77,6 +77,8 @@ button.primary{background:var(--color-primary) linear-gradient(rgba(255,255,255,
 #hud button{display:flex;align-items:center;justify-content:center;gap:4px;padding:6px 10px;border-radius:999px;background:rgba(8,24,28,.62);border:1.5px solid rgba(240,207,117,.65);color:#F4F2EC;box-shadow:0 2px 8px rgba(0,0,0,.35)}
 #hud button:hover{border-color:#F7CF62;background:rgba(8,24,28,.8)}
 #hud svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+#b-hint[hidden]{display:none}
+#b-hint:disabled{opacity:.45}
 #b-undo .cnt{font-weight:800;font-family:var(--font-sans)}
 @media (max-width:520px){ #hud .mode{display:none} #hud .mid{gap:12px} #hud .stat.score .num{font-size:2em} }
 @media (orientation:landscape) and (min-width:900px){:root.big{--hud-h:88px}}
@@ -207,7 +209,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
 <div id="inset" aria-hidden="true"></div>
 <canvas id="bg" aria-hidden="true"></canvas>
 <canvas id="water" aria-hidden="true"></canvas>
-<canvas id="cv" tabindex="0" role="application" aria-label="Thermal Blocks board. Keys: 1 2 3 pick a piece, arrows move, Enter places, U undoes, P or Escape pauses, M mutes."></canvas>
+<canvas id="cv" tabindex="0" role="application" aria-label="Thermal Blocks board. Keys: 1 2 3 pick a piece, arrows move, Enter places, U undoes, H shows a hint, P or Escape pauses, M mutes."></canvas>
 
 <header id="hud" aria-label="Game status">
   <button id="b-pause" aria-label="Pause"><svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg></button>
@@ -217,6 +219,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
     <div class="stat goal" id="h-goal" hidden><span class="lbl" id="h-goal-lbl"></span><span class="num" id="h-goal-num"></span></div>
     <div class="mode" id="h-mode">Classic</div>
   </div>
+  <button id="b-hint" aria-label="Hint" title="Hint (H): show one good move, once for each tray"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 00-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0012 3z"/></svg></button>
   <button id="b-undo" aria-label="Undo"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg><span class="cnt" id="h-undo">1</span></button>
   <button id="b-sound" aria-label="Sound on" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path id="snd-wave" d="M16 9a4 4 0 010 6M18.5 6.5a8 8 0 010 11"/></svg></button>
 </header>
@@ -359,9 +362,9 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
     <table class="keys">
       <tr><td>Mouse</td><td>Drag a piece and drop it. Or click a piece, then click the board.</td></tr>
       <tr><td>Touch</td><td>Drag a piece onto the board (it floats above your finger and snaps to the nearest open spot). Prefer tapping? Turn on <b>Tap to place</b> in Settings: tap a piece, tap the board to preview, and tap the preview to place.</td></tr>
-      <tr><td>Keyboard</td><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> or <kbd>Tab</kbd> pick a piece · arrows move · <kbd>Enter</kbd>/<kbd>Space</kbd> place · <kbd>U</kbd> undo · <kbd>M</kbd> mute · <kbd>P</kbd> pause · <kbd>Esc</kbd> cancel or pause</td></tr>
+      <tr><td>Keyboard</td><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> or <kbd>Tab</kbd> pick a piece · arrows move · <kbd>Enter</kbd>/<kbd>Space</kbd> place · <kbd>U</kbd> undo · <kbd>H</kbd> hint · <kbd>M</kbd> mute · <kbd>P</kbd> pause · <kbd>Esc</kbd> cancel or pause</td></tr>
     </table>
-    <p class="muted">Undo: one per round by default (change it in Settings).</p>
+    <p class="muted">Undo: one per round by default (change it in Settings). Stuck? The lightbulb button (or <kbd>H</kbd>) shows one good move, once for each tray, in Classic, Daily Soak and Springs.</p>
     <div class="row"><button id="b-tips-help" type="button">Show tips again</button></div>
     <h3>About the pictures</h3>
     <p class="muted">The backdrops are game art of downtown Hot Springs seen from the hills above Central Avenue and Bathhouse Row, one per era, from the wild creek valley before 1804 to today. Times of day, seasons and small details are artistic; landmarks follow sources listed in the game files. Terrain: USGS 3D Elevation Program (public domain). Building footprints: © OpenStreetMap contributors (ODbL). Font: Fraunces (SIL Open Font License).</p>
@@ -2153,7 +2156,7 @@ function drawTray(now) {
   const doomed = trayDoomed(); UI.doomed = doomed;
   for (let k = 0; k < 3; k++) {
     const sl = LAY.slots[k], t = S.tray[k];
-    const selected = UI.sel === k && !UI.drag;
+    const selected = (UI.sel === k && !UI.drag) || (UI.hint && UI.hint.slot === k && !UI.drag);
     const cx = sl.x + sl.w / 2, cy = sl.y + sl.h / 2;
     // a recessed well per slot (dark glass with an inner shadow); gold rim when selected
     const wx = sl.x + 3, wy = sl.y + 3, ww = sl.w - 6, wh = sl.h - 6, wr = Math.min(16, wh * 0.14);
@@ -2188,6 +2191,16 @@ function drawTray(now) {
     if (!fits) { capsule(cx - 38, sl.y + sl.h - 24, 76, 20, 0.75); text('no room', cx, sl.y + sl.h - 14, 12, '#FFD7CF', 'center', 'sans', '700', false); }
     else if (doomed) { capsule(cx - 46, sl.y + sl.h - 24, 92, 20, 0.75); text('won’t all fit', cx, sl.y + sl.h - 14, 12, '#FFD9A0', 'center', 'sans', '700', false); }
   }
+}
+function drawHint(now) {
+  const h = UI.hint; if (!h) return;
+  const t = S.tray[h.slot];
+  if (!t || t.id !== h.id || S.over || !canPlace(S.board, h.id, h.r, h.c)) { UI.hint = null; return; }
+  const b = LAY.board, p = PIECES[h.id], cell = b.cell;
+  const pulse = reducedMotion() ? 0.5 : 0.5 + 0.5 * Math.sin(fxNow(now) / 220);
+  drawPiece(h.id, b.gx + h.c * cell, b.gy + h.r * cell, cell, 0.38 + 0.2 * pulse);
+  ctx.strokeStyle = 'rgba(255,236,160,' + (0.7 + 0.3 * pulse) + ')'; ctx.lineWidth = 3;
+  for (const [dr, dc] of p.cells) { rr(ctx, b.gx + (h.c + dc) * cell + 2, b.gy + (h.r + dr) * cell + 2, cell - 4, cell - 4, cell * 0.15); ctx.stroke(); }
 }
 function drawGhost(now) {
   const gh = UI.ghost; if (!gh) return;
@@ -2497,7 +2510,7 @@ function draw(now) {
   if (tint) { ctx.save(); ctx.globalCompositeOperation = tint[1]; ctx.fillStyle = tint[0]; ctx.fillRect(b.gx, b.gy, cell * 9, cell * 9); ctx.restore(); }
   drawVentWisps(now);
   drawHeatSteam(now);
-  if (S.scene === 'game') drawGhost(now);
+  if (S.scene === 'game') { drawGhost(now); drawHint(now); }
   drawFx(now);
   ctx.restore();
   drawInfo(now);
@@ -2521,7 +2534,7 @@ function needsAnim() {
   if (FX.length > 0 || (UI.drag && UI.drag.moved)) return true;
   if (reducedMotion()) return false;
   const active = performance.now() - UI.lastInput < 30000;
-  return S.scene === 'title' || (inGame() && (S.board.includes(8) || (S.heat >= 4 && active) || S.heat >= 12 || (WATER.on && active) || !!UI.ghost));
+  return S.scene === 'title' || (inGame() && (S.board.includes(8) || (S.heat >= 4 && active) || S.heat >= 12 || (WATER.on && active) || !!UI.ghost || !!UI.hint));
 }
 let lastDraw = 0, lastFrame = 0;
 // Low-end safety net: if frames during effects or drags average slower than 25 fps over 90 frames, switch this
@@ -2704,7 +2717,7 @@ function newGame(opts = {}) {
     setupGame(g, opts);
   } else g.undoStack = [];
   S = Object.assign(g, { scene: 'game' });
-  UI.sel = -1; UI.ghost = null; UI.drag = null; UI.overAt = 0; FX.length = 0;
+  UI.sel = -1; UI.ghost = null; UI.drag = null; UI.overAt = 0; FX.length = 0; UI.hint = null; UI.hintRound = -1;
   if (mode === 'classic' || mode === 'springs') { SAVE.resume = null; persist('replace'); }
   hideToast();
   UI.earned = [];
@@ -2748,6 +2761,7 @@ function doPlace(slot, r, c) {
   const res = applyMove(S, slot, r, c);
   if (!res.ok) { sfx('invalid'); return res; }
   S.undoStack.push(snap);
+  UI.hint = null;
   if (S.undoStack.length > (S.mode === 'trail' ? 60 : 3)) S.undoStack.shift();
   if (res.newRound && S.mode !== 'trail') S.undoLeft = SAVE.settings.undo;
   UI.sel = -1; UI.ghost = null; UI.cur = null;
@@ -2801,6 +2815,48 @@ function saveResume() {
   if (S.mode === 'classic' || S.mode === 'springs') { SAVE.resume = snapshot(); SAVE.resume.undoStack = []; persist('update'); }
   else if ((S.mode === 'trail' || S.mode === 'daily') && !S.over) { if (S.placed > 0) saveRun(); else clearRun(); }
 }
+// Hint (S2-12), Classic, Daily Soak and Springs: one per tray. A one-move search over every place each tray piece can go. It prefers a
+// move after which the pieces left can still all be placed, then one that clears the most (vents and tufa count extra), then one that
+// sits snug against the walls and other blocks without walling in an empty cell. The Trail has stars and puzzles with one answer, so
+// it has no hint. To change what a hint prefers, edit the weights in the score line.
+function findHint(g) {
+  const nb = (b, cells, r, c) => { const x = b.slice(); for (const [dr, dc] of cells) x[(r + dr) * 9 + c + dc] = 1; return x; };
+  let best = null;
+  g.tray.forEach((tr, k) => {
+    if (!tr) return;
+    const p = PIECES[tr.id], rest = g.tray.filter((x, j) => x && j !== k).map(x => x.id);
+    for (let r = 0; r <= 9 - p.h; r++) for (let c = 0; c <= 9 - p.wd; c++) {
+      if (!canPlace(g.board, p.id, r, c)) continue;
+      const b = nb(g.board, p.cells, r, c), groups = findClears(b), gone = new Set();
+      for (const gr of groups) for (const x of gr.cells) gone.add(x);
+      let special = 0; gone.forEach(x => { if (g.board[x] === 7 || g.board[x] === 8) special++; });
+      const after = b.map((v, i) => (gone.has(i) ? 0 : v));
+      let snug = 0, holes = 0;
+      for (const [dr, dc] of p.cells) for (const [a, d] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const rr = r + dr + a, cc = c + dc + d;
+        if (rr < 0 || rr > 8 || cc < 0 || cc > 8 || (g.board[rr * 9 + cc] && !p.cells.some(([x, y]) => x === dr + a && y === dc + d))) snug++;
+      }
+      for (let i = 0; i < 81; i++) if (!after[i]) {
+        const rr = Math.floor(i / 9), cc = i % 9;
+        if ([[1, 0], [-1, 0], [0, 1], [0, -1]].every(([a, d]) => { const x = rr + a, y = cc + d; return x < 0 || x > 8 || y < 0 || y > 8 || after[x * 9 + y]; })) holes++;
+      }
+      const score = (rest.length && !jointlyPlaceable(after, rest) ? 0 : 1000) + groups.length * 100 + gone.size + special * 20 + snug * 3 - holes * 25;
+      if (!best || score > best.score) best = { slot: k, id: p.id, r, c, score };
+    }
+  });
+  return best;
+}
+function hintAvail() { return S.scene === 'game' && !S.over && S.mode !== 'trail' && UI.hintRound !== S.round && S.tray.some(t => t && fitsAnywhere(S.board, t.id)); }
+function useHint() {
+  if (S.mode === 'trail' || S.scene !== 'game' || S.over) return { ok: false };
+  if (!hintAvail()) { sfx('invalid'); announce(UI.hintRound === S.round ? 'You have used the hint for this tray.' : 'No piece has room for a hint.'); return { ok: false }; }
+  const h = findHint(S);
+  if (!h) { sfx('invalid'); return { ok: false }; }
+  UI.hint = h; UI.hintRound = S.round; UI.sel = -1; UI.ghost = null;
+  sfx('pick'); announce('Hint: piece ' + (h.slot + 1) + ' goes at row ' + (h.r + 1) + ', column ' + (h.c + 1) + '.');
+  updateHud(); dirty = true;
+  return { ok: true, ...h };
+}
 function undoAvail() {
   if (!S.undoStack || !S.undoStack.length) return false;
   if (S.mode === 'trail') return true;
@@ -2814,6 +2870,7 @@ function undoCount() {
 }
 function doUndo() {
   if (!canUndo()) { sfx('invalid'); return { ok: false }; }
+  UI.hint = null;
   const snap = S.undoStack.pop();
   const stack = S.undoStack, left = S.undoLeft, used = S.undosUsed || 0;
   const scene = S.scene === 'over' ? 'game' : S.scene;
@@ -3140,6 +3197,9 @@ function updateHud() {
   $('h-mode').textContent = S.mode === 'trail' ? (LEVELS.find(l => l.id === S.level) || {}).name || '' : modeLabel();
   const gl = hudGoal(); $('h-goal').hidden = !gl; $('hud').classList.toggle('hasgoal', !!gl);
   if (gl) { $('h-goal-lbl').textContent = gl[0]; $('h-goal-num').textContent = gl[1]; }
+  $('b-hint').hidden = S.mode === 'trail';
+  $('b-hint').disabled = !hintAvail();
+  $('b-hint').title = UI.hintRound === S.round && S.mode !== 'trail' ? 'Hint used for this tray' : 'Hint (H): show one good move, once for each tray';
   $('h-undo').textContent = undoCount();
   $('b-undo').disabled = !canUndo();
   $('b-undo').setAttribute('aria-label', S.mode === 'trail' ? 'Undo (this puzzle is worth ' + trailStars(S.undosUsed || 0) + ' stars; each undo may cost one)' : 'Undo (' + undoCount() + ' left this round)');
@@ -3355,6 +3415,7 @@ function wireDom() {
   $('b-trail2').addEventListener('click', () => { sfx('click'); showScene('trail'); });
   $('b-next').addEventListener('click', () => { sfx('click'); const i = LEVELS.findIndex(l => l.id === S.level); if (i < LEVELS.length - 1) newGame({ mode: 'trail', level: LEVELS[i + 1].id }); });
   $('b-undo').addEventListener('click', () => { audioInit(); doUndo(); cv.focus({ preventScroll: true }); });
+  $('b-hint').addEventListener('click', () => { audioInit(); useHint(); cv.focus({ preventScroll: true }); });
   $('b-sound').addEventListener('click', () => { audioInit(); setSetting('sound', !SAVE.settings.sound); sfx('click'); });
   $('s-sound').addEventListener('change', e => { audioInit(); setSetting('sound', e.target.checked); sfx('click'); });
   $('s-volume').addEventListener('input', e => setSetting('volume', +e.target.value / 100));
@@ -3596,6 +3657,7 @@ window.addEventListener('keydown', e => {
   else if (k === 'ArrowLeft') { moveCursor(0, -1); e.preventDefault(); }
   else if (k === 'ArrowRight') { moveCursor(0, 1); e.preventDefault(); }
   else if (k === 'Enter' || k === ' ') { confirmPlace(); e.preventDefault(); }
+  else if (k === 'h' || k === 'H') { useHint(); e.preventDefault(); }
   else if (k === 'u' || k === 'U' || ((k === 'z' || k === 'Z') && (e.ctrlKey || e.metaKey))) { doUndo(); e.preventDefault(); }
 });
 window.addEventListener('resize', () => { resize(); });
@@ -3655,6 +3717,8 @@ window.__game = {
       case 'audio': audioInit(); sfx(a[0] || 'click'); return { ctx: !!AU.ctx, state: AU.ctx ? AU.ctx.state : null, gain: AU.master ? AU.master.gain.value : null };
       case 'infoLine': return infoLine();
       case 'doomed': return trayDoomed();
+      case 'hint': return useHint();
+      case 'hintState': return { hint: UI.hint ? { ...UI.hint } : null, avail: hintAvail(), round: UI.hintRound };
       case 'cues': return CUE_LOG.slice();
       case 'dragBody': return UI.drag && UI.drag.moved && S.tray[UI.drag.slot] ? dragBody(UI.drag, performance.now() + 1000) : null;
       case 'clearCues': CUE_LOG.length = 0; return true;
