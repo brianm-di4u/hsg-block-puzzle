@@ -222,4 +222,31 @@ export const tests = [
     },
   },
 
+  // ------------------------------------------------------------------ S6-10 the title card fits a landscape phone
+  {
+    name: 'S6-10 the title card fits whole on landscape phones, with nothing cut off',
+    viewports: ['desktop'],
+    async run(t) {
+      for (const [w, h] of [[844, 390], [740, 360], [667, 375]]) {
+        await t.page.setViewportSize({ width: w, height: h });
+        await t.reload();
+        await t.waitFrames(3);
+        await t.waitForAnimations();
+        const r = await t.page.evaluate(() => {
+          const panel = document.querySelector('#sc-title .panel'), p = panel.getBoundingClientRect();
+          const last = [...panel.querySelectorAll('button')].pop().getBoundingClientRect();
+          return { top: p.top, bottom: p.bottom, h: innerHeight, scrolls: panel.scrollHeight > panel.clientHeight + 1, lastBottom: last.bottom, ticker: getComputedStyle(document.getElementById('ticker')).display };
+        });
+        t.expect(r.bottom <= r.h && r.top >= 0, w + 'x' + h + ': the panel is inside the screen (' + Math.round(r.top) + ' to ' + Math.round(r.bottom) + ' of ' + r.h + ')');
+        t.expect(!r.scrolls, w + 'x' + h + ': the panel does not need to scroll');
+        t.expect(r.lastBottom <= r.h, w + 'x' + h + ': the last button is on screen');
+        t.equal(r.ticker, 'none', w + 'x' + h + ': the ticker sentence, which cannot fit, is hidden rather than cut');
+        if (w === 844) await t.shot('S6-10-title-landscape');
+      }
+      await t.page.setViewportSize({ width: 1280, height: 800 });
+      await t.reload();
+      t.expect(await t.page.evaluate(() => getComputedStyle(document.getElementById('ticker')).display !== 'none'), 'the ticker is still there on a desktop');
+    },
+  },
+
 ];
