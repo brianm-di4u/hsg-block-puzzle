@@ -2685,7 +2685,7 @@ function doUndo() {
   const snap = S.undoStack.pop();
   const stack = S.undoStack, left = S.undoLeft, used = S.undosUsed || 0;
   const scene = S.scene === 'over' ? 'game' : S.scene;
-  S = Object.assign(snap, { scene, undoStack: stack });
+  S = Object.assign(snap, { scene, undoStack: stack, counted: S.counted });
   UI.overAt = 0;
   if (scene !== S.scene || $('sc-over').classList.contains('on')) showScene('game');
   if (S.mode !== 'trail') S.undoLeft = left - 1;
@@ -2743,8 +2743,8 @@ function goalsOnPlace(res) {
   if (res.bonus) earn('clear-spring');
   if (S.mode !== 'trail') { if (S.era >= 3) earn('gilded-spa'); if (S.era >= 6) earn('modern-spa-city'); }
 }
-function goalsOnEnd() {
-  if (S.bestHeat >= 12) { SAVE.goals.boiled++; if (SAVE.goals.boiled >= 10) earn('bathhouse-regular'); }
+function goalsOnEnd(fresh = true) {
+  if (fresh && S.bestHeat >= 12) { SAVE.goals.boiled++; if (SAVE.goals.boiled >= 10) earn('bathhouse-regular'); }
   if (S.mode === 'springs' && S.won) earn('every-spring');
   if (S.mode === 'trail' && S.won && trailStars(S.undosUsed || 0) === 3) earn('steady-hand');
   if (S.mode === 'daily' && S.daily) {
@@ -2833,10 +2833,13 @@ function replayTips() {
 function endGame() {
   if (S.mode === 'trail' || S.mode === 'daily') clearRun();
   if (S.mode !== 'trail' || S.won) S.undoStack = [];
-  const st = SAVE.stats;
-  st.games++; st.lines += S.groups; st.bestHeat = Math.max(st.bestHeat, S.bestHeat); st.springs += S.springs;
-  st.bestCombo = Math.max(st.bestCombo, S.bestG || 0); st.longest = Math.max(st.longest, S.placed);
-  if (st.recent[S.mode]) st.recent[S.mode] = [...st.recent[S.mode], S.score].slice(-10);
+  const st = SAVE.stats, fresh = !S.counted;   // a Trail loss that is undone and finished again is one game, not two (S6-05)
+  S.counted = true;
+  if (fresh) {
+    st.games++; st.lines += S.groups; st.bestHeat = Math.max(st.bestHeat, S.bestHeat); st.springs += S.springs;
+    st.bestCombo = Math.max(st.bestCombo, S.bestG || 0); st.longest = Math.max(st.longest, S.placed);
+    if (st.recent[S.mode]) st.recent[S.mode] = [...st.recent[S.mode], S.score].slice(-10);
+  }
   UI.newBest = false;
   if (S.mode === 'classic' || S.mode === 'springs') {
     const slot = bestSlot(S.mode, S.diff);
@@ -2850,7 +2853,7 @@ function endGame() {
     if (UI.trailWin.first) SAVE.trail.done.push(S.level);
     if (stars > prev) SAVE.trail.stars[S.level] = stars;
   }
-  goalsOnEnd();
+  goalsOnEnd(fresh);
   persist(S.mode === 'classic' || S.mode === 'springs' ? 'clear' : 'none');
   UI.overAt = performance.now() + (reducedMotion() ? 350 : 1000);
   setTimeout(() => sfx(S.won ? 'win' : 'over'), 300);

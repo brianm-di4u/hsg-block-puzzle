@@ -191,4 +191,35 @@ export const tests = [
     },
   },
 
+  // ------------------------------------------------------------------ S6-05 undoing a Trail loss does not count a second game
+  {
+    name: 'S6-05 a Trail loss that is undone and lost again counts one game, not two',
+    async run(t) {
+      await t.game('newGame', { mode: 'trail', level: 'hale-bathhouse' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      // a checkerboard of open cells: a single fits anywhere and clears nothing, and two five-in-a-row pieces then have no room
+      const board = empty().map((_, i) => ((Math.floor(i / 9) + i % 9) % 2 === 0 ? 1 : 0));
+      await t.game('setState', { board, ...setTray(['o1', 'i5h', 'i5h']), queue: [], goal: 'lines:99', undoStack: [] });
+      const g0 = (await t.game('act', 'save')).stats;
+      let r = await t.game('act', 'place', 0, 0, 1);
+      t.expect(r.ok, 'the single is placed');
+      let s = await t.state();
+      t.expect(s.over && !s.won, 'the puzzle is lost');
+      const g1 = (await t.game('act', 'save')).stats;
+      t.equal(g1.games, g0.games + 1, 'the loss counts one game');
+      t.expect((await t.game('act', 'undo')).ok, 'undo is offered after a Trail loss');
+      r = await t.game('act', 'place', 0, 0, 1);
+      t.expect((await t.state()).over, 'lost again');
+      const g2 = (await t.game('act', 'save')).stats;
+      t.equal(g2.games, g1.games, 'losing again after the undo does not count another game');
+      t.equal(g2.lines, g1.lines, 'nor its groups');
+      t.equal(g2.recent.classic.length, g1.recent.classic.length, 'nor a recent score');
+      // a different run does count
+      await t.game('newGame', { mode: 'trail', level: 'hale-bathhouse' });
+      await t.game('setState', { board, ...setTray(['o1', 'i5h', 'i5h']), queue: [], goal: 'lines:99', undoStack: [] });
+      await t.game('act', 'place', 0, 0, 1);
+      t.equal((await t.game('act', 'save')).stats.games, g1.games + 1, 'a new puzzle attempt counts as a game');
+    },
+  },
+
 ];
