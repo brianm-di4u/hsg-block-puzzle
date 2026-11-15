@@ -197,7 +197,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
 <div id="inset" aria-hidden="true"></div>
 <canvas id="bg" aria-hidden="true"></canvas>
 <canvas id="water" aria-hidden="true"></canvas>
-<canvas id="cv" tabindex="0" role="application" aria-label="Thermal Blocks board. Keys: 1 2 3 pick a piece, arrows move, Enter places, U undoes, Escape pauses."></canvas>
+<canvas id="cv" tabindex="0" role="application" aria-label="Thermal Blocks board. Keys: 1 2 3 pick a piece, arrows move, Enter places, U undoes, P or Escape pauses, M mutes."></canvas>
 
 <header id="hud" aria-label="Game status">
   <button id="b-pause" aria-label="Pause"><svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg></button>
@@ -338,7 +338,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
     <table class="keys">
       <tr><td>Mouse</td><td>Drag a piece and drop it. Or click a piece, then click the board.</td></tr>
       <tr><td>Touch</td><td>Drag a piece onto the board (it floats above your finger and snaps to the nearest open spot). Prefer tapping? Turn on <b>Tap to place</b> in Settings: tap a piece, tap the board to preview, and tap the preview to place.</td></tr>
-      <tr><td>Keyboard</td><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> or <kbd>Tab</kbd> pick a piece · arrows move · <kbd>Enter</kbd>/<kbd>Space</kbd> place · <kbd>U</kbd> undo · <kbd>M</kbd> mute · <kbd>Esc</kbd> cancel or pause</td></tr>
+      <tr><td>Keyboard</td><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> or <kbd>Tab</kbd> pick a piece · arrows move · <kbd>Enter</kbd>/<kbd>Space</kbd> place · <kbd>U</kbd> undo · <kbd>M</kbd> mute · <kbd>P</kbd> pause · <kbd>Esc</kbd> cancel or pause</td></tr>
     </table>
     <p class="muted">Undo: one per round by default (change it in Settings).</p>
     <div class="row"><button id="b-tips-help" type="button">Show tips again</button></div>
@@ -3301,10 +3301,15 @@ window.addEventListener('keydown', e => {
     else if (['help', 'settings', 'trail', 'cards', 'records'].includes(S.scene)) back();
     return;
   }
+  // M and P work on every card that shows the game's header: mute on the pause card and the end cards too, P pauses and resumes.
+  if (GAME_SCENES.has(S.scene) && tag !== 'INPUT' && tag !== 'SELECT' && tag !== 'TEXTAREA') {
+    if (k === 'm' || k === 'M') { audioInit(); setSetting('sound', !SAVE.settings.sound); return; }
+    if ((k === 'p' || k === 'P') && S.scene === 'pause') { resumeGame(); return; }
+    if ((k === 'p' || k === 'P') && S.scene === 'game' && !S.over) { pauseGame(); return; }
+  }
   if (S.scene !== 'game' || S.over) return;
   if (!UI.kbd && k !== 'Escape') { UI.kbd = true; dirty = true; }
   if (tag === 'BUTTON' && (k === 'Enter' || k === ' ')) return;
-  if (k === 'm' || k === 'M') { audioInit(); setSetting('sound', !SAVE.settings.sound); return; }
   audioInit();
   if (k >= '1' && k <= '3') { selectSlot(+k - 1); cv.focus({ preventScroll: true }); e.preventDefault(); }
   else if (k === 'Tab' && document.activeElement === cv) { cycleSel(e.shiftKey ? -1 : 1); e.preventDefault(); }

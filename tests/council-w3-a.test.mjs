@@ -395,4 +395,63 @@ export const tests = [
       t.expect(JSON.parse(parsed.data).name === 'Thermal Blocks', 'and reads the name from it');
     },
   },
+
+  // ------------------------------------------------------------------ S6-16 M and P outside the board, and the Undo badge
+  {
+    name: 'S6-16 M mutes and unmutes on the pause card and on the game-over card, not only on the board',
+    async run(t) {
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('act', 'pause');
+      t.equal((await t.state()).scene, 'pause', 'paused');
+      await t.page.keyboard.press('m');
+      t.equal((await readSave(t)).settings.sound, false, 'M on the pause card turns the sound off');
+      t.equal(await t.page.getAttribute('#b-sound', 'aria-pressed'), 'false', 'and the Sound button says so');
+      await t.page.keyboard.press('M');
+      t.equal((await readSave(t)).settings.sound, true, 'M again turns it back on');
+      await t.game('act', 'resume');
+      await t.game('setState', { board: new Array(81).fill(1) });
+      await t.page.waitForFunction(() => window.__game.getState().scene === 'over', null, { timeout: 5000 });
+      await t.page.keyboard.press('m');
+      t.equal((await readSave(t)).settings.sound, false, 'M on the game-over card mutes too');
+    },
+  },
+  {
+    name: 'S6-16 P pauses and resumes, and does nothing on the title or inside a Settings control',
+    async run(t) {
+      await t.page.keyboard.press('p');
+      t.equal((await t.state()).scene, 'title', 'nothing on the title');
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.page.keyboard.press('p');
+      t.equal((await t.state()).scene, 'pause', 'P pauses');
+      await t.page.keyboard.press('P');
+      t.equal((await t.state()).scene, 'game', 'P resumes');
+      await t.game('act', 'pause');
+      await t.page.click('#sc-pause [data-go=settings]');
+      await t.page.focus('#s-undo');
+      await t.page.keyboard.press('p');
+      t.equal((await t.state()).scene, 'settings', 'typing P in a Settings control does not pause or resume');
+    },
+  },
+  {
+    name: 'S6-16 the Undo badge counts the undos that work: 3, still 3 after a drop, 2 after using one',
+    async run(t) {
+      await t.game('act', 'setting', 'undo', 3);
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      t.equal(await t.page.textContent('#h-undo'), '3', 'three at the start');
+      await t.game('setState', { board: new Array(81).fill(0), ...setTray(['o1', 'o1', 'o1']) });
+      await t.game('act', 'place', 0, 4, 4);
+      t.equal(await t.page.textContent('#h-undo'), '3', 'a drop spends none');
+      await t.game('act', 'undo');
+      t.equal(await t.page.textContent('#h-undo'), '2', 'one used');
+      await t.game('act', 'place', 0, 4, 4);
+      await t.game('act', 'undo');
+      await t.game('act', 'place', 0, 4, 4);
+      await t.game('act', 'undo');
+      t.equal(await t.page.textContent('#h-undo'), '0', 'none left after three');
+      t.expect(await t.page.isDisabled('#b-undo'), 'and the button is disabled');
+    },
+  },
 ];
