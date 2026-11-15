@@ -69,6 +69,9 @@ button.primary{background:var(--color-primary) linear-gradient(rgba(255,255,255,
 #hud .lbl{font-size:.78em;color:#E9E2CF;text-transform:uppercase;letter-spacing:.12em;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.8)}
 #hud .num{font-family:var(--font-display);font-weight:800;font-size:1.25em;text-shadow:0 2px 4px rgba(0,0,0,.7);font-variant-numeric:lining-nums tabular-nums}
 #hud .stat.score .num{font-size:3.3em;color:#FFF7E0;letter-spacing:.01em}
+#hud .stat.goal .num{color:#9FF2E4;font-size:1.4em}
+#hud .stat[hidden]{display:none}
+@media (max-width:520px){ #hud.hasgoal .mid{gap:6px} #hud.hasgoal .stat.score .num{font-size:1.3em} #hud.hasgoal .stat.best .num,#hud.hasgoal .stat.goal .num{font-size:1em} }
 #hud .stat.best .num{color:#F7CF62;font-size:1.4em}
 #hud .mode{font-family:var(--font-display);font-size:.9em;color:#E9E2CF;padding:3px 10px;border:1px solid rgba(240,207,117,.45);border-radius:999px;background:rgba(8,24,28,.45);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px rgba(0,0,0,.8);max-width:22vw}
 #hud button{display:flex;align-items:center;justify-content:center;gap:4px;padding:6px 10px;border-radius:999px;background:rgba(8,24,28,.62);border:1.5px solid rgba(240,207,117,.65);color:#F4F2EC;box-shadow:0 2px 8px rgba(0,0,0,.35)}
@@ -210,6 +213,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
   <div class="mid">
     <div class="stat score"><span class="lbl">Score</span><span class="num" id="h-score">0</span></div>
     <div class="stat best"><span class="lbl" id="h-best-lbl">Best</span><span class="num" id="h-best">0</span></div>
+    <div class="stat goal" id="h-goal" hidden><span class="lbl" id="h-goal-lbl"></span><span class="num" id="h-goal-num"></span></div>
     <div class="mode" id="h-mode">Classic</div>
   </div>
   <button id="b-undo" aria-label="Undo"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg><span class="cnt" id="h-undo">1</span></button>
@@ -2110,14 +2114,14 @@ function drawInfo(now) {
     text(cap, C.x + C.w / 2, C.y + C.h / 2, 15, '#FFFFFF', 'center', 'sans', '', false);
   } else {
     capsule(I.x, I.y, I.w, I.h, 0.66);
-    text(temp, I.x + 14, I.y + 14, 16, '#FFFFFF', 'left', 'display', '700');
-    ctx.font = '700 16px ' + FONT_DISPLAY; const tw0 = ctx.measureText(temp).width;
+    const hl = 'Heat ' + temp;   // the label rides with the reading (S2-02); the right side belongs to the long goal line
+    text(hl, I.x + 14, I.y + 14, 16, '#FFFFFF', 'left', 'display', '700');
+    ctx.font = '700 16px ' + FONT_DISPLAY; const tw0 = ctx.measureText(hl).width;
     text(mtxt, I.x + 22 + tw0, I.y + 14, 13, '#F7CF62', 'left', 'sans', '700');
     const bw = I.w * 0.4, bx = I.x + 14, by = I.y + 27;
     ctx.fillStyle = '#0B2227'; rr(ctx, bx, by, bw, 7, 3.5); ctx.fill();
     const lg = ctx.createLinearGradient(bx, 0, bx + bw, 0); lg.addColorStop(0, '#4FC3D9'); lg.addColorStop(0.5, '#F2A541'); lg.addColorStop(1, '#FF4A2B');
     ctx.fillStyle = lg; rr(ctx, bx, by, Math.max(7, bw * frac), 7, 3.5); ctx.fill();
-    text('HEAT', bx + bw + 8, by + 3.5, 11, '#E9E2CF', 'left', 'sans', '700');
     const rx = I.x + I.w - 14;
     text(lv ? lv.name : era.name, rx, I.y + 13, 14, '#FFFFFF', 'right', 'display', '700');
     const gt = goalText();
@@ -2745,7 +2749,7 @@ function doPlace(slot, r, c) {
     S.era = Math.max(S.era, eraFor(S.score));
     if (S.era !== prevEra) {
       const e = ERAS[S.era], fresh = noteEra(S.era);
-      toast(e.name + ' · ' + e.years, (hintOnce('era') ? 'Your score moved the town forward. Eras change the scenery only. ' : '') + e.cap + (fresh ? ' A postcard for it is now in Fact cards.' : ''), 6000); sfx('era'); bgKey = ''; loadArt('era-' + e.id); audioMood();
+      toast(e.name + ' · ' + e.years, (hintOnce('era') ? 'Your score moved the town forward; eras are scenery only. ' : '') + e.cap + (fresh ? ' Postcard added to Fact cards.' : ''), 6000); sfx('era'); bgKey = ''; loadArt('era-' + e.id); audioMood();
     }
   }
   audioPressure(); if (AU.kit) AU.kit.amb.set('heat', Math.min(1, S.heat / 12));
@@ -3094,11 +3098,21 @@ function back() {
   else if (UI.returnTo === 'trail') showScene('trail');
   else showScene('title');
 }
+// The goal of Springs and of each Trail puzzle as a number beside the score (S4-14): [label, value], or null where the goal is score.
+function hudGoal() {
+  if (S.mode === 'springs') return ['Vents', S.springs + '/47'];
+  if (S.mode !== 'trail') return null;
+  if (S.goal === 'stones') return ['Tufa left', count(S.board, 7)];
+  if (S.goal === 'vents') return ['Vents left', count(S.board, 8)];
+  return ['Groups', S.groups + '/' + S.goal.slice(6)];
+}
 function updateHud() {
   $('h-score').textContent = S.score.toLocaleString('en-US');
   $('h-best').textContent = S.mode === 'trail' ? (SAVE.trail.done.length + '/' + LEVELS.length) : Math.max(bestFor(S.mode), S.score).toLocaleString('en-US');
   $('h-best-lbl').textContent = S.mode === 'trail' ? 'Solved' : 'Best';
   $('h-mode').textContent = S.mode === 'trail' ? (LEVELS.find(l => l.id === S.level) || {}).name || '' : modeLabel();
+  const gl = hudGoal(); $('h-goal').hidden = !gl; $('hud').classList.toggle('hasgoal', !!gl);
+  if (gl) { $('h-goal-lbl').textContent = gl[0]; $('h-goal-num').textContent = gl[1]; }
   $('h-undo').textContent = undoCount();
   $('b-undo').disabled = !canUndo();
   $('b-undo').setAttribute('aria-label', S.mode === 'trail' ? 'Undo (this puzzle is worth ' + trailStars(S.undosUsed || 0) + ' stars; each undo may cost one)' : 'Undo (' + undoCount() + ' left this round)');

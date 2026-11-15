@@ -160,7 +160,7 @@ export const tests = [
       await t.game('setState', { board: empty(), score: 149, ...setTray(['o1', 'o1', 'o1']) });
       await t.game('act', 'place', 0, 0, 0);
       await t.page.waitForFunction(() => document.getElementById('toast').classList.contains('on'), null, { timeout: 3000 });
-      t.expect((await text(t, '#toast')).includes('A postcard for it is now in Fact cards.'), 'the arrival toast mentions it: ' + await text(t, '#toast'));
+      t.expect((await text(t, '#toast')).includes('Postcard added to Fact cards.'), 'the arrival toast mentions it: ' + await text(t, '#toast'));
       t.equal((await readSave(t)).eraMax, 1, 'saved');
       await t.game('scene', 'cards');
       c = await cards();
@@ -175,7 +175,7 @@ export const tests = [
       await t.game('setState', { board: empty(), score: 149, ...setTray(['o1', 'o1', 'o1']) });
       await t.game('act', 'place', 0, 0, 0);
       await t.page.waitForFunction(() => document.getElementById('toast').classList.contains('on'), null, { timeout: 3000 });
-      t.expect(!(await text(t, '#toast')).includes('postcard'), 'no second announcement: ' + await text(t, '#toast'));
+      t.expect(!/postcard/i.test(await text(t, '#toast')), 'no second announcement: ' + await text(t, '#toast'));
     },
   },
   {
@@ -274,7 +274,7 @@ export const tests = [
         return text(t, '#toast');
       };
       const first = await crossing();
-      t.expect(first.startsWith('Frontier Springs · 1804–1874Your score moved the town forward. Eras change the scenery only. 1804: William Dunbar'), 'first crossing: ' + first);
+      t.expect(first.startsWith('Frontier Springs · 1804–1874Your score moved the town forward; eras are scenery only. 1804: William Dunbar'), 'first crossing: ' + first);
       const second = await crossing();
       t.expect(!second.includes('scenery') && second.includes('William Dunbar'), 'the next crossing is just the caption: ' + second);
       await t.game('scene', 'help');
@@ -334,6 +334,50 @@ export const tests = [
       await t.game('scene', 'over');
       await t.waitFrames(2);
       t.equal((await text(t, '#ov-sub')).split(' · ').slice(0, 2).join(' · '), 'Daily Soak · Jan 5', 'a single-digit day has no zero');
+    },
+  },
+
+  // ------------------------------------------------------------------ S4-14 the goal is a number in the HUD
+  {
+    name: 'S4-14 Springs and Trail show their goal beside the score, and Classic does not',
+    async run(t) {
+      const goal = () => t.page.evaluate(() => { const g = document.getElementById('h-goal'); return g.hidden ? null : [document.getElementById('h-goal-lbl').textContent, document.getElementById('h-goal-num').textContent]; });
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      t.equal(await goal(), null, 'Classic has no goal but score');
+      await t.game('newGame', { mode: 'springs' });
+      t.equal(await goal(), ['Vents', '0/47'], 'Springs starts at 0 of 47');
+      const b = empty(); for (let c = 1; c < 9; c++) b[c] = 1; b[5] = 8;
+      await t.game('setState', { board: b, springs: 12, ...setTray(['o1', 'o1', 'o1']) });
+      await t.game('act', 'place', 0, 0, 0);
+      t.equal(await goal(), ['Vents', '13/47'], 'opening a vent moves it at once');
+      await t.shot('S4-14-springs-hud');
+      const lv = await t.game('getLevels');
+      const of = g => lv.find(l => l.goal === g || l.goal.startsWith(g));
+      await t.game('newGame', { mode: 'trail', level: of('stones').id });
+      const st = await t.game('getState');
+      t.equal(await goal(), ['Tufa left', String(st.board.filter(x => x === 7).length)], 'a tufa puzzle counts the stones left');
+      await t.game('newGame', { mode: 'trail', level: of('vents').id });
+      t.equal((await goal())[0], 'Vents left', 'a vent puzzle counts the vents left');
+      await t.game('newGame', { mode: 'trail', level: of('lines:').id });
+      const need = of('lines:').goal.slice(6);
+      t.equal(await goal(), ['Groups', '0/' + need], 'a groups puzzle counts to its target');
+      await t.shot('S4-14-trail-hud');
+      await t.game('newGame', { mode: 'daily' });
+      t.equal(await goal(), null, 'Daily Soak goes back to score only');
+    },
+  },
+  {
+    name: 'S4-14 the HUD goal fits beside the score without crowding the buttons',
+    async run(t) {
+      await t.game('act', 'setting', 'tipsSeen', true);
+      const lv = await t.game('getLevels');
+      await t.game('newGame', { mode: 'trail', level: lv.find(l => l.name === 'Thermal Water Cascade').id });
+      await t.game('setState', { score: 12345 });
+      const boxes = await t.page.evaluate(() => ['b-pause', 'h-score', 'h-best', 'h-goal', 'b-undo', 'b-sound'].map(id => { const r = document.getElementById(id).getBoundingClientRect(); return { id, l: r.left, r: r.right, w: r.width }; }));
+      const order = boxes.map(b => b.id);
+      for (let i = 1; i < boxes.length; i++) t.expect(boxes[i].l >= boxes[i - 1].r - 1, order[i - 1] + ' and ' + order[i] + ' do not overlap: ' + JSON.stringify(boxes));
+      t.expect(boxes.every(b => b.w > 0) && boxes[5].r <= t.vp.width, 'every piece of the HUD is on screen');
     },
   },
 ];
