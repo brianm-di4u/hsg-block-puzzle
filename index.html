@@ -1207,13 +1207,13 @@ function playCue(name, o, t) {
       tone(f, t, 0.08, 'triangle', 0.31, f * 1.35); tone(f * 2, t, 0.04, 'sine', 0.08);
       hiss(t, 0.03, 0.1, 3200, 2400, 1.5); break;
     }
-    case 'place': {    // a glazed tile set on stone: a damped body (higher for small pieces), a tick, a low thud
-      const f = 180 * (1 + (6 - Math.min(9, o.n || 4)) * 0.035);
-      tone(f, t, 0.14, 'sine', 0.3, f * 0.5); tone(f * 5, t, 0.05, 'sine', 0.09);
-      hiss(t, 0.05, 0.13, 3600, 1800, 1.1); tone(70, t, 0.1, 'sine', 0.14, 45);
+    case 'place': {    // a glazed tile set on stone: a damped body (higher for small pieces; 380 Hz, where a phone speaker still reaches), a tick, a low thud
+      const f = 380 * (1 + (6 - Math.min(9, o.n || 4)) * 0.035);   // was 180 Hz
+      tone(f, t, 0.12, 'sine', 0.21, f * 0.6); tone(f * 2.4, t, 0.05, 'triangle', 0.1);
+      hiss(t, 0.05, 0.13, 3600, 1800, 1.1); tone(95, t, 0.1, 'sine', 0.1, 60);
       break;
     }
-    case 'invalid': tone(110, t, 0.18, 'square', 0.1, 80); tone(70, t, 0.12, 'sine', 0.22, 48); hiss(t, 0.08, 0.06, 600, 300, 0.8); break;
+    case 'invalid': tone(330, t, 0.11, 'triangle', 0.29, 300); tone(247, t + 0.11, 0.16, 'triangle', 0.29, 210); hiss(t, 0.08, 0.05, 900, 500, 0.8); break;   // a two-note fall (was a 110 Hz square buzz)
     case 'deal': {
       hiss(t, 0.16, 0.07, 1800, 5200, 0.8);
       [0, 1, 2].forEach(k => { tone(392 + k * 98, t + k * 0.05, 0.1, 'triangle', 0.26); tone(784 + k * 196, t + k * 0.05, 0.05, 'sine', 0.05); });

@@ -174,4 +174,34 @@ export const tests = [
       t.expect(after.now > 0.99, 'and is back at full when the cue sounds (' + after.now.toFixed(2) + ')');
     },
   },
+
+  // ------------------------------------------------------------------ P-N02 place and invalid carry on a small speaker
+  {
+    name: 'P-N02 place and invalid still ring through a 250 Hz high-pass, and invalid is a two-note fall',
+    viewports: ['desktop'],
+    async run(t) {
+      for (const cue of ['place', 'invalid']) {
+        const full = [], hp = [];
+        for (let i = 0; i < 7; i++) { full.push(await render(t, 'cue:' + cue, 2)); hp.push(await render(t, 'cue:' + cue, 2, { highpass: 250 })); }
+        const hpPeak = median(hp.map(r => r.peak)), ratio = median(hp.map(r => r.rms)) / median(full.map(r => r.rms));
+        t.log(cue + ': through 250 Hz high-pass the median peak is ' + hpPeak + ' and the energy is ' + ratio.toFixed(2) + ' of the full cue');
+        t.expect(hpPeak >= 0.2, cue + ': a small speaker still gets a peak of at least 0.2 (' + hpPeak + ')');
+        t.expect(ratio >= 0.8, cue + ': at least 80 percent of its energy is above 250 Hz (' + ratio.toFixed(2) + ')');
+      }
+      const f = await t.page.evaluate(() => {
+        const out = {};
+        for (const [cue, o] of [['place', { n: 4 }], ['invalid', {}]]) {
+          const freqs = [], keep = { ...AU }, oc = new OfflineAudioContext(2, 4410, 22050), mk = oc.createOscillator.bind(oc);
+          oc.createOscillator = () => { const osc = mk(), set = osc.frequency.setValueAtTime.bind(osc.frequency); osc.frequency.setValueAtTime = (v, tt) => { freqs.push([v, tt]); return set(v, tt); }; return osc; };
+          Object.assign(AU, { ctx: oc, master: oc.createGain(), noise: makeNoiseBuffer(oc), kit: null });
+          try { JIT = { f: 1, g: 1, o: 0, pan: 0 }; playCue(cue, o, 0.01); } finally { Object.assign(AU, keep); }
+          out[cue] = freqs;
+        }
+        return out;
+      });
+      t.expect(f.place[0][0] >= 300 && f.place[0][0] <= 500, 'the body of place is 300 to 500 Hz (' + f.place[0][0].toFixed(0) + ')');
+      const inv = f.invalid.filter(x => x[0] >= 220);
+      t.expect(inv.length >= 2 && inv[0][0] <= 340 && inv[1][0] < inv[0][0] && inv[1][1] > inv[0][1], 'invalid is two notes between 220 and 340 Hz, the second lower and later (' + f.invalid.map(x => x[0].toFixed(0)).join(', ') + ')');
+    },
+  },
 ];
