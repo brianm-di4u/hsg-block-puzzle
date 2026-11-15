@@ -368,16 +368,16 @@ export const tests = [
     },
   },
   {
-    name: 'S4-14 the HUD goal fits beside the score without crowding the buttons',
+    name: 'S4-14 the HUD goal fits beside the score without crowding the buttons (Best steps aside on a phone while a goal shows; council-w3-followup measures the text)',
     async run(t) {
       await t.game('act', 'setting', 'tipsSeen', true);
       const lv = await t.game('getLevels');
       await t.game('newGame', { mode: 'trail', level: lv.find(l => l.name === 'Thermal Water Cascade').id });
       await t.game('setState', { score: 12345 });
-      const boxes = await t.page.evaluate(() => ['b-pause', 'h-score', 'h-best', 'h-goal', 'b-undo', 'b-sound'].map(id => { const r = document.getElementById(id).getBoundingClientRect(); return { id, l: r.left, r: r.right, w: r.width }; }));
+      const boxes = await t.page.evaluate(() => ['b-pause', 'h-score', 'h-goal', 'b-undo', 'b-sound'].map(id => { const r = document.getElementById(id).getBoundingClientRect(); return { id, l: r.left, r: r.right, w: r.width }; }));
       const order = boxes.map(b => b.id);
       for (let i = 1; i < boxes.length; i++) t.expect(boxes[i].l >= boxes[i - 1].r - 1, order[i - 1] + ' and ' + order[i] + ' do not overlap: ' + JSON.stringify(boxes));
-      t.expect(boxes.every(b => b.w > 0) && boxes[5].r <= t.vp.width, 'every piece of the HUD is on screen');
+      t.expect(boxes.every(b => b.w > 0) && boxes[4].r <= t.vp.width, 'every piece of the HUD is on screen');
     },
   },
 ];

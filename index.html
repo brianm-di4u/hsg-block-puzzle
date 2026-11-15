@@ -71,7 +71,6 @@ button.primary{background:var(--color-primary) linear-gradient(rgba(255,255,255,
 #hud .stat.score .num{font-size:3.3em;color:#FFF7E0;letter-spacing:.01em}
 #hud .stat.goal .num{color:#9FF2E4;font-size:1.4em}
 #hud .stat[hidden]{display:none}
-@media (max-width:520px){ #hud.hasgoal .mid{gap:6px} #hud.hasgoal .stat.score .num{font-size:1.3em} #hud.hasgoal .stat.best .num,#hud.hasgoal .stat.goal .num{font-size:1em} }
 #hud .stat.best .num{color:#F7CF62;font-size:1.4em}
 #hud .mode{font-family:var(--font-display);font-size:.9em;color:#E9E2CF;padding:3px 10px;border:1px solid rgba(240,207,117,.45);border-radius:999px;background:rgba(8,24,28,.45);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px rgba(0,0,0,.8);max-width:22vw}
 #hud button{display:flex;align-items:center;justify-content:center;gap:4px;padding:6px 10px;border-radius:999px;background:rgba(8,24,28,.62);border:1.5px solid rgba(240,207,117,.65);color:#F4F2EC;box-shadow:0 2px 8px rgba(0,0,0,.35)}
@@ -80,7 +79,16 @@ button.primary{background:var(--color-primary) linear-gradient(rgba(255,255,255,
 #b-hint[hidden]{display:none}
 #b-hint:disabled{opacity:.45}
 #b-undo .cnt{font-weight:800;font-family:var(--font-sans)}
-@media (max-width:520px){ #hud .mode{display:none} #hud .mid{gap:12px} #hud .stat.score .num{font-size:2em} }
+/* Phone HUD (S4-14, S2-12): the four buttons leave about 140 px at 360 wide, so the figures are smaller, the labels are tighter, the buttons
+   closer, and Best steps aside while a goal shows. A five-digit figure (.long) steps down once more. */
+@media (max-width:520px){
+  #hud{gap:5px} #hud button{padding:6px 7px}
+  #hud .mode{display:none} #hud .mid{gap:8px}
+  #hud .lbl{font-size:.62em;letter-spacing:.06em}
+  #hud .stat.score .num{font-size:1.55em} #hud .stat.best .num,#hud .stat.goal .num{font-size:1.05em}
+  #hud.hasgoal .stat.best{display:none}
+  #hud.long .stat.score .num{font-size:1.25em} #hud.long .stat.best .num,#hud.long .stat.goal .num{font-size:.9em}
+}
 @media (orientation:landscape) and (min-width:900px){:root.big{--hud-h:88px}}
 @media (orientation:landscape) and (max-height:480px){:root{--hud-h:52px} #hud{padding-top:calc(9px + env(safe-area-inset-top))} #hud .stat.score .num{font-size:2.2em}}
 
@@ -3239,6 +3247,7 @@ function updateHud() {
   $('h-best-lbl').textContent = S.mode === 'trail' ? 'Solved' : 'Best';
   $('h-mode').textContent = S.mode === 'trail' ? (LEVELS.find(l => l.id === S.level) || {}).name || '' : modeLabel();
   const gl = hudGoal(); $('h-goal').hidden = !gl; $('hud').classList.toggle('hasgoal', !!gl);
+  $('hud').classList.toggle('long', Math.max($('h-score').textContent.length, $('h-best').textContent.length) > 5);
   if (gl) { $('h-goal-lbl').textContent = gl[0]; $('h-goal-num').textContent = gl[1]; }
   $('b-hint').hidden = S.mode === 'trail';
   $('b-hint').disabled = !hintAvail();
