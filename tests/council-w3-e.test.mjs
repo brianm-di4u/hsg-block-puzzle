@@ -1,5 +1,10 @@
 // Council wave 3, batch E: sound (CL-01, S2-06, S5-05, S5-10, S5-11, P-N02, S5-04, S6-25).
 // Levels here are as the player hears them: the render hook runs the master gain (Volume x MASTER_SCALE) and the limiter.
+const KEY = 'hs-thermal-blocks-v1';
+const readSave = t => t.page.evaluate(k => JSON.parse(localStorage.getItem(k)), KEY);
+// Counts the cues that are actually scheduled on the audio clock (the cue log also records cues a muted game never plays).
+const countTones = t => t.page.evaluate(() => { window.__tones = 0; const orig = playCue; playCue = (n, o, at) => { window.__tones++; return orig(n, o, at); }; });
+const tones = t => t.page.evaluate(() => window.__tones);
 const FULL = { volume: 1, musicVol: 1, ambVol: 1 };
 const render = (t, name, seconds, opt) => t.page.evaluate(([n, s, o]) => window.__game.audioRender(n, s, false, o), [name, seconds, opt || {}]);
 const median = xs => { const s = xs.slice().sort((a, b) => a - b); return s[(s.length - 1) >> 1]; };
@@ -98,6 +103,49 @@ export const tests = [
       await t.page.waitForFunction(() => /Drop the piece on the board/.test(document.getElementById('live').textContent), null, { timeout: 3000 });
       t.expect(true, 'the cue sounded and the live region says where to drop');
       t.equal((await t.state()).tray.filter(Boolean).length, 2, 'the piece went back to its slot (only the good drop used one)');
+    },
+  },
+
+  // ------------------------------------------------------------------ S5-10 the Volume slider previews as it moves; M works everywhere and confirms an unmute
+  {
+    name: 'S5-10 dragging the Volume slider ticks a click at most every 120 ms',
+    async run(t) {
+      await t.game('scene', 'settings');
+      await t.game('act', 'audio', 'click');
+      await t.page.waitForFunction(() => AU.ctx && AU.ctx.state === 'running', null, { timeout: 5000 });
+      await countTones(t);
+      // ten input events in one burst are one preview, not ten
+      await t.page.evaluate(() => { const el = document.getElementById('s-volume'); for (let v = 40; v < 90; v += 5) { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); } });
+      t.equal(await tones(t), 1, 'a burst of ten slider moves sounds one click');
+      t.equal((await readSave(t)).settings.volume, 0.85, 'and the volume follows the slider');
+      // 120 ms later the next move sounds again (waits for the clock, not for a guess)
+      await t.page.evaluate(() => { window.__t0 = performance.now(); });
+      await t.page.waitForFunction(() => performance.now() - window.__t0 > 140, null, { timeout: 3000 });
+      await t.page.evaluate(() => { const el = document.getElementById('s-volume'); el.value = 30; el.dispatchEvent(new Event('input', { bubbles: true })); });
+      t.equal(await tones(t), 2, 'the next move after 120 ms sounds a second click');
+    },
+  },
+  {
+    name: 'S5-10 M mutes and unmutes on the title and in Settings, and an unmute is heard',
+    async run(t) {
+      await t.game('act', 'audio', 'click');
+      await t.page.waitForFunction(() => AU.ctx && AU.ctx.state === 'running', null, { timeout: 5000 });
+      await countTones(t);
+      for (const scene of ['title', 'settings']) {
+        await t.game('scene', scene);
+        await t.page.keyboard.press('m');
+        t.equal((await readSave(t)).settings.sound, false, 'M on ' + scene + ' turns the sound off');
+        t.equal(await tones(t), 0, 'muting makes no sound on ' + scene);
+        await t.page.keyboard.press('M');
+        t.equal((await readSave(t)).settings.sound, true, 'M on ' + scene + ' turns it back on');
+        t.expect(await tones(t) > 0, 'unmuting plays a click on ' + scene);
+        await t.page.evaluate(() => { window.__tones = 0; });
+      }
+      // typing in a field is not a shortcut
+      await t.game('scene', 'settings');
+      await t.page.focus('#s-volume');
+      await t.page.keyboard.press('m');
+      t.equal((await readSave(t)).settings.sound, true, 'M with the Volume slider focused leaves the sound alone');
     },
   },
 ];

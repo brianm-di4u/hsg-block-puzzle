@@ -3433,7 +3433,12 @@ function wireDom() {
   $('b-hint').addEventListener('click', () => { audioInit(); useHint(); cv.focus({ preventScroll: true }); });
   $('b-sound').addEventListener('click', () => { audioInit(); setSetting('sound', !SAVE.settings.sound); sfx('click'); });
   $('s-sound').addEventListener('change', e => { audioInit(); setSetting('sound', e.target.checked); sfx('click'); });
-  $('s-volume').addEventListener('input', e => setSetting('volume', +e.target.value / 100));
+  let previewAt = 0;   // dragging the Volume slider ticks a click every 120 ms, so the level can be judged as it moves
+  $('s-volume').addEventListener('input', e => {
+    setSetting('volume', +e.target.value / 100);
+    const now = performance.now();
+    if (now - previewAt >= 120) { previewAt = now; audioInit(); sfx('click'); }
+  });
   $('s-volume').addEventListener('change', () => { audioInit(); sfx('click'); });
   $('s-sfx').addEventListener('change', e => { audioInit(); setSetting('sfx', e.target.checked); sfx('click'); });
   $('s-music').addEventListener('change', e => { audioInit(); setSetting('music', e.target.checked); });
@@ -3654,9 +3659,10 @@ window.addEventListener('keydown', e => {
     else if (['help', 'settings', 'trail', 'cards', 'records'].includes(S.scene)) back();
     return;
   }
-  // M and P work on every card that shows the game's header: mute on the pause card and the end cards too, P pauses and resumes.
-  if (GAME_SCENES.has(S.scene) && tag !== 'INPUT' && tag !== 'SELECT' && tag !== 'TEXTAREA') {
-    if (k === 'm' || k === 'M') { audioInit(); setSetting('sound', !SAVE.settings.sound); return; }
+  // M mutes and unmutes on every screen (a click confirms the unmute). P pauses and resumes on the cards that show the game's header.
+  const typing = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA';
+  if ((k === 'm' || k === 'M') && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) { audioInit(); setSetting('sound', !SAVE.settings.sound); sfx('click'); return; }
+  if (GAME_SCENES.has(S.scene) && !typing) {
     if ((k === 'p' || k === 'P') && S.scene === 'pause') { resumeGame(); return; }
     if ((k === 'p' || k === 'P') && S.scene === 'game' && !S.over) { pauseGame(); return; }
   }
