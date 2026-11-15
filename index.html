@@ -1110,7 +1110,7 @@ function eraId() { return ERAS[S.era].id; }
 // ===================================================================== AUDIO (WebAudio synthesis)
 // Cues are one-shot oscillators and noise (sfx). Music and ambience come from the generative kit below, which
 // schedules a little ahead of the audio clock. Everything feeds AU.master (Sound switch + Volume), then a limiter.
-const AU = { ctx: null, master: null, noise: null, kit: null, limiter: null };
+const AU = { ctx: null, master: null, duck: null, noise: null, kit: null, limiter: null };
 // The master gain is Volume x MASTER_SCALE. It was 0.6, which left cues peaking about 0.12 and the music about 0.05 at the
 // default volume of 0.7; at 1.25 the default master is 0.875, so cues peak 0.2 to 0.45 and music 0.06 to 0.16 as heard,
 // and the busiest moment at full volume stays under 0.95.
@@ -1133,7 +1133,8 @@ function audioInit() {
     AU.ctx = new AC();
     AU.master = AU.ctx.createGain();
     AU.limiter = makeLimiter(AU.ctx);
-    AU.master.connect(AU.limiter); AU.limiter.connect(AU.ctx.destination);
+    AU.duck = AU.ctx.createGain();   // dips for a moment before the end-of-game cues; Volume and the Sound switch live on AU.master
+    AU.master.connect(AU.duck); AU.duck.connect(AU.limiter); AU.limiter.connect(AU.ctx.destination);
     AU.noise = makeNoiseBuffer(AU.ctx);
     AU.kit = makeAudioKit(AU.ctx, AU.master, { seed: (Date.now() ^ 0x5EED) >>> 0, music: 0, ambience: 0 });
     applyVolume();
@@ -1231,7 +1232,10 @@ function playCue(name, o, t) {
     }
     case 'vent': for (let k = 0; k < 5; k++) tone(300 + k * 90 + Math.random() * 60, t + k * 0.05 + Math.random() * 0.02, 0.08, 'sine', 0.27, 700); hiss(t, 0.35, 0.08, 1200, 3200, 0.9); break;
     case 'era': [0, 7, 12, 16].forEach((st, k) => { tone(semi(330, st), t + k * 0.12, 1.0, 'sine', 0.2); tone(semi(165, st), t + k * 0.12, 1.2, 'sine', 0.08); }); break;
-    case 'over': [12, 7, 4, 0].forEach((st, k) => { tone(semi(330, st), t + k * 0.18, 0.6, 'triangle', 0.22); tone(semi(165, st), t + k * 0.18, 0.7, 'sine', 0.08); }); break;
+    case 'over': {     // a falling four-note phrase over a low pad that swells under it and settles
+      [12, 7, 4, 0].forEach((st, k) => { tone(semi(330, st), t + k * 0.18, 0.6, 'triangle', 0.22); tone(semi(165, st), t + k * 0.18, 0.7, 'sine', 0.08); });
+      tone(82.4, t, 1.5, 'sine', 0.16, null, 0.45); tone(123.5, t, 1.5, 'sine', 0.07, null, 0.45); break;
+    }
     case 'win': [0, 4, 7, 12, 16, 19, 24].forEach((st, k) => tone(semi(392, st), t + k * 0.08, 0.5, 'sine', 0.26)); tone(196, t, 1.2, 'sine', 0.14); hiss(t, 1.2, 0.12, 800, 4000); break;
     case 'ach': {      // a goal earned: three bell notes (brass-bright) with a little shimmer
       [0, 7, 12].forEach((st, k) => { const f = semi(660, st); tone(f, t + k * 0.1, 0.55, 'sine', 0.2); tone(f * 2.76, t + k * 0.1, 0.3, 'sine', 0.05); });
@@ -1271,6 +1275,13 @@ function hapticFor(name, o) {
 // The last cues asked for, whether or not they were heard (sound off, no context yet): for the test hook.
 const CUE_LOG = [];
 const FIRST_CUE_CLOCK = 0.15, FIRST_CUE_LEAD = 0.15;   // seconds: a context younger than the first, cues start the second later
+// Dip everything 6 dB from t0 to t1 so the tails of the last placement and clear step aside for the cue that starts at t1.
+function duckTails(t0, t1) {
+  const g = AU.duck.gain;
+  g.cancelScheduledValues(t0); g.setValueAtTime(1, t0); g.linearRampToValueAtTime(0.5, t0 + 0.05);
+  g.setValueAtTime(0.5, t1 - 0.02); g.linearRampToValueAtTime(1, t1 + 0.03);
+}
+// o.at: seconds after now to start the cue, on the audio clock (the over and win cues follow the last placement by 0.3 s).
 function sfx(name, o = {}) {
   CUE_LOG.push(name); if (CUE_LOG.length > 60) CUE_LOG.shift();
   hapticFor(name, o);
@@ -1282,7 +1293,9 @@ function sfx(name, o = {}) {
     // its clock is mostly lost (the first click measured 0.003 against 0.049 later). Start the first cues a little later.
     const now = AU.ctx.currentTime;
     AU.lead = now < FIRST_CUE_CLOCK ? FIRST_CUE_LEAD : 0.01;
-    playCue(name, o, now + AU.lead);
+    const start = now + AU.lead + (o.at || 0);
+    if (o.at && AU.duck) duckTails(now + AU.lead, start);
+    playCue(name, o, start);
     if (AU.kit && !AU.kit.held) {
       if (name === 'clear') AU.kit.music.duck(3, 350);
       else if (name === 'era' || name === 'win' || name === 'over') AU.kit.music.duck(6, 500);
@@ -3066,7 +3079,7 @@ function endGame() {
   UI.newCards = WATER_CARDS.filter(c => !waterCardOpen(c, linesBefore, streakBefore) && waterCardOpen(c, st.lines, streakNow)).map(c => c.title);
   persist(S.mode === 'classic' || S.mode === 'springs' ? 'clear' : 'none');
   UI.overAt = performance.now() + (reducedMotion() ? 350 : 1000);
-  setTimeout(() => sfx(S.won ? 'win' : 'over'), 300);
+  sfx(S.won ? 'win' : 'over', { at: 0.3 });
   if (S.won && S.mode === 'springs') winSteam();
   if (UI.newBest) setTimeout(() => { if (S.over) sfx('best'); }, 1500);
   if ((UI.trailWin && UI.trailWin.first && CARDS[S.level]) || UI.newCards.length) setTimeout(() => { if (S.over) sfx('card'); }, 1400);

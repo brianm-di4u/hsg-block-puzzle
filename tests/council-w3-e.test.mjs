@@ -148,4 +148,30 @@ export const tests = [
       t.equal((await readSave(t)).settings.sound, true, 'M with the Volume slider focused leaves the sound alone');
     },
   },
+
+  // ------------------------------------------------------------------ S5-11 the end cue follows the audio clock and the tails step aside
+  {
+    name: 'S5-11 the game-over cue is scheduled 0.3 s ahead on the audio clock, with the tails dipped 6 dB until it starts',
+    async run(t) {
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('act', 'audio', 'click');
+      await t.page.waitForFunction(() => AU.ctx && AU.ctx.state === 'running' && AU.ctx.currentTime > 0.5, null, { timeout: 5000 });
+      await t.page.evaluate(() => {
+        window.__spy = { over: null, lowest: 1, at: 0 };
+        const orig = playCue;
+        playCue = (n, o, at) => { if (n === 'over') window.__spy.over = { ahead: at - AU.ctx.currentTime, at }; return orig(n, o, at); };
+        setInterval(() => { window.__spy.lowest = Math.min(window.__spy.lowest, AU.duck.gain.value); }, 8);
+      });
+      await t.game('setState', { board: new Array(81).fill(1) });
+      await t.page.waitForFunction(() => window.__spy.over !== null, null, { timeout: 5000 });
+      const spy = await t.page.evaluate(() => window.__spy.over);
+      t.expect(spy.ahead >= 0.3 && spy.ahead < 0.6, 'the cue is handed to the audio clock about 0.3 s ahead (' + spy.ahead.toFixed(3) + ' s)');
+      // wait for the audio clock to pass the cue's start, not for a wall-clock guess
+      await t.page.waitForFunction(() => AU.ctx.currentTime > window.__spy.over.at + 0.1, null, { timeout: 5000 });
+      const after = await t.page.evaluate(() => ({ lowest: window.__spy.lowest, now: AU.duck.gain.value }));
+      t.expect(after.lowest < 0.6, 'the output dipped before the cue (lowest ' + after.lowest.toFixed(2) + ')');
+      t.expect(after.now > 0.99, 'and is back at full when the cue sounds (' + after.now.toFixed(2) + ')');
+    },
+  },
 ];
