@@ -266,4 +266,35 @@ export const tests = [
       t.equal(JSON.stringify(await t.game('act', 'cues')), '["resume","pause","resume"]', 'Escape pauses and resumes with the same cues');
     },
   },
+
+  // ------------------------------------------------------------------ S5-09 the first gesture starts the audio, and its cue is not lost
+  {
+    name: 'S5-09 nothing plays before a gesture, then a click on a dead corner of the title starts the title music',
+    async run(t) {
+      t.equal(JSON.stringify(await t.game('act', 'audioState')), '{"kit":false}', 'no audio before any gesture');
+      if (t.viewport === 'mobile') await t.tap([4, 4]); else await t.page.mouse.click(4, 4);
+      await t.page.waitForFunction(() => { const a = window.__game.act('audioState'); return a.kit && a.state === 'running' && a.music === 'title'; }, null, { timeout: 5000 });
+      const a = await t.game('act', 'audioState');
+      t.expect(a.musicLevel > 0, 'the title music is switched on (' + a.musicLevel + ')');
+    },
+  },
+  {
+    name: 'S5-09 a key press also starts the audio',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.page.keyboard.press('Tab');
+      await t.page.waitForFunction(() => { const a = window.__game.act('audioState'); return a.kit && a.state === 'running'; }, null, { timeout: 5000 });
+    },
+  },
+  {
+    name: 'S5-09 the first click cue starts a beat after the context does; later cues are immediate',
+    async run(t) {
+      await t.page.click('[data-mode=classic]');
+      await t.page.waitForFunction(() => window.__game.act('audioState').kit, null, { timeout: 5000 });
+      const first = await t.game('act', 'audioState');
+      t.expect(first.lead >= 0.1, 'the first cue was scheduled ' + first.lead + ' s ahead');
+      await t.page.waitForFunction(() => { window.__game.act('audio', 'click'); return window.__game.act('audioState').lead < 0.05; }, null, { timeout: 8000 });
+      t.expect(true, 'once the clock has run, cues go out at once');
+    },
+  },
 ];

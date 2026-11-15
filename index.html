@@ -988,6 +988,9 @@ function audioInit() {
     AU.kit.start();
   } catch (e) { AU.ctx = null; AU.kit = null; }
 }
+// The first gesture anywhere (a click on a dead corner of the title, a key, a touch) starts audio, so the title has its
+// music at once. A touch only counts for the browser's autoplay rule when it lifts, so pointerup calls this too (it resumes).
+for (const ev of ['pointerdown', 'pointerup', 'keydown']) window.addEventListener(ev, () => audioInit(), { capture: true, passive: true });
 function musicLevel() { const s = SAVE.settings; return s.music ? Math.min(1, s.musicVol) : 0; }
 function ambienceLevel() { const s = SAVE.settings; return s.ambience ? Math.min(1, s.ambVol) : 0; }
 function applyVolume() {
@@ -1113,13 +1116,18 @@ function hapticFor(name, o) {
 }
 // The last cues asked for, whether or not they were heard (sound off, no context yet): for the test hook.
 const CUE_LOG = [];
+const FIRST_CUE_CLOCK = 0.15, FIRST_CUE_LEAD = 0.15;   // seconds: a context younger than the first, cues start the second later
 function sfx(name, o = {}) {
   CUE_LOG.push(name); if (CUE_LOG.length > 60) CUE_LOG.shift();
   hapticFor(name, o);
   if (!AU.ctx || !SAVE.settings.sound || !SAVE.settings.sfx) return;
   try {
     JIT = jitter(o.pan || 0);
-    playCue(name, o, AU.ctx.currentTime + 0.01);
+    // On a context that has only just started, the output device is not pulling samples yet: a cue at the very start of
+    // its clock is mostly lost (the first click measured 0.003 against 0.049 later). Start the first cues a little later.
+    const now = AU.ctx.currentTime;
+    AU.lead = now < FIRST_CUE_CLOCK ? FIRST_CUE_LEAD : 0.01;
+    playCue(name, o, now + AU.lead);
     if (AU.kit && !AU.kit.held) {
       if (name === 'clear') AU.kit.music.duck(3, 350);
       else if (name === 'era' || name === 'win' || name === 'over') AU.kit.music.duck(6, 500);
@@ -3318,7 +3326,7 @@ window.__game = {
       case 'clearCues': CUE_LOG.length = 0; return true;
       case 'audioState': {
         const k = AU.kit; if (!k) return { kit: false };
-        return { kit: true, state: AU.ctx.state, held: k.held, music: Object.keys(SCORES).find(n => SCORES[n] === k.music.score) || null, amb: Object.keys(SCENES).find(n => SCENES[n] === k.amb.scene) || null, musicGain: k.buses.music.gain.value, ambGain: k.buses.amb.gain.value, musicLevel: musicLevel(), ambLevel: ambienceLevel(), master: AU.master.gain.value, bars: k.music.info() ? k.music.info().bars : -1 };
+        return { kit: true, lead: AU.lead || 0, state: AU.ctx.state, held: k.held, music: Object.keys(SCORES).find(n => SCORES[n] === k.music.score) || null, amb: Object.keys(SCENES).find(n => SCENES[n] === k.amb.scene) || null, musicGain: k.buses.music.gain.value, ambGain: k.buses.amb.gain.value, musicLevel: musicLevel(), ambLevel: ambienceLevel(), master: AU.master.gain.value, bars: k.music.info() ? k.music.info().bars : -1 };
       }
     }
     throw new Error('unknown act ' + name);
