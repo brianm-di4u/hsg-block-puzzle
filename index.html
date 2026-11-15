@@ -1111,6 +1111,10 @@ function eraId() { return ERAS[S.era].id; }
 // Cues are one-shot oscillators and noise (sfx). Music and ambience come from the generative kit below, which
 // schedules a little ahead of the audio clock. Everything feeds AU.master (Sound switch + Volume), then a limiter.
 const AU = { ctx: null, master: null, noise: null, kit: null, limiter: null };
+// The master gain is Volume x MASTER_SCALE. It was 0.6, which left cues peaking about 0.12 and the music about 0.05 at the
+// default volume of 0.7; at 1.25 the default master is 0.875, so cues peak 0.2 to 0.45 and music 0.06 to 0.16 as heard,
+// and the busiest moment at full volume stays under 0.95.
+const MASTER_SCALE = 1.25;
 function makeNoiseBuffer(c) {
   const len = c.sampleRate, buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
   let s = 7; for (let i = 0; i < len; i++) { s = (s * 16807) % 2147483647; d[i] = s / 1073741823.5 - 1; }
@@ -1143,7 +1147,7 @@ for (const ev of ['pointerdown', 'pointerup', 'keydown']) window.addEventListene
 function musicLevel() { const s = SAVE.settings; return s.music ? Math.min(1, s.musicVol) : 0; }
 function ambienceLevel() { const s = SAVE.settings; return s.ambience ? Math.min(1, s.ambVol) : 0; }
 function applyVolume() {
-  if (AU.master) AU.master.gain.value = SAVE.settings.sound ? SAVE.settings.volume * 0.6 : 0;
+  if (AU.master) AU.master.gain.value = SAVE.settings.sound ? SAVE.settings.volume * MASTER_SCALE : 0;
   if (AU.kit) { AU.kit.music.level(musicLevel()); AU.kit.amb.level(ambienceLevel()); }
 }
 // Which music and ambience belong to the screen: the title piece off the board, the era's piece in a run, a
@@ -1199,7 +1203,7 @@ function playCue(name, o, t) {
     case 'click': tone(660, t, 0.06, 'triangle', 0.12); break;
     case 'pick': {
       const f = semi(520, PENTA[o.k || 0]);
-      tone(f, t, 0.08, 'triangle', 0.28, f * 1.35); tone(f * 2, t, 0.04, 'sine', 0.08);
+      tone(f, t, 0.08, 'triangle', 0.31, f * 1.35); tone(f * 2, t, 0.04, 'sine', 0.08);
       hiss(t, 0.03, 0.1, 3200, 2400, 1.5); break;
     }
     case 'place': {    // a glazed tile set on stone: a damped body (higher for small pieces), a tick, a low thud
@@ -1214,10 +1218,10 @@ function playCue(name, o, t) {
       [0, 1, 2].forEach(k => { tone(392 + k * 98, t + k * 0.05, 0.1, 'triangle', 0.26); tone(784 + k * 196, t + k * 0.05, 0.05, 'sine', 0.05); });
       break;
     }
-    case 'undo': tone(500, t, 0.14, 'triangle', 0.28, 280); tone(250, t + 0.02, 0.12, 'sine', 0.12, 170); hiss(t, 0.12, 0.08, 1800, 600, 0.8); break;
+    case 'undo': tone(500, t, 0.14, 'triangle', 0.31, 280); tone(250, t + 0.02, 0.12, 'sine', 0.12, 170); hiss(t, 0.12, 0.08, 1800, 600, 0.8); break;
     case 'clear': {    // a water rush, then glass-bell notes that climb with the heat and the chain
-      const G = o.G || 1, h = o.heat || 0, n = G + 2, v = Math.min(0.22, 0.42 / Math.sqrt(n));
-      hiss(t, 0.7 + G * 0.15, 0.22, 900, 5200, 0.7);
+      const G = o.G || 1, h = o.heat || 0, n = G + 2, v = Math.min(0.26, 0.5 / Math.sqrt(n));
+      hiss(t, 0.7 + G * 0.15, 0.26, 900, 5200, 0.7);
       hiss(t, 0.5 + G * 0.12, 0.12, 300, 1500, 0.5, 'lowpass');
       for (let k = 0; k < n; k++) {
         const f = semi(440, PENTA[Math.min(PENTA.length - 1, Math.floor(h / 2) + k)]);
@@ -1228,7 +1232,7 @@ function playCue(name, o, t) {
     case 'vent': for (let k = 0; k < 5; k++) tone(300 + k * 90 + Math.random() * 60, t + k * 0.05 + Math.random() * 0.02, 0.08, 'sine', 0.27, 700); hiss(t, 0.35, 0.08, 1200, 3200, 0.9); break;
     case 'era': [0, 7, 12, 16].forEach((st, k) => { tone(semi(330, st), t + k * 0.12, 1.0, 'sine', 0.2); tone(semi(165, st), t + k * 0.12, 1.2, 'sine', 0.08); }); break;
     case 'over': [12, 7, 4, 0].forEach((st, k) => { tone(semi(330, st), t + k * 0.18, 0.6, 'triangle', 0.22); tone(semi(165, st), t + k * 0.18, 0.7, 'sine', 0.08); }); break;
-    case 'win': [0, 4, 7, 12, 16, 19, 24].forEach((st, k) => tone(semi(392, st), t + k * 0.08, 0.5, 'sine', 0.2)); tone(196, t, 1.2, 'sine', 0.1); hiss(t, 1.2, 0.12, 800, 4000); break;
+    case 'win': [0, 4, 7, 12, 16, 19, 24].forEach((st, k) => tone(semi(392, st), t + k * 0.08, 0.5, 'sine', 0.26)); tone(196, t, 1.2, 'sine', 0.14); hiss(t, 1.2, 0.12, 800, 4000); break;
     case 'ach': {      // a goal earned: three bell notes (brass-bright) with a little shimmer
       [0, 7, 12].forEach((st, k) => { const f = semi(660, st); tone(f, t + k * 0.1, 0.55, 'sine', 0.2); tone(f * 2.76, t + k * 0.1, 0.3, 'sine', 0.05); });
       hiss(t, 0.35, 0.05, 3200, 6500, 1.2); break;
@@ -1650,37 +1654,43 @@ function cueAt(name, o, t, jit) {   // schedules one cue on whatever AU holds ri
   playCue(name, o, t);
 }
 // Renders one piece, one scene, one cue ('cue:place'), or a full mix ('mix:<era id>': that era's music and ambience
-// with a four-group clear every few seconds and the win cue) at the levels the game ships, and measures it.
-async function audioRender(name, seconds = 30, wantWav = false) {
-  const lv = defaultSave().settings;
-  const withAU = (oc, dest, fn) => {   // cues read the AU globals: point them at the offline graph for one synchronous call
+// with a four-group clear every few seconds and the win cue) through the chain the player hears (the master gain at
+// Volume x MASTER_SCALE, then the limiter), and measures it. `opt` overrides the saved defaults: { volume, musicVol,
+// ambVol } and, for a probe of small speakers, { highpass: Hz } before the output.
+async function audioRender(name, seconds = 30, wantWav = false, opt = {}) {
+  const lv = { ...defaultSave().settings, ...opt };
+  const chain = (oc, dest) => {   // master gain, then the limiter, then (for a probe) a high-pass standing in for a small speaker
+    const m = oc.createGain(); m.gain.value = lv.volume * MASTER_SCALE;
+    const lim = makeLimiter(oc); m.connect(lim);
+    if (lv.highpass) { const hp = oc.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = lv.highpass; hp.Q.value = 0.7; lim.connect(hp); hp.connect(dest); } else lim.connect(dest);
+    return m;
+  };
+  const withAU = (oc, master, fn) => {   // cues read the AU globals: point them at the offline graph for one synchronous call
     const keep = { ...AU }, keepJ = JIT;
-    const master = oc.createGain(); master.connect(dest);
     Object.assign(AU, { ctx: oc, master, noise: makeNoiseBuffer(oc), kit: null });
-    try { return fn(master); } finally { Object.assign(AU, keep); JIT = keepJ; }
+    try { return fn(); } finally { Object.assign(AU, keep); JIT = keepJ; }
   };
   if (SCORES[name]) return measureAudio((oc, dest) => {
-    const kit = makeAudioKit(oc, dest, { seed: 11, music: lv.musicVol, ambience: 0 });
+    const kit = makeAudioKit(oc, chain(oc, dest), { seed: 11, music: lv.musicVol, ambience: 0 });
     kit.music.play(SCORES[name], { at: 0, fade: 0.05 }); kit.scheduleUntil(seconds);
     return () => kit.music.info();
   }, seconds, { wav: wantWav });
   if (SCENES[name]) return measureAudio((oc, dest) => {
-    const kit = makeAudioKit(oc, dest, { seed: 11, music: 0, ambience: lv.ambVol });
+    const kit = makeAudioKit(oc, chain(oc, dest), { seed: 11, music: 0, ambience: lv.ambVol });
     kit.amb.set('heat', 0.5); kit.amb.play(SCENES[name], { at: 0, fade: 0.05 }); kit.scheduleUntil(seconds);
     return null;
   }, seconds, { wav: wantWav });
   if (name.startsWith('cue:')) return measureAudio((oc, dest) => {
-    withAU(oc, dest, () => cueAt(name.slice(4), { n: 4, k: 1, G: 3, heat: 6 }, 0.05));
+    withAU(oc, chain(oc, dest), () => cueAt(name.slice(4), { n: 4, k: 1, G: 3, heat: 6, run: 1 }, 0.05));
     return null;
   }, seconds, { wav: wantWav });
   if (name.startsWith('mix:')) {
     const id = name.slice(4);
     return measureAudio((oc, dest) => {
-      const lim = makeLimiter(oc); lim.connect(dest);
-      const mix = oc.createGain(); mix.gain.value = 1; mix.connect(lim);
+      const mix = chain(oc, dest), still = { f: 1, g: 1, o: 0, pan: 0 };
       const kit2 = makeAudioKit(oc, mix, { seed: 11, music: lv.musicVol, ambience: lv.ambVol });
       kit2.music.play(SCORES[id], { at: 0, fade: 0.05 }); kit2.amb.set('heat', 1); kit2.amb.play(SCENES['bath-' + id], { at: 0, fade: 0.05 }); kit2.scheduleUntil(seconds);
-      withAU(oc, mix, () => { for (let t = 2; t < seconds - 2; t += 3) cueAt('clear', { G: 4, heat: 12 }, t, { f: 1, g: 1, o: 0, pan: 0 }); cueAt('win', {}, seconds / 2, { f: 1, g: 1, o: 0, pan: 0 }); cueAt('place', { n: 4 }, seconds / 2, { f: 1, g: 1, o: 0, pan: 0 }); });
+      withAU(oc, mix, () => { for (let t = 2; t < seconds - 2; t += 3) cueAt('clear', { G: 4, heat: 12, run: 3 }, t, still); cueAt('win', {}, seconds / 2, still); cueAt('place', { n: 4 }, seconds / 2, still); });
       return () => kit2.music.info();
     }, seconds, { wav: wantWav });
   }
@@ -3734,7 +3744,7 @@ window.__game = {
     throw new Error('unknown act ' + name);
   },
   audioList() { return audioList(); },
-  audioRender(name, seconds, wantWav) { return audioRender(name, seconds, wantWav); },
+  audioRender(name, seconds, wantWav, opt) { return audioRender(name, seconds, wantWav, opt); },
   getLevels() { return LEVELS; },
   pieces() { return PIECES; },
   layout() { return { board: LAY.board, slots: LAY.slots, info: LAY.info, land: LAY.land, trayScale: LAY.trayScale }; },

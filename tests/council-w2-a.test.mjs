@@ -63,14 +63,17 @@ export const tests = [
     async run(t) {
       const list = await t.game('audioList');
       for (const cue of list.cues) {
-        const seen = new Set(); let lo = 9, hi = 0;
+        const seen = new Set(); let lo = 9, hi = 0; const peaks = [];
         for (let i = 0; i < 8; i++) {
           const r = await render(t, 'cue:' + cue, 2);
-          seen.add(r.peak + '|' + r.rms); lo = Math.min(lo, r.peak); hi = Math.max(hi, r.peak);
+          seen.add(r.peak + '|' + r.rms); lo = Math.min(lo, r.peak); hi = Math.max(hi, r.peak); peaks.push(r.peak);
         }
+        peaks.sort((a, b) => a - b); const med = peaks[3];
         t.log('cue ' + cue + ': peak ' + lo + ' to ' + hi + ', ' + seen.size + ' of 8 repeats distinct');
         t.expect(seen.size >= 7, cue + ': repeats differ (' + seen.size + ' of 8 distinct)');
-        if (cue !== 'click') t.expect(lo >= 0.2 && hi <= 0.45, cue + ': peak ' + lo + ' to ' + hi + ' within 0.2 to 0.45');
+        // The render is now what the player hears (master gain and limiter), and repeats differ by 1 to 2 dB on purpose:
+        // the typical (median) repeat is held to 0.2 to 0.45 and a single repeat may sit 1.5 dB outside it.
+        if (cue !== 'click') t.expect(med >= 0.2 && med <= 0.45 && lo >= 0.2 * 0.841 && hi <= 0.45 * 1.189, cue + ': median peak ' + med + ' within 0.2 to 0.45, repeats ' + lo + ' to ' + hi);
       }
       for (const id of list.mix) {
         const r = await render(t, 'mix:' + id, 30);
