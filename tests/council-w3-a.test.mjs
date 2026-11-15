@@ -483,7 +483,7 @@ export const tests = [
       const HARD = ['x5', 'u5a', 'u5b', 'v5a', 'v5b', 'v5c', 'v5d', 'o9', 'r6h', 'r6v', 'i5h', 'i5v'], EASY = ['o1', 'i2h', 'i2v'];
       const share = (mode, score, diff, ids) => { const g = R.freshGame(mode); g.mode = mode; g.score = score; g.diff = diff; g.rng = 99; let k = 0; for (let i = 0; i < 6000; i++) if (ids.includes(R.pickPiece(g))) k++; return k / 6000; };
       // 6000 draws with a fixed seed: the same answer every run, and neighbouring shares differ by far more than the draw noise (a hard-piece gap of 3 points is about 10 standard errors; a helper ratio of 1.3 on a share of 0.006 is about 5)
-      for (const [mode, scores] of [['classic', R.ERAS.map(e => e.at)], ['springs', [0]]]) for (const score of scores) {
+      for (const [mode, scores] of [['classic', [0, 400, 1000, 2000, 3500, 5500, 8000]], ['springs', [0]]]) for (const score of scores) {
         const h = ['relaxed', 'standard', 'master'].map(d => share(mode, score, d, HARD)), e = ['relaxed', 'standard', 'master'].map(d => share(mode, score, d, EASY));
         t.log(mode + ' ' + score + ': hard ' + h.map(v => v.toFixed(3)).join(' / ') + '; easy ' + e.map(v => v.toFixed(3)).join(' / '));
         t.expect(h[0] + 0.03 < h[1] && h[1] + 0.03 < h[2], mode + ' ' + score + ': big pieces get likelier relaxed -> standard -> master');

@@ -1,7 +1,7 @@
 // M3: Daily Soak, Springs, eras, resume, records (AC18, AC19, AC22, AC30, AC32)
 const EMPTY = () => new Array(81).fill(0);
 const ERA_IDS = ['ancient', 'frontier', 'gilded-spa', 'roaring', 'midcentury', 'revival', 'modern'];
-const ERA_AT = [0, 400, 1000, 2000, 3500, 5500, 8000];
+const ERA_AT = [0, 150, 400, 800, 1500, 2500, 4000];   // backdrop steps (P-N03); were 0, 400, 1000, 2000, 3500, 5500, 8000
 
 export const tests = [
   {
@@ -89,10 +89,10 @@ export const tests = [
       await t.game('newGame', { mode: 'classic' });
       // crossing a threshold switches era and shows the caption
       const b = EMPTY(); for (let c = 0; c < 8; c++) b[c] = 1;
-      await t.game('setState', { board: b, tray: [{ id: 'o1' }, { id: 'o4' }, { id: 'o4' }], score: 390, era: 0 });
+      await t.game('setState', { board: b, tray: [{ id: 'o1' }, { id: 'o4' }, { id: 'o4' }], score: 20, era: 0 });   // the clear empties the board: +324
       await t.game('act', 'place', 0, 0, 8);
       let s = await t.state();
-      t.equal(s.eraId, 'frontier', 'score 400+ reaches the frontier era');
+      t.equal(s.eraId, 'frontier', 'score 150+ reaches the frontier era');
       const toast = await t.page.textContent('#toast');
       t.expect(/boiling springs/.test(toast), 'frontier caption shown');
       for (let i = 0; i < 7; i++) {

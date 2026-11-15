@@ -159,4 +159,36 @@ export const tests = [
     },
   },
 
+  // ------------------------------------------------------------------ P-N03 the era backdrops arrive in a casual game
+  {
+    name: 'P-N03 the first era change comes at 150 points and the pressure ramp did not move',
+    node: true,
+    async run(t) {
+      t.equal(R.ERAS.map(e => e.at), [0, 150, 400, 800, 1500, 2500, 4000], 'backdrop thresholds');
+      // the weights the dealer uses depend on score only through the pressure steps (400, 1,000, 2,000, 3,500, 5,500, 8,000):
+      // the same seed draws the same pieces at 0, at the new era steps below 1,000, and at 999
+      const seq = score => { const g = R.freshGame('classic'); g.rng = 77; g.score = score; return Array.from({ length: 200 }, () => R.pickPiece(g)).join(','); };
+      t.equal(seq(150), seq(0), 'the first new backdrop step (150) deals as before');
+      t.equal(seq(800), seq(0), 'the 800 backdrop step deals as before');
+      t.equal(seq(999), seq(0), 'up to the old 1,000 step the deal is unchanged');
+      t.expect(seq(1000) !== seq(0), 'at 1,000 the pressure ramp still steps up');
+      t.expect(seq(8000) !== seq(5500), 'and at 8,000 it still steps up');
+    },
+  },
+  {
+    name: 'P-N03 a first-ten-minutes score of 150 shows the Frontier backdrop and its caption',
+    async run(t) {
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('setState', { board: empty(), ...setTray(['o1', 'o1', 'o1']), score: 148, era: 0 });
+      await t.game('act', 'place', 0, 4, 4);
+      t.equal((await t.state()).eraId, 'ancient', '149 is still the Ancient Valley');
+      await t.game('act', 'place', 1, 0, 0);
+      const s = await t.state();
+      t.equal(s.score, 150, 'score 150');
+      t.equal(s.eraId, 'frontier', 'the Frontier Springs backdrop');
+      t.expect(await t.page.evaluate(() => document.getElementById('toast').textContent.includes('Frontier Springs')), 'the era caption is shown');
+    },
+  },
+
 ];

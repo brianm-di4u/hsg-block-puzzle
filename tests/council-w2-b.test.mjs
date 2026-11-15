@@ -52,8 +52,10 @@ export const tests = [
     name: 'S3-01 Classic piece weights follow the era',
     node: true,
     async run(t) {
-      const hard = R.ERAS.map(e => share('classic', e.at, HARD));
-      const easy = R.ERAS.map(e => share('classic', e.at, EASY));
+      // the pressure ramp's own steps; the backdrop steps (ERAS[].at) moved earlier in P-N03 and the ramp did not
+      const STEPS = [0, 400, 1000, 2000, 3500, 5500, 8000];
+      const hard = STEPS.map(at => share('classic', at, HARD));
+      const easy = STEPS.map(at => share('classic', at, EASY));
       t.log('hard share by era ' + hard.map(v => v.toFixed(3)).join(' '));
       t.log('easy share by era ' + easy.map(v => v.toFixed(3)).join(' '));
       t.expect(Math.abs(hard[0] - hard[1]) < 0.02 && Math.abs(easy[0] - easy[1]) < 0.02, 'eras 0 and 1 draw the same pieces as before');

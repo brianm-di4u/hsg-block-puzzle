@@ -380,17 +380,17 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
 const ERAS = [ // ids, names and ranges: research/timeline.json; score thresholds are game design
   { id:'ancient',    name:'Ancient Valley',    years:'before 1804', at:0,     pal:'ouachita-forest',
     cap:'Steam off the springs gave the valley its old nickname: the Valley of Vapors.' },
-  { id:'frontier',   name:'Frontier Springs',  years:'1804–1874',   at:400,   pal:'frontier-valley',
+  { id:'frontier',   name:'Frontier Springs',  years:'1804–1874',   at:150,   pal:'frontier-valley',
     cap:'1804: William Dunbar writes Thomas Jefferson about "the boiling springs."' },
-  { id:'gilded-spa', name:'Gilded Spa',        years:'1875–1920',   at:1000,  pal:'gilded-spa',
+  { id:'gilded-spa', name:'Gilded Spa',        years:'1875–1920',   at:400,   pal:'gilded-spa',
     cap:'Brick bathhouses rise along Bathhouse Row. The Hale (1892–93) is the oldest one still standing.' },
-  { id:'roaring',    name:'Roaring Spa Town',  years:'1921–1946',   at:2000,  pal:'deco-neon',
+  { id:'roaring',    name:'Roaring Spa Town',  years:'1921–1946',   at:800,   pal:'deco-neon',
     cap:'March 4, 1921: the reservation becomes Hot Springs National Park, the nation’s 18th.' },
-  { id:'midcentury', name:'Midcentury Vapors', years:'1947–1967',   at:3500,  pal:'motor-hotel',
+  { id:'midcentury', name:'Midcentury Vapors', years:'1947–1967',   at:1500,  pal:'motor-hotel',
     cap:'Bathing peaked in 1946, then declined. The Fordyce was the first Row bathhouse to close, in 1962.' },
-  { id:'revival',    name:'Revival Years',     years:'1968–1999',   at:5500,  pal:'nps-rustic',
+  { id:'revival',    name:'Revival Years',     years:'1968–1999',   at:2500,  pal:'nps-rustic',
     cap:'1982: NPS creates the Thermal Water Cascade. 1989: the Fordyce reopens as the park visitor center.' },
-  { id:'modern',     name:'Modern Spa City',   years:'2000–2026',   at:8000, pal:'lake-life',
+  { id:'modern',     name:'Modern Spa City',   years:'2000–2026',   at:4000,  pal:'lake-life',
     cap:'Today the Buckstaff still gives traditional baths, and the Superior pours beer as a brewery.' },
 ];
 
@@ -591,8 +591,8 @@ const DIFF_ERA_WEIGHTS = Object.fromEntries(DIFFICULTIES.map(d => [d, ERA_EASY_M
 const DIFF_PLAIN_WEIGHTS = Object.fromEntries(DIFFICULTIES.map(d => [d, weightsFor(DIFF_EASY[d], DIFF_HARD[d])]));
 function pickPiece(g) {
   const d = diffOf(g);
-  let t = g.mode === 'classic' ? ERA_WEIGHTS[eraFor(g.score)] : { w: PIECE_DEFS.map(d => d[1]), sum: WEIGHT_SUM };
-  if (d !== 'standard') t = g.mode === 'classic' ? DIFF_ERA_WEIGHTS[d][eraFor(g.score)] : DIFF_PLAIN_WEIGHTS[d];
+  let t = g.mode === 'classic' ? ERA_WEIGHTS[pressureEra(g.score)] : { w: PIECE_DEFS.map(d => d[1]), sum: WEIGHT_SUM };
+  if (d !== 'standard') t = g.mode === 'classic' ? DIFF_ERA_WEIGHTS[d][pressureEra(g.score)] : DIFF_PLAIN_WEIGHTS[d];
   let x = rand(g) * t.sum;
   for (let i = 0; i < PIECE_DEFS.length; i++) { x -= t.w[i]; if (x < 0) return PIECE_DEFS[i][0]; }
   return PIECE_DEFS[PIECE_DEFS.length - 1][0];
@@ -600,6 +600,10 @@ function pickPiece(g) {
 function heatMult(heat) { return 1 + heat * 0.25; }
 function tempF(heat) { return Math.round(60 + heat * 83 / 12); }
 function eraFor(score) { let e = 0; for (let i = 0; i < ERAS.length; i++) if (score >= ERAS[i].at) e = i; return e; }
+// The backdrops (P-N03) now change at 150, 400, 800, 1,500, 2,500 and 4,000 so a casual game sees several (it was 400, 1,000,
+// 2,000, 3,500, 5,500 and 8,000). The pressure ramp above keeps its own, unchanged score steps: the scenery moved, the difficulty did not.
+const PRESSURE_AT = [0, 400, 1000, 2000, 3500, 5500, 8000];
+function pressureEra(score) { let e = 0; for (let i = 0; i < PRESSURE_AT.length; i++) if (score >= PRESSURE_AT[i]) e = i; return e; }
 function count(board, code) { let n = 0; for (const v of board) if (v === code) n++; return n; }
 
 function dealTray(g) {
@@ -611,7 +615,7 @@ function dealTray(g) {
       // mercy deal: redraw the biggest piece until something fits (max 12 tries)
       let slot = 0;
       g.tray.forEach((t, i) => { if (PIECES[t.id].n > PIECES[g.tray[slot].id].n) slot = i; });
-      const d = diffOf(g), tries = d !== 'standard' ? (g.mode === 'classic' ? DIFF_MERCY[d][eraFor(g.score)] : DIFF_MERCY[d][0]) : g.mode === 'classic' ? MERCY_TRIES[eraFor(g.score)] : 12;
+      const d = diffOf(g), tries = d !== 'standard' ? (g.mode === 'classic' ? DIFF_MERCY[d][pressureEra(g.score)] : DIFF_MERCY[d][0]) : g.mode === 'classic' ? MERCY_TRIES[pressureEra(g.score)] : 12;
       for (let k = 0; k < tries; k++) {
         g.tray[slot] = { id: pickPiece(g) };
         if (fitsAnywhere(g.board, g.tray[slot].id)) break;
