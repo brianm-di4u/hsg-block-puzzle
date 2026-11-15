@@ -246,6 +246,16 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
   </div>
 </section>
 
+<section class="screen overlay" id="sc-confirm" role="alertdialog" aria-modal="true" aria-labelledby="cf-title" aria-describedby="cf-body" style="z-index:30">
+  <div class="panel" style="width:min(380px,100%)">
+    <h2 id="cf-title"></h2>
+    <p id="cf-body" style="margin:0 0 4px"></p>
+    <div class="row col">
+      <button class="primary" id="cf-no"></button>
+      <button id="cf-yes"></button>
+    </div>
+  </div>
+</section>
 <section class="screen overlay" id="sc-over" aria-label="Game over">
   <div class="panel" style="width:min(420px,100%)">
     <div class="ov-hero" id="ov-hero" aria-hidden="true"></div>
@@ -3048,13 +3058,15 @@ function setSetting(k, v) {
 }
 
 function wireDom() {
-  document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { audioInit(); sfx('click'); newGame({ mode: b.dataset.mode, resume: true }); }));
+  document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { audioInit(); sfx('click'); startMode(b.dataset.mode); }));
+  $('cf-yes').addEventListener('click', () => closeConfirm(true));
+  $('cf-no').addEventListener('click', () => closeConfirm(false));
   document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => { audioInit(); sfx('click'); showScene(b.dataset.go); }));
   document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => { sfx('click'); back(); }));
   $('b-continue').addEventListener('click', () => { audioInit(); resumeSaved(); });
   $('b-pause').addEventListener('click', () => { audioInit(); pauseGame(); });
   $('b-resume').addEventListener('click', resumeGame);
-  $('b-restart').addEventListener('click', () => { sfx('click'); restart(); });
+  $('b-restart').addEventListener('click', () => { sfx('click'); askRestart(); });
   $('b-quit').addEventListener('click', () => { sfx('click'); saveResume(); showScene('title'); });
   $('b-again').addEventListener('click', () => { sfx('click'); restart(); });
   $('b-menu1').addEventListener('click', () => { sfx('click'); showScene('title'); });
@@ -3090,6 +3102,36 @@ function goalSentence() {
   if (S.mode === 'springs') return 'Goal: clear the row, column or pool of each vent to tap it. Tap all 47.';
   if (S.mode === 'daily') return 'Goal: fill rows, columns and 3×3 pools on today’s shared board until no piece fits.';
   return 'Goal: fill a row, column or 3×3 pool to clear it, and keep going until no piece fits.';
+}
+// A small yes/no card for the two actions that throw a run away. The safe answer has the focus; Escape means no.
+function askConfirm(title, body, yes, no, onYes) {
+  $('cf-title').textContent = title; $('cf-body').textContent = body; $('cf-yes').textContent = yes; $('cf-no').textContent = no;
+  UI.confirm = { onYes, from: document.activeElement };
+  $('sc-confirm').classList.add('on');
+  $('cf-no').focus({ preventScroll: true });
+  announce(title + ' ' + body);
+}
+function closeConfirm(yes) {
+  const c = UI.confirm; if (!c) return;
+  UI.confirm = null; $('sc-confirm').classList.remove('on');
+  if (yes) c.onYes();
+  else if (c.from && c.from.focus && document.contains(c.from)) c.from.focus({ preventScroll: true });
+}
+// What a saved Classic or Springs run is worth, or null: only a run with a piece placed is something to lose.
+function savedRunWorth() {
+  const r = SAVE.resume;
+  return r && !r.over && r.placed > 0 && validResume(r) ? { mode: r.mode, score: r.score } : null;
+}
+function startMode(mode) {
+  const w = (mode === 'classic' || mode === 'springs') && savedRunWorth();
+  if (!w) return newGame({ mode, resume: true });
+  const name = { classic: 'Classic', springs: 'Springs' }[w.mode];
+  askConfirm('Start a new game?', 'Your saved ' + name + ' run at ' + w.score.toLocaleString('en-US') + ' points will be replaced.', 'Start new game', 'Keep my saved run', () => newGame({ mode, resume: true }));
+}
+function askRestart() {
+  if (S.over || !(S.placed > 0)) return restart();
+  const what = S.mode === 'trail' ? 'puzzle' : S.mode === 'daily' ? 'Daily Soak' : 'game';
+  askConfirm('Restart this ' + what + '?', S.mode === 'trail' ? 'Your moves so far will be undone.' : 'You are at ' + S.score.toLocaleString('en-US') + ' points. They will be lost.', 'Restart', 'Keep playing', restart);
 }
 function pauseGame() { if (S.scene === 'game') { UI.drag = null; UI.ghost = null; $('pause-goal').textContent = goalSentence(); sfx('pause'); showScene('pause'); } }
 function resumeGame() { sfx('resume'); showScene('game'); }
@@ -3244,6 +3286,11 @@ function cycleSel(dir) {
 }
 window.addEventListener('keydown', e => {
   const k = e.key, tag = (document.activeElement && document.activeElement.tagName) || '';
+  if (UI.confirm) {   // the yes/no card owns the keyboard: Escape says no, Tab stays between its two buttons
+    if (k === 'Escape') { e.preventDefault(); closeConfirm(false); }
+    else if (k === 'Tab') { e.preventDefault(); $(document.activeElement === $('cf-no') ? 'cf-yes' : 'cf-no').focus({ preventScroll: true }); }
+    return;
+  }
   if (k === 'Escape') {
     e.preventDefault();
     if (S.scene === 'game') { if (UI.sel >= 0 || UI.drag) { UI.sel = -1; UI.ghost = null; UI.drag = null; dirty = true; } else pauseGame(); }

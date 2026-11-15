@@ -297,4 +297,76 @@ export const tests = [
       t.expect(true, 'once the clock has run, cues go out at once');
     },
   },
+
+  // ------------------------------------------------------------------ S6-03 a saved run is not thrown away by a slip
+  {
+    name: 'S6-03 Play Classic over a saved run asks first; keeping it changes nothing, replacing it starts a new game',
+    async run(t) {
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('setState', { board: rowReady(), ...setTray(['o1', 'o1', 'o4']) });
+      await t.game('act', 'place', 0, 0, 0);
+      const kept = (await readSave(t)).resume;
+      t.expect(kept && kept.score > 0, 'a run is saved');
+      await t.game('scene', 'title');
+      await t.page.click('#sc-title [data-mode=classic]');
+      t.expect(await t.page.isVisible('#sc-confirm'), 'the question shows');
+      const text = await t.page.textContent('#sc-confirm');
+      t.expect(text.includes('Your saved Classic run at ' + kept.score + ' points will be replaced.'), 'it names what is at stake (' + text.replace(/\s+/g, ' ') + ')');
+      t.equal(await t.page.evaluate(() => document.activeElement.id), 'cf-no', 'the safe answer has the focus');
+      await t.shot('S6-03-title-confirm');
+      await t.page.click('#cf-no');
+      t.expect(!(await t.page.isVisible('#sc-confirm')), 'the card closes');
+      t.equal((await t.state()).scene, 'title', 'still on the title');
+      t.equal(JSON.stringify((await readSave(t)).resume), JSON.stringify(kept), 'the saved run is untouched');
+      await t.page.click('#sc-title [data-mode=classic]');
+      await t.page.keyboard.press('Escape');
+      t.expect(!(await t.page.isVisible('#sc-confirm')) && (await t.state()).scene === 'title', 'Escape means no');
+      t.equal(JSON.stringify((await readSave(t)).resume), JSON.stringify(kept), 'and the run is untouched');
+      await t.page.click('#sc-title [data-mode=springs]');
+      t.expect((await t.page.textContent('#sc-confirm')).includes('Your saved Classic run'), 'Springs asks too, naming the Classic run it would replace');
+      await t.page.click('#cf-yes');
+      const s = await t.state();
+      t.expect(s.scene === 'game' && s.mode === 'springs' && s.score === 0, 'Yes starts the new game');
+      t.equal((await readSave(t)).resume, null, 'the old run is gone');
+    },
+  },
+  {
+    name: 'S6-03 with no saved run, or one with nothing placed, Play Classic starts at once',
+    async run(t) {
+      await t.page.evaluate(k => localStorage.removeItem(k), KEY);
+      await t.reload();
+      await t.page.click('#sc-title [data-mode=classic]');
+      t.expect(!(await t.page.isVisible('#sc-confirm')) && (await t.state()).scene === 'game', 'no question with nothing to lose');
+    },
+  },
+  {
+    name: 'S6-03 pause Restart asks when there is progress, and works from the keyboard',
+    async run(t) {
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('act', 'pause');
+      await t.page.click('#b-restart');
+      t.expect(!(await t.page.isVisible('#sc-confirm')) && (await t.state()).scene === 'game', 'a game with no piece placed restarts without asking');
+      await t.game('setState', { board: rowReady(), ...setTray(['o1', 'o1', 'o4']) });
+      await t.game('act', 'place', 0, 0, 0);
+      const before = await t.state();
+      await t.game('act', 'pause');
+      await t.page.click('#b-restart');
+      t.expect(await t.page.isVisible('#sc-confirm'), 'the question shows');
+      t.expect((await t.page.textContent('#cf-body')).includes('You are at ' + before.score.toLocaleString('en-US') + ' points'), 'it says the score at stake');
+      await t.page.keyboard.press('Tab');
+      t.equal(await t.page.evaluate(() => document.activeElement.id), 'cf-yes', 'Tab moves to the other answer');
+      await t.page.keyboard.press('Tab');
+      t.equal(await t.page.evaluate(() => document.activeElement.id), 'cf-no', 'and back: focus stays inside the card');
+      await t.page.keyboard.press('Escape');
+      let s = await t.state();
+      t.expect(s.scene === 'pause' && s.score === before.score, 'Escape keeps the game, still paused');
+      await t.page.click('#b-restart');
+      await t.page.click('#cf-yes');
+      s = await t.state();
+      t.expect(s.scene === 'game' && s.score === 0 && s.placed === 0, 'Restart starts over');
+      await t.shot('S6-03-restart-done');
+    },
+  },
 ];
