@@ -157,6 +157,7 @@ button.big{width:100%;font-size:1.1em;padding:12px}
 .card .yr{font-family:var(--font-mono);font-size:.85em;color:var(--color-muted)}
 .card ul{margin:6px 0;padding-left:18px}
 .card .src{font-size:.78em;color:var(--color-muted)}
+.card .pic{height:70px;margin:-12px -12px 8px;border-radius:10px 10px 0 0;background:#1F5F6B center 60%/cover no-repeat}
 .card.locked{opacity:.8;border-style:dashed}
 
 /* Settings */
@@ -303,6 +304,9 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
     <h2>Fact cards</h2>
     <p class="muted" style="margin-top:0" id="cards-sub"></p>
     <div class="cards" id="cards"></div>
+    <h3>Era postcards</h3>
+    <p class="muted" style="margin-top:0" id="cards-era-sub"></p>
+    <div class="cards" id="cards-era"></div>
     <h3>Water cards</h3>
     <p class="muted" style="margin-top:0" id="cards-water-sub"></p>
     <div class="cards" id="cards-water"></div>
@@ -616,6 +620,18 @@ function pickPiece(g) {
 const HEAT_SLOW_BELOW = 3, HEAT_SLOW_DRY = 2;
 function heatMult(heat) { return 1 + heat * 0.25; }
 function tempF(heat) { return Math.round(60 + heat * 83 / 12); }
+// Era postcards (S4-17): one per era, collected the first time any game reaches it. A save from before this existed already
+// reached whatever its best scores reach, so those postcards are open from the start; nothing is lost or lowered.
+function eraReached() {
+  const b = SAVE.best, diff = Object.values(b.diff || {}).flatMap(d => [d.classic, d.springs]);
+  const top = Math.max(b.classic, b.springs, ...Object.values(b.daily), ...diff, 0);
+  return Math.max(SAVE.eraMax, eraFor(top));
+}
+function noteEra(e) {
+  const fresh = e > eraReached();
+  if (e > SAVE.eraMax) { SAVE.eraMax = e; persist(); }
+  return fresh;
+}
 function eraFor(score) { let e = 0; for (let i = 0; i < ERAS.length; i++) if (score >= ERAS[i].at) e = i; return e; }
 // The backdrops (P-N03) now change at 150, 400, 800, 1,500, 2,500 and 4,000 so a casual game sees several (it was 400, 1,000,
 // 2,000, 3,500, 5,500 and 8,000). The pressure ramp above keeps its own, unchanged score steps: the scenery moved, the difficulty did not.
@@ -849,7 +865,7 @@ const STORE_KEY = 'hs-thermal-blocks-v1';
 function defaultSave() {
   return { v: 1, settings: { sound: true, volume: 0.7, sfx: true, music: true, musicVol: 0.5, ambience: true, ambVol: 0.5, motion: 'system', patterns: true, undo: 1, bigText: false, theme: 'system', effects: 'full', tapPlace: false, tipsSeen: false, haptics: true, difficulty: 'standard' },
     best: { classic: 0, springs: 0, daily: {}, diff: { relaxed: { classic: 0, springs: 0 }, master: { classic: 0, springs: 0 } } }, trail: { done: [], stars: {} }, stats: { games: 0, lines: 0, bestHeat: 0, springs: 0, bestCombo: 0, longest: 0, recent: { classic: [], springs: [], daily: [] } },
-    daily: { longest: 0, played: [] }, ach: {}, goals: { boiled: 0 }, resume: null };
+    daily: { longest: 0, played: [] }, ach: {}, goals: { boiled: 0 }, eraMax: 0, resume: null };
 }
 // SAVE MERGE CORE (portable regression extracts this same function)
 function createSaveStore(storage, defaults, revision) {
@@ -890,6 +906,8 @@ function createSaveStore(storage, defaults, revision) {
       out.daily = { longest: number(d.longest) ? Math.floor(d.longest) : 0, played: [...new Set(Array.isArray(d.played) ? d.played.filter(day) : [])].sort().slice(-120) };
     }
     if (def.ach) out.ach = Object.fromEntries(Object.entries(object(data.ach) ? data.ach : {}).filter(([id, when]) => id.length < 40 && day(when)));
+    // The furthest era any game has reached (S4-17), 0 to 6. Missing or damaged reads as 0.
+    if (Object.hasOwn(def, 'eraMax')) out.eraMax = Number.isInteger(data.eraMax) && data.eraMax >= 0 && data.eraMax <= 6 ? data.eraMax : 0;
     if (def.goals) out.goals = { boiled: object(data.goals) && number(data.goals.boiled) ? Math.floor(data.goals.boiled) : 0 };
     for (const key of ['resumeGeneration', 'resumeRevision']) if (Object.hasOwn(out, key) && (typeof out[key] !== 'string' || !out[key])) delete out[key];
     // Resume is an opaque v1 JSON object. Do not newly reject shipped optional fields.
@@ -957,6 +975,7 @@ function createSaveStore(storage, defaults, revision) {
       merged.daily.played = [...new Set([...merged.daily.played, ...value.daily.played])].sort().slice(-120);
     }
     if (def.ach && value.ach) for (const [id, when] of Object.entries(value.ach)) if (!Object.hasOwn(merged.ach, id)) put(merged.ach, id, when);
+    if (Object.hasOwn(def, 'eraMax')) merged.eraMax = Math.max(merged.eraMax, value.eraMax);
     if (def.goals && value.goals) merged.goals.boiled += Math.max(0, value.goals.boiled - base.goals.boiled);
     if (value.stats.bestHeat > base.stats.bestHeat) merged.stats.bestHeat = Math.max(merged.stats.bestHeat, value.stats.bestHeat);
     if (def.stats.recent) {
@@ -2710,8 +2729,8 @@ function doPlace(slot, r, c) {
   if (S.mode !== 'trail') {
     S.era = Math.max(S.era, eraFor(S.score));
     if (S.era !== prevEra) {
-      const e = ERAS[S.era];
-      toast(e.name + ' · ' + e.years, e.cap, 6000); sfx('era'); bgKey = ''; loadArt('era-' + e.id); audioMood();
+      const e = ERAS[S.era], fresh = noteEra(S.era);
+      toast(e.name + ' · ' + e.years, e.cap + (fresh ? ' A postcard for it is now in Fact cards.' : ''), 6000); sfx('era'); bgKey = ''; loadArt('era-' + e.id); audioMood();
     }
   }
   audioPressure(); if (AU.kit) AU.kit.amb.set('heat', Math.min(1, S.heat / 12));
@@ -3147,7 +3166,20 @@ function waterCardEl(c) {
   el.appendChild(p);
   return el;
 }
+function eraCardEl(k) {
+  const e = ERAS[k], open = k <= eraReached(), el = document.createElement('article'); el.className = 'card postcard' + (open ? '' : ' locked');
+  if (open && ART.on && artReady('era-' + e.id)) { const pic = document.createElement('div'); pic.className = 'pic'; pic.setAttribute('aria-hidden', 'true'); pic.style.backgroundImage = 'url("assets/era-' + e.id + '.webp")'; el.appendChild(pic); }
+  const h = document.createElement('h4'); h.textContent = e.name; el.appendChild(h);
+  const y = document.createElement('div'); y.className = 'yr'; y.textContent = e.years; el.appendChild(y);
+  const p = document.createElement('p'); p.style.margin = '6px 0 0'; if (!open) p.className = 'muted';
+  p.textContent = open ? e.cap : 'Reach ' + e.at.toLocaleString('en-US') + ' points in Classic, Springs or Daily Soak.';
+  el.appendChild(p);
+  return el;
+}
 function fillCards() {
+  const ebox = $('cards-era'); ebox.innerHTML = '';
+  ERAS.forEach((_, k) => ebox.appendChild(eraCardEl(k)));
+  $('cards-era-sub').textContent = (eraReached() + 1) + ' of ' + ERAS.length + ' collected. Score in Classic, Springs or Daily Soak to move the town forward.';
   const wbox = $('cards-water'); wbox.innerHTML = '';
   WATER_CARDS.forEach(c => wbox.appendChild(waterCardEl(c)));
   $('cards-water-sub').textContent = WATER_CARDS.filter(c => waterCardOpen(c)).length + ' of ' + WATER_CARDS.length + ' collected. Clear groups in any mode and keep a Daily Soak streak going.';

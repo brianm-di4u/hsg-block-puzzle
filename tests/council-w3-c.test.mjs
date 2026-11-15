@@ -144,4 +144,54 @@ export const tests = [
       await t.shot('S4-06-trail-strip');
     },
   },
+
+  // ------------------------------------------------------------------ S4-17 era postcards
+  {
+    name: 'S4-17 an era postcard is collected the first time a game reaches the era, and says so once',
+    async run(t) {
+      const cards = () => t.page.evaluate(() => ({ sub: document.getElementById('cards-era-sub').textContent, open: [...document.querySelectorAll('#cards-era .card')].map(c => !c.classList.contains('locked')), text: document.getElementById('cards-era').textContent }));
+      await t.game('scene', 'cards');
+      let c = await cards();
+      t.expect(c.sub.startsWith('1 of 7 collected'), 'a new player has the first: ' + c.sub);
+      t.equal(c.open, [true, false, false, false, false, false, false], 'only Ancient Valley is open');
+      t.expect(c.text.includes('Reach 150 points in Classic, Springs or Daily Soak.'), 'a locked one says what opens it');
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('setState', { board: empty(), score: 149, ...setTray(['o1', 'o1', 'o1']) });
+      await t.game('act', 'place', 0, 0, 0);
+      await t.page.waitForFunction(() => document.getElementById('toast').classList.contains('on'), null, { timeout: 3000 });
+      t.expect((await text(t, '#toast')).includes('A postcard for it is now in Fact cards.'), 'the arrival toast mentions it: ' + await text(t, '#toast'));
+      t.equal((await readSave(t)).eraMax, 1, 'saved');
+      await t.game('scene', 'cards');
+      c = await cards();
+      t.equal(c.open, [true, true, false, false, false, false, false], 'Frontier Springs is open now');
+      t.expect(c.text.includes('William Dunbar writes Thomas Jefferson'), 'with its own caption');
+      await t.page.evaluate(() => document.getElementById('cards-era').scrollIntoView({ block: 'start' }));
+      await t.waitFrames(2);
+      await t.shot('S4-17-postcards');
+      // a second game that reaches the same era does not announce a postcard again
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'hideToast');
+      await t.game('setState', { board: empty(), score: 149, ...setTray(['o1', 'o1', 'o1']) });
+      await t.game('act', 'place', 0, 0, 0);
+      await t.page.waitForFunction(() => document.getElementById('toast').classList.contains('on'), null, { timeout: 3000 });
+      t.expect(!(await text(t, '#toast')).includes('postcard'), 'no second announcement: ' + await text(t, '#toast'));
+    },
+  },
+  {
+    name: 'S4-17 a save from before keeps every postcard its best scores reached',
+    async run(t) {
+      const save = await t.game('act', 'save');
+      delete save.eraMax; save.best.classic = 2600; save.best.diff.master.springs = 5000;
+      await storeAndReload(t, save);
+      await t.game('scene', 'cards');
+      const open = await t.page.evaluate(() => [...document.querySelectorAll('#cards-era .card')].map(c => !c.classList.contains('locked')));
+      t.equal(open, [true, true, true, true, true, true, true], 'a 5,000-point Master Springs best opens all seven');
+      const lower = await t.game('act', 'save'); lower.best.diff.master.springs = 0; lower.best.classic = 900;
+      await storeAndReload(t, lower);
+      await t.game('scene', 'cards');
+      const open2 = await t.page.evaluate(() => [...document.querySelectorAll('#cards-era .card')].map(c => !c.classList.contains('locked')));
+      t.equal(open2, [true, true, true, true, false, false, false], 'a 900-point best opens up to Roaring Spa Town');
+    },
+  },
 ];

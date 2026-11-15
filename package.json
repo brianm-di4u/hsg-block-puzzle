@@ -7,7 +7,7 @@
   "scripts": {
     "setup": "cd shared/test-harness && npm install && npx playwright install chromium",
     "test": "node shared/test-harness/run.mjs .",
-    "pretest": "node --test tests-node/save.test.mjs tests-node/return-loop.test.mjs tests-node/stats-history.test.mjs",
-    "test:save": "node --test tests-node/save.test.mjs tests-node/return-loop.test.mjs tests-node/stats-history.test.mjs"
+    "pretest": "node --test tests-node/save.test.mjs tests-node/return-loop.test.mjs tests-node/stats-history.test.mjs tests-node/progress-flags.test.mjs",
+    "test:save": "node --test tests-node/save.test.mjs tests-node/return-loop.test.mjs tests-node/stats-history.test.mjs tests-node/progress-flags.test.mjs"
   }
 }
