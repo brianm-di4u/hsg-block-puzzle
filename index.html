@@ -1761,11 +1761,12 @@ function computeLayout() {
   } else {
     // S2-05: the info strip has three rows (heat and era, the goal line at 14 px, the heat bar) and was 40 px; the tray was capped at
     // 0.44 of the board and the stack hugged the top. Now the strip is 58, the tray may grow to 0.58 and the spare height is shared out.
-    const stripH = 58, gap = 10;
+    // tipRoom is kept clear under the tray for the first-run tip card, which sits at the bottom and must not cover a slot.
+    const stripH = 58, gap = 10, tipRoom = 92;
     const size = Math.floor(Math.min(W - 12, H - hud - stripH - 120 - gap * 2 - 12, 640));
-    const trayH = Math.max(110, Math.min(Math.round(size * 0.58), (H - hud - stripH - size - gap * 2 - 16)));
+    const trayH = Math.max(110, Math.min(Math.round(size * 0.58), (H - hud - stripH - size - gap * 2 - 16 - tipRoom)));
     const total = stripH + gap + size + gap + trayH;
-    const y0 = hud + Math.max(2, Math.min(28, (H - hud - total) * 0.3));
+    const y0 = hud + Math.max(2, Math.min(28, (H - hud - total - tipRoom) * 0.3));
     const bx = Math.round((W - size) / 2);
     L.info = { x: bx, y: Math.round(y0), w: size, h: stripH };
     L.board = { x: bx, y: Math.round(y0 + stripH + gap), size };

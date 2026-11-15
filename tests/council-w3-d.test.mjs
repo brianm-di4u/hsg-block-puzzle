@@ -118,11 +118,11 @@ export const tests = [
       await t.waitFrames(3);
       const L = await t.game('layout');
       t.expect(!L.land, 'portrait');
-      // before S2-05: slots 166 px high, pieces at 30.9 px, 158 px of empty backdrop under the tray
-      t.expect(L.slots[0].h >= 200, 'the tray slots are at least 200 px high: ' + L.slots[0].h);
+      // before S2-05: slots 166 px high, pieces at 30.9 px, 158 px under the tray (92 of it kept for the first-run tip card)
+      t.expect(L.slots[0].h >= 190, 'the tray slots are at least 190 px high: ' + L.slots[0].h);
       t.expect(L.trayScale >= 34, 'tray pieces are at least 34 px: ' + L.trayScale);
       const gap = 844 - (L.slots[0].y + L.slots[0].h);
-      t.expect(gap < 110, 'less than 110 px of empty screen under the tray: ' + gap);
+      t.expect(gap < 150, 'less than 150 px of empty screen under the tray: ' + gap);
       t.expect(L.info.h >= 56, 'the info strip has room for its three rows');
       t.equal(await t.game('act', 'infoLine'), 'Classic · Lines 0', 'the strip names the mode the HUD hides on a phone');
       await t.game('newGame', { mode: 'springs' });
