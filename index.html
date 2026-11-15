@@ -3255,6 +3255,7 @@ for (const ev of ['pointerdown', 'pointermove', 'keydown']) window.addEventListe
 cv.addEventListener('pointerdown', e => {
   if (S.scene !== 'game' || S.over) return;
   audioInit();
+  if (UI.drag && e.pointerId !== UI.drag.id) return;   // a second finger does not disturb the drag in hand (S6-14)
   const p = pt(e), k = slotAt(p);
   if (e.button === 2) return;
   if (k >= 0 && S.tray[k]) {

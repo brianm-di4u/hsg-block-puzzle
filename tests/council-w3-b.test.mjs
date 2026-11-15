@@ -121,4 +121,42 @@ export const tests = [
     },
   },
 
+  // ------------------------------------------------------------------ S6-14 a second finger leaves the first finger's drag alone
+  {
+    name: 'S6-14 a second finger, on a piece or off the board, does not change the drag in hand',
+    viewports: ['mobile'],
+    async run(t) {
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('setState', { board: empty(), ...setTray(['t4a', 'o1', 'i2h']) });
+      const L = await t.game('layout'), b = L.board, cell = b.cell, pc = (await t.game('pieces')).t4a;
+      const cdp = await t.page.context().newCDPSession(t.page);
+      const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts });
+      const [ax, ay] = slotCenter(L, 0), [bx, by] = slotCenter(L, 1);
+      const ex = b.gx + 3 * cell + pc.wd * cell / 2, ey = b.gy + 3 * cell + pc.h * cell + cell * 0.75;
+      await touch('touchStart', [{ x: ax, y: ay, id: 0 }]);
+      for (let i = 1; i <= 10; i++) await touch('touchMove', [{ x: ax + (ex - ax) * i / 10, y: ay + (ey - ay) * i / 10, id: 0 }]);
+      await t.waitFrames(3);
+      const before = await t.state(), body0 = await t.game('act', 'dragBody');
+      t.expect(before.ghost && body0 && body0.id === 't4a', 'the first finger is carrying the T piece with a ghost');
+      // a second finger lands on another tray piece
+      await touch('touchStart', [{ x: ex, y: ey, id: 0 }, { x: bx, y: by, id: 1 }]);
+      await t.waitFrames(3);
+      let body = await t.game('act', 'dragBody');
+      t.expect(body && body.id === 't4a', 'still carrying the T piece after a second finger on the tray');
+      // and a third lands off the board and off the tray, where a tap would clear the selection and the ghost
+      await touch('touchStart', [{ x: ex, y: ey, id: 0 }, { x: bx, y: by, id: 1 }, { x: 8, y: b.gy / 2, id: 2 }]);
+      await t.waitFrames(3);
+      body = await t.game('act', 'dragBody');
+      const after = await t.state();
+      t.expect(body && body.id === 't4a', 'still carrying the T piece after a finger off the board');
+      t.equal(after.ghost, before.ghost, 'the ghost did not change');
+      await touch('touchEnd', []);
+      const end = await t.state();
+      t.expect(end.board.some(v => v > 0), 'letting go places the piece the first finger carried');
+      t.equal(end.tray[0], null, 'the T piece is the one that left the tray');
+      t.expect(end.tray[1] && end.tray[1].id === 'o1' && end.tray[2] && end.tray[2].id === 'i2h', 'the other two are still there');
+    },
+  },
+
 ];
