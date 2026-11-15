@@ -344,7 +344,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
     </ul>
     <h3>Modes</h3>
     <ul>
-      <li><b>Classic</b>: endless. Score carries you through the town's seven eras.</li>
+      <li><b>Classic</b>: endless. Score carries you through the town's seven eras. Eras change the backdrop and its caption only; the game plays the same.</li>
       <li><b>Daily Soak</b>: everyone gets the same tufa stones and the same pieces today.</li>
       <li><b>Springs</b>: vents sit on the floor. Clear a vent's row, column or pool to tap it (+40 × the heat multiplier). Tap 47 to win. Hot Springs is usually said to have 47 springs; one source says 43 still flow, and NPS says "about four dozen".</li>
       <li><b>Difficulty</b> (Settings): Relaxed serves more small pieces and keeps the rescue deal strong; Master serves more big ones and thins it. It applies to Classic and Springs, each difficulty keeps its own best, and Daily Soak and Spring Trail are the same for everyone.</li>
@@ -627,6 +627,11 @@ function eraReached() {
   const top = Math.max(b.classic, b.springs, ...Object.values(b.daily), ...diff, 0);
   return Math.max(SAVE.eraMax, eraFor(top));
 }
+function hintOnce(id) {   // true the first time only, and never for a save that predates the hints
+  const h = SAVE.hints;
+  if (h.all || h[id]) return false;
+  h[id] = true; persist(); return true;
+}
 function noteEra(e) {
   const fresh = e > eraReached();
   if (e > SAVE.eraMax) { SAVE.eraMax = e; persist(); }
@@ -865,7 +870,7 @@ const STORE_KEY = 'hs-thermal-blocks-v1';
 function defaultSave() {
   return { v: 1, settings: { sound: true, volume: 0.7, sfx: true, music: true, musicVol: 0.5, ambience: true, ambVol: 0.5, motion: 'system', patterns: true, undo: 1, bigText: false, theme: 'system', effects: 'full', tapPlace: false, tipsSeen: false, haptics: true, difficulty: 'standard' },
     best: { classic: 0, springs: 0, daily: {}, diff: { relaxed: { classic: 0, springs: 0 }, master: { classic: 0, springs: 0 } } }, trail: { done: [], stars: {} }, stats: { games: 0, lines: 0, bestHeat: 0, springs: 0, bestCombo: 0, longest: 0, recent: { classic: [], springs: [], daily: [] } },
-    daily: { longest: 0, played: [] }, ach: {}, goals: { boiled: 0 }, eraMax: 0, resume: null };
+    daily: { longest: 0, played: [] }, ach: {}, goals: { boiled: 0 }, eraMax: 0, hints: {}, resume: null };
 }
 // SAVE MERGE CORE (portable regression extracts this same function)
 function createSaveStore(storage, defaults, revision) {
@@ -908,6 +913,11 @@ function createSaveStore(storage, defaults, revision) {
     if (def.ach) out.ach = Object.fromEntries(Object.entries(object(data.ach) ? data.ach : {}).filter(([id, when]) => id.length < 40 && day(when)));
     // The furthest era any game has reached (S4-17), 0 to 6. Missing or damaged reads as 0.
     if (Object.hasOwn(def, 'eraMax')) out.eraMax = Number.isInteger(data.eraMax) && data.eraMax >= 0 && data.eraMax <= 6 ? data.eraMax : 0;
+    // One-time teaching toasts already shown (id -> true). A save from before they existed belongs to someone who knows the game:
+    // it reads as "all shown" and gets none of them.
+    if (Object.hasOwn(def, 'hints')) out.hints = object(data.hints)
+      ? Object.fromEntries(Object.entries(data.hints).filter(([id, shown]) => id.length < 24 && shown === true).slice(0, 30))
+      : Object.keys(data).length ? { all: true } : {};
     if (def.goals) out.goals = { boiled: object(data.goals) && number(data.goals.boiled) ? Math.floor(data.goals.boiled) : 0 };
     for (const key of ['resumeGeneration', 'resumeRevision']) if (Object.hasOwn(out, key) && (typeof out[key] !== 'string' || !out[key])) delete out[key];
     // Resume is an opaque v1 JSON object. Do not newly reject shipped optional fields.
@@ -975,6 +985,7 @@ function createSaveStore(storage, defaults, revision) {
       merged.daily.played = [...new Set([...merged.daily.played, ...value.daily.played])].sort().slice(-120);
     }
     if (def.ach && value.ach) for (const [id, when] of Object.entries(value.ach)) if (!Object.hasOwn(merged.ach, id)) put(merged.ach, id, when);
+    if (Object.hasOwn(def, 'hints')) for (const id of Object.keys(value.hints)) if (!Object.hasOwn(merged.hints, id) && Object.keys(merged.hints).length < 30) put(merged.hints, id, true);
     if (Object.hasOwn(def, 'eraMax')) merged.eraMax = Math.max(merged.eraMax, value.eraMax);
     if (def.goals && value.goals) merged.goals.boiled += Math.max(0, value.goals.boiled - base.goals.boiled);
     if (value.stats.bestHeat > base.stats.bestHeat) merged.stats.bestHeat = Math.max(merged.stats.bestHeat, value.stats.bestHeat);
@@ -2066,7 +2077,8 @@ function drawInfo(now) {
   const lv = S.mode === 'trail' && LEVELS.find(l => l.id === S.level), era = ERAS[S.era];
   if (LAY.land) {
     const cx = I.x + I.w / 2, ty = I.y + 64, th = I.h - 150, tw = 18, bulb = 20;
-    capsule(I.x - 6, I.y, I.w + 12, 52, 0.7);
+    capsule(I.x - 6, I.y - 15, I.w + 12, 67, 0.7);
+    text('HEAT', cx, I.y - 6, 11, '#E9E2CF', 'center', 'sans', '700');
     text(boiling ? '143°' : tempF(S.heat) + '°', cx, I.y + 18, 19, '#FFFFFF', 'center', 'display', '700');
     text(mtxt, cx, I.y + 38, 14, '#F7CF62', 'center', 'sans', '700');
     // brass thermometer: casing, glass, liquid, bulb, ticks
@@ -2104,6 +2116,7 @@ function drawInfo(now) {
     ctx.fillStyle = '#0B2227'; rr(ctx, bx, by, bw, 7, 3.5); ctx.fill();
     const lg = ctx.createLinearGradient(bx, 0, bx + bw, 0); lg.addColorStop(0, '#4FC3D9'); lg.addColorStop(0.5, '#F2A541'); lg.addColorStop(1, '#FF4A2B');
     ctx.fillStyle = lg; rr(ctx, bx, by, Math.max(7, bw * frac), 7, 3.5); ctx.fill();
+    text('HEAT', bx + bw + 8, by + 3.5, 11, '#E9E2CF', 'left', 'sans', '700');
     const rx = I.x + I.w - 14;
     text(lv ? lv.name : era.name, rx, I.y + 13, 14, '#FFFFFF', 'right', 'display', '700');
     const gt = goalText();
@@ -2730,13 +2743,14 @@ function doPlace(slot, r, c) {
     S.era = Math.max(S.era, eraFor(S.score));
     if (S.era !== prevEra) {
       const e = ERAS[S.era], fresh = noteEra(S.era);
-      toast(e.name + ' · ' + e.years, e.cap + (fresh ? ' A postcard for it is now in Fact cards.' : ''), 6000); sfx('era'); bgKey = ''; loadArt('era-' + e.id); audioMood();
+      toast(e.name + ' · ' + e.years, (hintOnce('era') ? 'Your score moved the town forward. Eras change the scenery only. ' : '') + e.cap + (fresh ? ' A postcard for it is now in Fact cards.' : ''), 6000); sfx('era'); bgKey = ''; loadArt('era-' + e.id); audioMood();
     }
   }
   audioPressure(); if (AU.kit) AU.kit.amb.set('heat', Math.min(1, S.heat / 12));
   const deadNow = S.tray.filter(x => x && !fitsAnywhere(S.board, x.id)).length;
   const deadBefore = res.newRound ? 0 : snap.tray.filter((x, k) => x && k !== slot && !fitsAnywhere(snap.board, x.id)).length;
   if (!S.over && deadNow > deadBefore) setTimeout(() => { if (S.scene === 'game' && !S.over) sfx('warn'); }, res.G ? 650 : 160);
+  if (S.mode !== 'trail' && !res.G && S.heat < snap.heat && hintOnce('cool')) toast('The water cooled', 'A piece that clears nothing cools the water, and cooler water scores less. Clear a group to heat it up.', 5000);
   goalsOnPlace(res); tipAfterPlace(res);
   let msg = 'Placed. ';
   if (res.G) msg += 'Cleared ' + res.G + (res.G > 1 ? ' groups' : ' group') + ' for ' + (res.clearPts + res.ventPts + res.bonus) + '. ';
@@ -2773,7 +2787,7 @@ function doUndo() {
   S = Object.assign(snap, { scene, undoStack: stack, counted: S.counted });
   UI.overAt = 0;
   if (scene !== S.scene || $('sc-over').classList.contains('on')) showScene('game');
-  if (S.mode !== 'trail') S.undoLeft = left - 1;
+  if (S.mode !== 'trail') { S.undoLeft = left - 1; if (hintOnce('undo')) toast('Undo used', 'Undo refills with each new tray.', 3500); }
   else {
     S.undosUsed = used + 1;
     const was = trailStars(used), now = trailStars(used + 1);
@@ -3085,7 +3099,8 @@ function updateHud() {
   $('h-mode').textContent = S.mode === 'trail' ? (LEVELS.find(l => l.id === S.level) || {}).name || '' : modeLabel();
   $('h-undo').textContent = undoCount();
   $('b-undo').disabled = !canUndo();
-  $('b-undo').setAttribute('aria-label', S.mode === 'trail' ? 'Undo (this puzzle is worth ' + trailStars(S.undosUsed || 0) + ' stars; each undo may cost one)' : 'Undo (' + undoCount() + ' left)');
+  $('b-undo').setAttribute('aria-label', S.mode === 'trail' ? 'Undo (this puzzle is worth ' + trailStars(S.undosUsed || 0) + ' stars; each undo may cost one)' : 'Undo (' + undoCount() + ' left this round)');
+  $('b-undo').title = S.mode === 'trail' ? '' : 'Undo (' + undoCount() + ' left this round; it refills with each new tray)';
   const on = SAVE.settings.sound;
   $('b-sound').setAttribute('aria-pressed', String(on)); $('b-sound').setAttribute('aria-label', on ? 'Sound on' : 'Sound off');
   $('snd-wave').style.display = on ? '' : 'none';

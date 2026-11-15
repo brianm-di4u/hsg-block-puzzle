@@ -33,3 +33,29 @@ test('two tabs reaching different eras keep the furthest, and a lower value neve
   b.value.eraMax = 2; b.persist();
   assert.equal(r.saved.eraMax, 3);
 });
+
+// Batch C (S2-02, S2-07, S2-17): one-time teaching toasts. A save from before them reads as "all shown".
+test('a brand new profile has no hints shown; an older save without the field reads as all shown', () => {
+  const fresh = rig().tab(); fresh.load();
+  assert.deepEqual(fresh.value.hints, {});
+  const old = copy(defaultSave()); delete old.hints; old.stats.games = 4;
+  const store = rig(old).tab(); store.load();
+  assert.deepEqual(store.value.hints, { all: true });
+});
+test('damaged hints keep only true flags with short ids, at most thirty', () => {
+  const bad = copy(defaultSave());
+  bad.hints = { cool: true, era: 'yes', undo: false, ['x'.repeat(30)]: true };
+  for (let i = 0; i < 40; i++) bad.hints['h' + i] = true;
+  const store = rig(bad).tab(); store.load();
+  const ids = Object.keys(store.value.hints);
+  assert.ok(ids.includes('cool') && !ids.includes('era') && !ids.includes('undo') && !ids.includes('x'.repeat(30)));
+  assert.equal(ids.length, 30);
+  const text = copy(defaultSave()); text.hints = 'cool';
+  const s2 = rig(text).tab(); s2.load(); assert.deepEqual(s2.value.hints, { all: true });
+});
+test('two tabs each showing a different hint keep both', () => {
+  const r = rig(), a = r.tab(), b = r.tab(); a.load(); b.load();
+  a.value.hints.cool = true; a.persist();
+  b.value.hints.undo = true; b.persist();
+  assert.deepEqual(r.saved.hints, { cool: true, undo: true });
+});

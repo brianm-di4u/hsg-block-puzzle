@@ -194,4 +194,94 @@ export const tests = [
       t.equal(open2, [true, true, true, true, false, false, false], 'a 900-point best opens up to Roaring Spa Town');
     },
   },
+
+  // ------------------------------------------------------------------ S2-02 heat is labelled and its first cooling explained
+  {
+    name: 'S2-02 the first time the water cools it says why, once, and an older save is not told',
+    async run(t) {
+      const toastOn = () => t.page.evaluate(() => { const e = document.getElementById('toast'); return e.classList.contains('on') ? e.textContent : ''; });
+      const dry = async () => {   // a piece that clears nothing on a warm board
+        await t.game('act', 'hideToast');
+        await t.game('setState', { board: empty(), heat: 5, dry: 0, ...setTray(['o1', 'o1', 'o1']) });
+        await t.game('act', 'place', 0, 4, 4);
+      };
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('act', 'hideToast');
+      await dry();
+      t.expect((await toastOn()).startsWith('The water cooled'), 'first cooling is explained: ' + await toastOn());
+      t.expect((await text(t, '#toast')).includes('cooler water scores less'), 'in plain words');
+      t.equal((await readSave(t)).hints.cool, true, 'and remembered');
+      await dry();
+      t.equal(await toastOn(), '', 'the second time says nothing');
+      await t.reload();
+      await t.game('newGame', { mode: 'classic' });
+      await dry();
+      t.equal(await toastOn(), '', 'and not after a reload either');
+      // a save from before the hints
+      const save = await t.game('act', 'save'); delete save.hints;
+      await storeAndReload(t, save);
+      await t.game('newGame', { mode: 'classic' });
+      await dry();
+      t.equal(await toastOn(), '', 'an older save is never taught what it knows');
+      t.equal((await readSave(t)).hints.all, true, 'it reads as all shown');
+    },
+  },
+  {
+    name: 'S2-02 the heat meter is labelled on the board at both sizes',
+    async run(t) {
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('setState', { board: empty(), heat: 4 });
+      await t.waitFrames(3);
+      await t.shot('S2-02-heat-label');
+    },
+  },
+
+  // ------------------------------------------------------------------ S2-07 undo says what it is
+  {
+    name: 'S2-07 the Undo button says how many are left this round, and the first use says it refills',
+    async run(t) {
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('act', 'hideToast');
+      t.expect((await t.page.getAttribute('#b-undo', 'title')).includes('1 left this round') && (await t.page.getAttribute('#b-undo', 'title')).includes('refills with each new tray'), 'the hover title: ' + await t.page.getAttribute('#b-undo', 'title'));
+      t.equal(await t.page.getAttribute('#b-undo', 'aria-label'), 'Undo (1 left this round)', 'the screen-reader label');
+      await t.game('setState', { board: empty(), ...setTray(['o1', 'o1', 'o1']) });
+      await t.game('act', 'place', 0, 4, 4);
+      await t.game('act', 'hideToast');
+      await t.game('act', 'undo');
+      t.expect((await text(t, '#toast')).includes('Undo refills with each new tray.'), 'first use explains: ' + await text(t, '#toast'));
+      t.expect((await t.page.getAttribute('#b-undo', 'title')).includes('0 left this round'), 'and the spent button says none is left: ' + await t.page.getAttribute('#b-undo', 'title'));
+      await t.game('act', 'hideToast');
+      await t.game('setState', { board: empty(), undoLeft: 1, ...setTray(['o1', 'o1', 'o1']) });
+      await t.game('act', 'place', 0, 4, 4);
+      await t.game('act', 'undo');
+      t.equal(await t.page.evaluate(() => document.getElementById('toast').classList.contains('on')), false, 'the second use says nothing');
+    },
+  },
+
+  // ------------------------------------------------------------------ S2-17 eras are scenery
+  {
+    name: 'S2-17 the first era change says the town moved forward and that eras are scenery, once; Help says so too',
+    async run(t) {
+      const crossing = async () => {
+        await t.game('newGame', { mode: 'classic' });
+        await t.game('act', 'setting', 'tipsSeen', true);
+        await t.game('act', 'hideToast');
+        await t.game('setState', { board: empty(), score: 149, ...setTray(['o1', 'o1', 'o1']) });
+        await t.game('act', 'place', 0, 0, 0);
+        return text(t, '#toast');
+      };
+      const first = await crossing();
+      t.expect(first.startsWith('Frontier Springs · 1804–1874Your score moved the town forward. Eras change the scenery only. 1804: William Dunbar'), 'first crossing: ' + first);
+      const second = await crossing();
+      t.expect(!second.includes('scenery') && second.includes('William Dunbar'), 'the next crossing is just the caption: ' + second);
+      await t.game('scene', 'help');
+      t.expect((await text(t, '#sc-help')).includes('Eras change the backdrop and its caption only'), 'Help says it');
+      const save = await t.game('act', 'save'); delete save.hints; delete save.eraMax;
+      await storeAndReload(t, save);
+      t.expect(!(await crossing()).includes('scenery'), 'an older save is not told');
+    },
+  },
 ];
