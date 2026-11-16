@@ -223,3 +223,45 @@ tests.push(
     },
   },
 );
+
+const statRows = t => t.page.evaluate(() => [...document.querySelectorAll('#ov-stats dt')].map(dt => [dt.textContent, dt.nextElementSibling.textContent]));
+const rowOf = (rows, k) => (rows.find(r => r[0] === k || (k === 'Next era' && r[0].startsWith('To '))) || [])[1];
+
+tests.push({
+  name: 'S3-08 the game-over card says how far the next era was and how far the best was, and nothing about a best that does not exist yet',
+  viewports: BOTH,
+  async run(t) {
+    // first game ever: no best to compare with, but the next era is still named
+    await lastMove(t);
+    await t.game('act', 'place', 0, 0, 1);
+    await waitScene(t, 'over');
+    let rows = await statRows(t);
+    t.equal(rows.find(r => r[0].startsWith('To ')), ['To Roaring Spa Town', '319 points'], 'the 481 game was 319 short of 800, and the row names the era');
+    t.expect(rowOf(rows, 'Best beaten by') === undefined && rowOf(rows, 'Short of best by') === undefined, 'no best to compare with on the first game');
+    await t.shot('S3-08-over-first');
+    // a lower score: short of the best of 481
+    await lastMove(t, { score: 300 });
+    await t.game('act', 'place', 0, 0, 1);
+    await waitScene(t, 'over');
+    rows = await statRows(t);
+    t.equal(rowOf(rows, 'Short of best by'), '180 points', '301 against a best of 481');
+    t.equal(rowOf(rows, 'Next era'), '99 points');
+    await t.shot('S3-08-over-short');
+    // a higher one: beat it by the difference
+    await lastMove(t, { score: 600 });
+    await t.game('act', 'place', 0, 0, 1);
+    await waitScene(t, 'over');
+    rows = await statRows(t);
+    t.equal(rowOf(rows, 'Best beaten by'), '120 points', '601 against 481');
+    await t.checkLayout();
+    t.expect(await t.page.evaluate(() => { const b = document.getElementById('b-menu1'); b.scrollIntoView({ block: 'nearest' }); const r = b.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; }), 'with the extra rows, the card still scrolls to its Menu button');
+    await t.page.evaluate(() => document.getElementById('b-again').scrollIntoView({ block: 'nearest' }));
+    await t.shot('S3-08-over-beat');
+    // the last era has no next one
+    await lastMove(t, { score: 5000, era: 6 });
+    await t.game('act', 'place', 0, 0, 1);
+    await waitScene(t, 'over');
+    rows = await statRows(t);
+    t.expect(rowOf(rows, 'Next era') === undefined, 'no Next era row in the last era');
+  },
+});

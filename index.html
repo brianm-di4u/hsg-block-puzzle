@@ -3167,6 +3167,7 @@ function endGame(res) {
     if (st.recent[S.mode]) st.recent[S.mode] = [...st.recent[S.mode], S.score].slice(-10);
   }
   UI.newBest = false;
+  UI.prevBest = S.mode === 'daily' ? SAVE.best.daily[S.daily] || 0 : S.mode === 'classic' || S.mode === 'springs' ? bestSlot(S.mode, S.diff)[S.mode] || 0 : 0;   // the best this game is measured against (S3-08)
   if (S.mode === 'classic' || S.mode === 'springs') {
     const slot = bestSlot(S.mode, S.diff);
     if (S.score > (slot[S.mode] || 0)) { slot[S.mode] = S.score; UI.newBest = true; }
@@ -3232,6 +3233,11 @@ function fillOver() {
   $('ov-new').classList.toggle('hit', !!UI.newBest);
   const rows = [['Groups cleared', S.groups], ['Pieces placed', S.placed], ['Hottest water', S.bestHeat >= 12 ? '143°F (boiling)' : tempF(S.bestHeat) + '°F'], ['Era reached', ERAS[S.era].name]];
   if (S.mode === 'springs') rows.unshift(['Springs opened', S.springs + ' / 47']);
+  if (!trail) {   // how close the next era and the best were (S3-08)
+    if (!won && S.era < ERAS.length - 1) rows.splice(rows.findIndex(r => r[0] === 'Era reached') + 1, 0, ['To ' + ERAS[S.era + 1].name, (ERAS[S.era + 1].at - S.score).toLocaleString('en-US') + ' points']);
+    const prev = UI.prevBest | 0;
+    if (prev > 0) rows.splice(rows.findIndex(r => r[0] === 'Era reached') + 1, 0, UI.newBest ? ['Best beaten by', (S.score - prev).toLocaleString('en-US') + ' points'] : ['Short of best by', (prev - S.score).toLocaleString('en-US') + ' points']);
+  }
   const pp = S.ptsPlace | 0, pc = S.ptsClear | 0, pb = S.ptsBonus | 0;
   if (pp + pc + pb === S.score && S.score > 0) { rows.splice(1, 0, ['Points from clears', pc.toLocaleString('en-US')], ['Points from placing', pp.toLocaleString('en-US')]); if (pb) rows.splice(3, 0, ['Clear-spring bonus', pb.toLocaleString('en-US')]); }
   if (S.mode === 'daily') rows.push(['Daily streak', dailyStreak(S.daily) + (dailyStreak(S.daily) === 1 ? ' day' : ' days')]);
