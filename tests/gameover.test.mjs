@@ -25,8 +25,9 @@ export const tests = [
       t.expect(/New best/.test(txt), 'new best flagged');
       await t.checkLayout();
       await t.shot('21-game-over');
-      const u = await t.game('act', 'undo');
-      t.expect(!u.ok, 'no undo after game over');
+      const u = await t.game('act', 'undo');   // S1-02: a lost game keeps its last move to take back
+      t.expect(u.ok, 'the move that ended the game can be undone');
+      t.equal((await t.state()).over, false, 'and the game is on again');
     },
   },
   {

@@ -2678,7 +2678,7 @@ function failSafe() {
 function loop(now) {
   requestAnimationFrame(loop);
   try {
-    if (UI.overAt && now >= UI.overAt && FX.length === 0) { UI.overAt = 0; showEnd(); }
+    if (UI.overAt && now >= UI.overAt && (FX.length === 0 || UI.skipEnd)) { UI.overAt = 0; UI.skipEnd = false; FX.length = 0; showEnd(); }
     watchFrame(now);
     pollPad(now);
     // ambient-only frames (steam, water shimmer) run at 30 fps; anything the player caused runs at full rate
@@ -2922,7 +2922,7 @@ function doPlace(slot, r, c) {
   if (S.over) msg += S.won ? 'Goal reached!' : 'No room left. Game over.';
   else msg += trayDesc();
   announce(msg);
-  if (S.over) endGame();
+  if (S.over) endGame(res);
   else saveResume();
   updateHud();
   dirty = true;
@@ -2977,9 +2977,9 @@ function useHint() {
 function undoAvail() {
   if (!S.undoStack || !S.undoStack.length) return false;
   if (S.mode === 'trail') return true;
-  return !S.over && S.undoLeft > 0;
+  return !(S.over && S.won) && S.undoLeft > 0;   // a lost game keeps its last move to take back (S1-02); a win does not
 }
-function canUndo() { return undoAvail() && (S.scene === 'game' || (S.mode === 'trail' && S.scene === 'over')); }
+function canUndo() { return undoAvail() && (S.scene === 'game' || S.scene === 'over'); }
 function undoCount() {
   if (S.mode === 'trail') return trailStars(S.undosUsed || 0) + '★';
   if (!S.undoStack.length) return S.over ? 0 : S.undoLeft;
@@ -2989,6 +2989,7 @@ function doUndo() {
   if (!canUndo()) { sfx('invalid'); return { ok: false }; }
   UI.hint = null;
   const snap = S.undoStack.pop();
+  UI.skipEnd = false;
   const stack = S.undoStack, left = S.undoLeft, used = S.undosUsed || 0;
   const scene = S.scene === 'over' ? 'game' : S.scene;
   S = Object.assign(snap, { scene, undoStack: stack, counted: S.counted });
@@ -3136,10 +3137,10 @@ function replayTips() {
   for (const id of ['b-tips', 'b-tips-help']) $(id).textContent = 'Tips on for your next game';
   announce('Tips will show in your next game.');
 }
-function endGame() {
+function endGame(res) {
   const linesBefore = SAVE.stats.lines, streakBefore = dailyLongest();
   if (S.mode === 'trail' || S.mode === 'daily') clearRun();
-  if (S.mode !== 'trail' || S.won) S.undoStack = [];
+  if (S.won) S.undoStack = [];
   const st = SAVE.stats, fresh = !S.counted;   // a Trail loss that is undone and finished again is one game, not two (S6-05)
   S.counted = true;
   if (fresh) {
@@ -3166,7 +3167,8 @@ function endGame() {
   const streakNow = dailyLongest();
   UI.newCards = WATER_CARDS.filter(c => !waterCardOpen(c, linesBefore, streakBefore) && waterCardOpen(c, st.lines, streakNow)).map(c => c.title);
   persist(S.mode === 'classic' || S.mode === 'springs' ? 'clear' : 'none');
-  UI.overAt = performance.now() + (reducedMotion() ? 350 : 1000);
+  UI.skipEnd = false;
+  UI.overAt = performance.now() + (reducedMotion() ? 350 : res && !res.G ? 450 : 1000);   // a last piece that clears nothing has no show to wait for
   sfx(S.won ? 'win' : 'over', { at: 0.3 });
   if (S.won && S.mode === 'springs') winSteam();
   if (UI.newBest) setTimeout(() => { if (S.over) sfx('best'); }, 1500);
@@ -3201,7 +3203,7 @@ function fillOver() {
     : modeLabel() + (S.mode === 'daily' ? ' · ' + dayLabel(S.daily) : '') + (won ? ' · you opened every spring' : ' · none of your pieces fits');
   const era = ERAS[S.era];
   $('ov-era').textContent = trail ? '' : won ? ERAS[0].cap : 'You reached ' + era.name + ' (' + era.years + '). ' + era.cap;
-  $('b-ovundo').style.display = trail && undoAvail() ? '' : 'none';
+  $('b-ovundo').style.display = undoAvail() ? '' : 'none';
   $('b-again').textContent = trail ? 'Try again' : 'Play again';
   $('ov-score').textContent = S.score.toLocaleString('en-US');
   const hero = $('ov-hero'), eraName = 'era-' + eraId();
@@ -3672,6 +3674,7 @@ for (const ev of ['pointerdown', 'pointermove', 'keydown']) window.addEventListe
   if (kind !== UI.input) { UI.input = kind; if (UI.tip) tipRender(); }
 }, { capture: true, passive: true });
 cv.addEventListener('pointerdown', e => {
+  if (S.scene === 'game' && S.over && UI.overAt) { UI.skipEnd = true; return; }   // a tap skips the wait for the results card (S1-02)
   if (S.scene !== 'game' || S.over) return;
   audioInit();
   if (UI.drag && e.pointerId !== UI.drag.id) return;   // a second finger does not disturb the drag in hand (S6-14)
@@ -3773,6 +3776,11 @@ window.addEventListener('keydown', e => {
     if ((k === 'p' || k === 'P') && S.scene === 'pause') { resumeGame(); return; }
     if ((k === 'p' || k === 'P') && S.scene === 'game' && !S.over) { pauseGame(); return; }
   }
+  if (S.scene === 'game' && S.over && UI.overAt) {   // the pause before the results card: U takes the last move back, Enter or Space moves on
+    if (k === 'u' || k === 'U' || ((k === 'z' || k === 'Z') && (e.ctrlKey || e.metaKey))) { doUndo(); e.preventDefault(); }
+    else if ((k === 'Enter' || k === ' ') && tag !== 'BUTTON') { UI.skipEnd = true; e.preventDefault(); }
+    return;
+  }
   if (S.scene !== 'game' || S.over) return;
   if (!UI.kbd && k !== 'Escape') { UI.kbd = true; dirty = true; }
   if (tag === 'BUTTON' && (k === 'Enter' || k === ' ')) return;
@@ -3823,7 +3831,7 @@ function padButton(name) {
     else if (name === 'START' && (S.scene === 'pause' || S.scene === 'over' || S.scene === 'win') && !UI.confirm) padKey('p');
     return;
   }
-  if (S.over) return;
+  if (S.over) { if (name === 'B') padKey('u'); else if (name === 'A' && UI.overAt) padKey('Enter'); return; }
   if (name === 'A') { cv.focus({ preventScroll: true }); padKey('Enter'); }
   else if (name === 'B') padKey('u');
   else if (name === 'Y') padKey('h');
@@ -3863,6 +3871,7 @@ window.__game = {
     o.fits = S.tray.map(t => (t ? fitsAnywhere(S.board, t.id) : null));
     o.temp = tempF(S.heat); o.eraId = eraId(); o.ghost = UI.ghost; o.sel = UI.sel; o.undoCount = undoCount();
     o.settings = SAVE.settings; o.best = bestFor(S.mode);
+    o.overIn = UI.overAt ? Math.max(0, Math.round(UI.overAt - performance.now())) : 0;   // ms left before the results card, 0 when none is pending
     return o;
   },
   setState(s) {
