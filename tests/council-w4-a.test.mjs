@@ -392,3 +392,40 @@ tests.push(
     },
   },
 );
+
+// ---------------------------------------------------------------------- S5-06: the end of a game gives a short pulse on a phone (the rest of the item was done by waves 2 and 3)
+const recordVibrate = () => { window.__vib = []; Object.defineProperty(Navigator.prototype, 'vibrate', { configurable: true, value: p => { window.__vib.push(p); return true; } }); };
+const lose = t => t.game('setState', { board: new Array(81).fill(1), tray: [{ id: 'o1' }, { id: 'o1' }, { id: 'o4' }] });
+
+tests.push(
+  {
+    name: 'S5-06 losing a game gives one 25 ms pulse, even with the sound off',
+    initScript: recordVibrate,
+    async run(t) {
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('act', 'setting', 'sound', false);
+      await t.game('newGame', { mode: 'classic', seed: 9 });
+      await t.page.evaluate(() => { window.__vib.length = 0; });
+      await lose(t);
+      await t.page.waitForFunction(() => window.__vib.length > 0, null, { timeout: 8000 });
+      const calls = await t.page.evaluate(() => window.__vib.slice());
+      t.equal(JSON.stringify(calls), '[25]', 'one short pulse at the end of the game');
+    },
+  },
+  {
+    name: 'S5-06 the end-of-game pulse follows the Vibration switch and reduced motion',
+    initScript: recordVibrate,
+    async run(t) {
+      await t.game('act', 'setting', 'tipsSeen', true);
+      for (const [key, value] of [['haptics', false], ['motion', 'reduced']]) {
+        await t.game('act', 'setting', 'haptics', true); await t.game('act', 'setting', 'motion', 'full');
+        await t.game('act', 'setting', key, value);
+        await t.game('newGame', { mode: 'classic', seed: 9 });
+        await t.page.evaluate(() => { window.__vib.length = 0; });
+        await lose(t);
+        t.equal((await t.state()).over, true, key + ' ' + value + ': the game ended');
+        t.equal(await t.page.evaluate(() => window.__vib.length), 0, key + ' ' + value + ': no pulse');
+      }
+    },
+  },
+);

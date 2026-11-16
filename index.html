@@ -1339,7 +1339,7 @@ function playCue(name, o, t) {
     case 'bonus': [0, 5, 9, 12].forEach((st, k) => { tone(semi(523, st), t + k * 0.06, 0.4, 'triangle', 0.2); tone(semi(1046, st), t + k * 0.06, 0.2, 'sine', 0.05); }); break;
   }
 }
-// Haptics: short pulses on a drop, a clear and a blocked drop, where the device can vibrate. Off when the player has
+// Haptics: short pulses on a drop, a clear, a blocked drop and the end of a game, where the device can vibrate. Off when the player has
 // asked for reduced motion or turned Vibration off; it works with the sound off. The switch is hidden where there is no vibrate().
 const canVibrate = () => typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
 function buzz(pattern) {
@@ -1351,6 +1351,7 @@ function hapticFor(name, o) {
   if (name === 'place') buzz(10);
   else if (name === 'clear') { const p = []; for (let k = 0; k < Math.min(4, o.G || 1); k++) p.push(18, 30); p.pop(); buzz(p); }
   else if (name === 'invalid') buzz([12, 40, 12]);
+  else if (name === 'over') buzz(25);
 }
 // The last cues asked for, whether or not they were heard (sound off, no context yet): for the test hook.
 const CUE_LOG = [];
