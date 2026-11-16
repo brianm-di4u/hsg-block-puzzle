@@ -3519,7 +3519,7 @@ function wireDom() {
   $('b-next').addEventListener('click', () => { sfx('click'); const i = LEVELS.findIndex(l => l.id === S.level); if (i < LEVELS.length - 1) newGame({ mode: 'trail', level: LEVELS[i + 1].id }); });
   $('b-undo').addEventListener('click', () => { audioInit(); doUndo(); cv.focus({ preventScroll: true }); });
   $('b-hint').addEventListener('click', () => { audioInit(); useHint(); cv.focus({ preventScroll: true }); });
-  $('b-sound').addEventListener('click', () => { audioInit(); setSetting('sound', !SAVE.settings.sound); sfx('click'); });
+  $('b-sound').addEventListener('click', () => { audioInit(); setSetting('sound', !SAVE.settings.sound); sfx('click'); if (S.scene === 'game') cv.focus({ preventScroll: true }); });
   $('s-sound').addEventListener('change', e => { audioInit(); setSetting('sound', e.target.checked); sfx('click'); });
   let previewAt = 0;   // dragging the Volume slider ticks a click every 120 ms, so the level can be judged as it moves
   $('s-volume').addEventListener('input', e => {

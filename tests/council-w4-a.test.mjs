@@ -260,6 +260,42 @@ tests.push(
   },
 );
 
+// ---------------------------------------------------------------------- S1-08: after a click on a HUD button, the keys play the board
+tests.push(
+  {
+    name: 'S1-08 after clicking Sound with the mouse, the arrows and Enter place a piece instead of pressing Sound again',
+    async run(t) {
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('act', 'setting', 'sound', true);
+      await t.game('newGame', { mode: 'classic', seed: 11 });
+      const before = await t.state();
+      await t.page.click('#b-sound');
+      t.equal((await t.game('act', 'save')).settings.sound, false, 'the click turned Sound off');
+      t.equal(await t.page.evaluate(() => document.activeElement && document.activeElement.id), 'cv', 'the board has the keyboard again');
+      await t.page.keyboard.press('ArrowDown');
+      await t.page.keyboard.press('ArrowRight');
+      await t.page.keyboard.press('Enter');
+      const after = await t.state();
+      t.equal(after.placed, before.placed + 1, 'Enter placed the piece');
+      t.equal((await t.game('act', 'save')).settings.sound, false, 'Enter did not press Sound a second time');
+    },
+  },
+  {
+    name: 'S1-08 after Pause and Resume with the mouse, the keys place a piece',
+    async run(t) {
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('newGame', { mode: 'classic', seed: 12 });
+      const before = await t.state();
+      await t.page.click('#b-pause');
+      await t.page.click('#b-resume');
+      t.equal(await t.page.evaluate(() => document.activeElement && document.activeElement.id), 'cv', 'the board has the keyboard again');
+      await t.page.keyboard.press('ArrowDown');
+      await t.page.keyboard.press('Enter');
+      t.equal((await t.state()).placed, before.placed + 1, 'Enter placed the piece');
+    },
+  },
+);
+
 // ---------------------------------------------------------------------- C4-05: nothing the speakers get passes 0.95, however loud the moment
 tests.push(
   {
