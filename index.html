@@ -185,6 +185,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
 /* Toast */
 #toast{position:fixed;left:50%;bottom:max(12px,env(safe-area-inset-bottom));transform:translateX(-50%);max-width:min(460px,calc(100% - 24px));background:var(--panel);color:var(--color-text);border:2px solid var(--color-highlight);border-radius:var(--radius-lg);padding:10px 14px;z-index:8;display:none;box-shadow:0 6px 20px rgba(0,0,0,.3);text-align:center;font-size:.95em;pointer-events:none}
 #toast.on{display:block}
+#toast.above{z-index:40}   /* the save notices are read over a title or settings screen too */
 #achtoast{position:fixed;left:50%;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 78px);transform:translateX(-50%);max-width:min(380px,calc(100% - 24px));background:var(--panel);color:var(--color-text);border:2px solid #C9A23F;border-radius:999px;padding:6px 16px;z-index:20;display:none;box-shadow:0 6px 20px rgba(0,0,0,.35);text-align:center;font-size:.9em;line-height:1.25;pointer-events:none}
 #achtoast.on{display:block}
 @media (orientation:landscape){#achtoast{left:12px;bottom:166px;transform:none;width:clamp(150px,calc((100vw - 100vh)/2 - 30px),300px);box-sizing:border-box;border-radius:14px;padding:8px 12px}}
@@ -893,7 +894,7 @@ function defaultSave() {
     daily: { longest: 0, played: [] }, ach: {}, goals: { boiled: 0 }, eraMax: 0, hints: {}, resume: null };
 }
 // SAVE MERGE CORE (portable regression extracts this same function)
-function createSaveStore(storage, defaults, revision) {
+function createSaveStore(storage, defaults, revision, known = { save: 1 }) {
   const copy = value => JSON.parse(JSON.stringify(value));
   const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const object = value => value && typeof value === 'object' && !Array.isArray(value);
@@ -944,13 +945,17 @@ function createSaveStore(storage, defaults, revision) {
     if (out.resume !== null && !object(out.resume)) out.resume = null;
     return out;
   }
-  let value = defaults(), base = copy(value), pending = null, dirty = false, warned = false;
+  let value = defaults(), base = copy(value), pending = null, dirty = false, warned = false, newer = false;
+  // A save that carries a higher version number than this build knows came from a newer build. It is never written over:
+  // this visit plays from defaults in memory and persist() writes nothing, so the newer build finds it as it left it.
+  const isNewer = data => object(data) && typeof data.v === 'number' && data.v > known.save;
   const slot = save => ({ generation: save.resumeGeneration ?? null, revision: save.resumeRevision ?? null, resume: save.resume });
   let acknowledged = copy(slot(value));
   function read() {
     const raw = storage.getItem();
+    newer = false;
     if (raw === null || raw === '') return defaults();
-    try { return normalize(JSON.parse(raw)); }
+    try { const data = JSON.parse(raw); newer = isNewer(data); return newer ? defaults() : normalize(data); }
     catch { return copy(base); } // Keep the last known valid save if current bytes are corrupt.
   }
   function load() {
@@ -976,6 +981,7 @@ function createSaveStore(storage, defaults, revision) {
     let latest;
     try { latest = read(); }
     catch { if (pending) pending.admitted = true; dirty = true; return { ok: false, conflict: false }; }
+    if (newer) { pending = null; return { ok: false, conflict: false, newer: true }; }
     if (pending?.kind === 'replace' && !pending.admitted) {
       // Only this explicit new-game action may replace a foreign run. Its retry is still exact-slot guarded.
       acknowledged = copy(slot(latest)); pending.admitted = true; warned = false;
@@ -1034,16 +1040,17 @@ function createSaveStore(storage, defaults, revision) {
     if (wroteResume) { acknowledged = copy(slot(value)); pending = null; warned = false; }
     return { ok: true, conflict, wroteResume };
   }
-  return { get value() { return value; }, load, readResume, persist };
+  return { get value() { return value; }, get newer() { return newer; }, load, readResume, persist };
 }
 // END SAVE MERGE CORE
 let saveRevisionCounter = 0;
-const SAVE_STORE = createSaveStore({ getItem: () => localStorage.getItem(STORE_KEY), setItem: raw => localStorage.setItem(STORE_KEY, raw) }, defaultSave,
-  () => globalThis.crypto?.randomUUID?.() || (Date.now().toString(36) + '-' + (++saveRevisionCounter) + '-' + Math.random().toString(36).slice(2)));
-let SAVE = SAVE_STORE.value;
-function loadSave() { SAVE = SAVE_STORE.load(); }
 // Bump RESUME_VERSION when the game state changes shape; older stored runs are then dropped, not loaded half-wrong.
 const RESUME_VERSION = 1;
+const SAVE_STORE = createSaveStore({ getItem: () => localStorage.getItem(STORE_KEY), setItem: raw => localStorage.setItem(STORE_KEY, raw) }, defaultSave,
+  () => globalThis.crypto?.randomUUID?.() || (Date.now().toString(36) + '-' + (++saveRevisionCounter) + '-' + Math.random().toString(36).slice(2)),
+  { save: 1 });
+let SAVE = SAVE_STORE.value;
+function loadSave() { SAVE = SAVE_STORE.load(); }
 // A stored run must have the shape the game reads; anything else is dropped instead of breaking the title or the board.
 function validResume(r, modes = ['classic', 'springs']) {
   if (!r || typeof r !== 'object' || Array.isArray(r)) return false;
@@ -1063,8 +1070,28 @@ function validResume(r, modes = ['classic', 'springs']) {
 // placement and offered again when the same puzzle or the same day's Daily is opened from the menus.
 const RUN_KEY = 'hs-thermal-blocks-v1-run';
 function runKey(mode, level, date) { return mode === 'trail' ? level : date; }
-function clearRun() { try { localStorage.removeItem(RUN_KEY); } catch (e) { /* storage unavailable */ } }
+// A save or a stored run from a newer build is never written over (wave-4 ruling 11): the whole visit goes unsaved.
+function runSlotNewer() {
+  try { const o = JSON.parse(localStorage.getItem(RUN_KEY)); return !!o && typeof o.rv === 'number' && o.rv > RESUME_VERSION; } catch (e) { return false; }
+}
+function savesLocked() {
+  const locked = SAVE_STORE.newer || runSlotNewer();
+  if (locked) saveNotice('newer');
+  return locked;
+}
+const NOTICED = {};
+function saveNotice(kind) {   // each notice is shown once per visit, and waits for a toast that is already up
+  if (NOTICED[kind]) return;
+  NOTICED[kind] = true;
+  const text = kind === 'newer'
+    ? ['This visit is not being saved', 'Your save comes from a newer version of the game, so it is left as it is.']
+    : ['Progress cannot be saved', 'This browser mode does not let the game keep progress.'];
+  let tries = 0;   // the first look is after a beat, so a toast that a game start clears or raises does not take it away
+  setTimeout(function show() { if ($('toast').classList.contains('on') && tries++ < 20) { setTimeout(show, 500); return; } toast(text[0], text[1], 8000); $('toast').classList.add('above'); announce(text[0] + '. ' + text[1]); }, 700);
+}
+function clearRun() { if (savesLocked()) return; try { localStorage.removeItem(RUN_KEY); } catch (e) { /* storage unavailable */ } }
 function saveRun() {
+  if (savesLocked()) return;
   try {
     const state = snapshot(); state.undoStack = [];
     localStorage.setItem(RUN_KEY, JSON.stringify({ rv: RESUME_VERSION, mode: S.mode, key: runKey(S.mode, S.level, S.daily), state }));
@@ -1072,6 +1099,7 @@ function saveRun() {
 }
 function savedRun(mode, key) {
   try {
+    if (SAVE_STORE.newer) return null;
     const raw = localStorage.getItem(RUN_KEY);
     if (!raw) return null;
     const o = JSON.parse(raw), st = o && o.state;
@@ -1091,6 +1119,8 @@ function persist(intent = 'none') {
   const before = JSON.stringify(SAVE.settings), result = SAVE_STORE.persist(intent);
   SAVE = SAVE_STORE.value;
   if (before !== JSON.stringify(SAVE.settings)) applySettings();
+  if (result.newer) saveNotice('newer');
+  else if (!result.ok) saveNotice('blocked');
   if (result.conflict) toast('Saved game changed in another tab', 'This game is still playable here. Continue from the title to use the saved game, or start a new game.', 6000);
   return result.ok;
 }
@@ -2740,7 +2770,7 @@ function announce(msg) { const el = $('live'); el.textContent = ''; setTimeout((
 let toastTimer = 0;
 function toast(title, body, ms = 4500) {
   const el = $('toast');
-  el.innerHTML = '';
+  el.innerHTML = ''; el.classList.remove('above');
   const b = document.createElement('b'); b.textContent = title; el.appendChild(b);
   el.appendChild(document.createTextNode(body));
   el.classList.add('on');
@@ -3806,6 +3836,7 @@ if (document.fonts && document.fonts.load) Promise.all([document.fonts.load('700
 applySettings();
 showScene('title');
 if (discardedResume) badResumeToast();
+if (SAVE_STORE.newer) saveNotice('newer');
 loadArtFor('title');
 requestAnimationFrame(loop);
 </script>
