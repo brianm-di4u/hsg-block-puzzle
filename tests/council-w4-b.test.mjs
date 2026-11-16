@@ -169,3 +169,57 @@ tests.push({
     for (const old of [sub, toast, help]) t.expect(!/for everyone today|everyone gets/i.test(old), 'nothing still promises one board for everyone');
   },
 });
+
+tests.push(
+  {
+    name: 'S4-12 the combo banner uses the town’s words and keeps the count of groups in the line under it',
+    viewports: BOTH,
+    async run(t) {
+      const WORDS = { 2: 'Soak!', 3: 'Steam!', 4: 'Cascade!' };
+      // two rows at once
+      await t.game('newGame', { mode: 'classic' });
+      let b = EMPTY(); for (let c = 0; c < 8; c++) { b[c] = 1; b[9 + c] = 1; } b[72] = 1;   // a stray tile, so the board is not left empty (that is the Clear Spring bonus)
+      await t.game('setState', { board: b, tray: [{ id: 'i2v' }, { id: 'o1' }, { id: 'o1' }], score: 0, heat: 3, placed: 5 });
+      let r = await t.game('act', 'place', 0, 0, 8);
+      let ban = (await t.game('act', 'fxList')).find(f => f.type === 'banner');
+      t.equal([r.G, ban && ban.text], [2, WORDS[2]], 'two groups read Soak!');
+      t.expect(/^2 groups/.test(ban.sub), 'the line under it says how many: ' + ban.sub);
+      // two rows and the pool they close with the third row's end: three groups; with more of the third row filled, a second pool: four
+      for (const [groups, from] of [[3, 6], [4, 3]]) {
+        await t.game('newGame', { mode: 'classic' });
+        b = EMPTY(); for (let c = 0; c < 8; c++) { b[c] = 1; b[9 + c] = 1; } for (let c = from; c < 8; c++) b[18 + c] = 1; b[72] = 1;
+        await t.game('setState', { board: b, tray: [{ id: 'i3v' }, { id: 'o1' }, { id: 'o1' }], score: 0, heat: 3, placed: 5 });
+        r = await t.game('act', 'place', 0, 0, 8);
+        ban = (await t.game('act', 'fxList')).find(f => f.type === 'banner');
+        t.equal([r.G, ban && ban.text], [groups, WORDS[groups]], groups + ' groups read ' + WORDS[groups]);
+        t.expect(ban.sub.startsWith(groups + ' groups'), 'and the count is there: ' + ban.sub);
+        if (groups === 4) { await t.game('act', 'freezeFx', 320); await t.shot('S4-12-cascade'); await t.game('act', 'unfreezeFx'); }
+      }
+      const src = await t.page.evaluate(() => document.documentElement.innerHTML);
+      t.expect(!/'Double!'|'Triple!'|'Quadruple!'/.test(src), 'the generic words are gone from the game');
+    },
+  },
+  {
+    name: 'S4-12 each era tints the clear’s ripple and band; the Roaring era flickers and the Frontier era splinters planks',
+    viewports: BOTH,
+    async run(t) {
+      await t.game('act', 'setting', 'effects', 'full');
+      const seen = {};
+      for (const [era, id] of [[0, 'ancient'], [1, 'frontier'], [2, 'gilded-spa'], [3, 'roaring'], [4, 'midcentury'], [5, 'revival'], [6, 'modern']]) {
+        await t.game('newGame', { mode: 'classic' });
+        const bd = EMPTY(); for (let c = 0; c < 8; c++) bd[c] = 1;
+        await t.game('setState', { board: bd, tray: [{ id: 'o1' }, { id: 'o1' }, { id: 'o1' }], score: 0, heat: 3, placed: 5, era });
+        t.equal((await t.state()).eraId, id, 'era ' + id);
+        const fx = await t.page.evaluate(() => { const real = Math.random; Math.random = () => 0.1; try { window.__game.act('place', 0, 0, 8); return window.__game.act('clearFx'); } finally { Math.random = real; } });
+        if (id === 'frontier' || id === 'roaring') { await t.game('act', 'freezeFx', 260); await t.shot('S4-12-clear-' + id); await t.game('act', 'unfreezeFx'); }
+        const rip = fx.find(f => f.type === 'ripple'), beam = fx.find(f => f.type === 'beam'), shards = fx.filter(f => f.type === 'shard');
+        t.expect(rip && beam && shards.length > 0, id + ': a ripple, a band and shards came up');
+        seen[id] = { rip: rip.tint, beam: beam.tint, flicker: rip.flicker, plank: shards.every(s => s.plank), anyPlank: shards.some(s => s.plank) };
+      }
+      t.equal(new Set(Object.values(seen).map(v => v.rip)).size, 7, 'seven different ripple tints');
+      t.equal(Object.keys(seen).filter(k => seen[k].flicker), ['roaring'], 'only the Roaring era flickers');
+      t.equal(Object.keys(seen).filter(k => seen[k].anyPlank), ['frontier'], 'only the Frontier era splinters planks');
+      t.equal([seen.ancient.rip, seen.ancient.beam], ['190,250,240', '255,236,170'], 'the first era keeps the colours it always had');
+    },
+  },
+);

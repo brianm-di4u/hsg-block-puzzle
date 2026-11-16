@@ -2384,7 +2384,7 @@ function groupCenter(g) {
   return [sx / cells.length, sy / cells.length];
 }
 function spawnClearFx(res) {
-  const b = LAY.board, cell = b.cell, red = reducedMotion();
+  const b = LAY.board, cell = b.cell, red = reducedMotion(), ef = ERA_FX[eraId()] || ERA_FX.ancient;
   // tiles pop in a wave from the placed piece outward along each line
   const pc = res.at || [4, 4];
   addFx({ type: 'flash', cells: res.cleared, dur: red ? 220 : 620, delayOf: red ? null : (i => Math.min(0.25, (Math.abs(i % 9 - pc[1]) + Math.abs(Math.floor(i / 9) - pc[0])) * 0.03)) });
@@ -2392,15 +2392,15 @@ function spawnClearFx(res) {
   if (red) return;
   for (const g of res.groups) {
     const [gc, gr] = groupCenter(g);
-    addFx({ type: 'beam', g, dur: 420 });
-    addFx({ type: 'ripple', g, x: b.gx + (gc + 0.5) * cell, y: b.gy + (gr + 0.5) * cell, dur: 900, r: cell * (g.type === 'box' ? 2.2 : 4.6) });
+    addFx({ type: 'beam', g, dur: 420, tint: ef.beam });
+    addFx({ type: 'ripple', g, tint: ef.ripple, flicker: !!ef.flicker, x: b.gx + (gc + 0.5) * cell, y: b.gy + (gr + 0.5) * cell, dur: 900, r: cell * (g.type === 'box' ? 2.2 : 4.6) });
   }
   const R = Math.random;
   for (const { i, code } of res.cleared) {
     const x = b.gx + (i % 9 + 0.5) * cell, y = b.gy + (Math.floor(i / 9) + 0.5) * cell;
     if (liteFx() && R() < 0.5) continue;
     if (R() < 0.35) { const a = -Math.PI / 2 + (R() - 0.5) * 2.2, sp = cell * (1.6 + R() * 2.4); // a glaze chip
-      addFx({ type: 'shard', code, x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - cell * 2, rot: R() * 6, vr: (R() - 0.5) * 10, s: cell * (0.16 + R() * 0.1), dur: 600 + R() * 250, delay: 60 }); }
+      addFx({ type: 'shard', code, x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - cell * 2, rot: R() * 6, vr: (R() - 0.5) * 10, s: cell * (0.16 + R() * 0.1), dur: 600 + R() * 250, delay: 60, plank: !!ef.plank }); }
     for (let k = 0; k < 2; k++) { const a = -Math.PI / 2 + (R() - 0.5) * 1.8, sp = cell * (2.5 + R() * 3); // hot droplets
       addFx({ type: 'drop', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: cell * (0.035 + R() * 0.04), dur: 520 + R() * 260, delay: 40 }); }
     addFx({ type: 'steam', x, y, dur: 1000 + R() * 700, h: cell * (1.8 + R() * 2), ph: R() * 6, w: cell * (0.45 + R() * 0.3), delay: 120 + R() * 160 });
@@ -2408,6 +2408,17 @@ function spawnClearFx(res) {
   if (res.G >= 2 || res.bonus) addFx({ type: 'shake', dur: 300, amp: Math.min(9, 2 + res.G * 1.8) });
   else addFx({ type: 'shake', dur: SINGLE_SHAKE.dur, amp: SINGLE_SHAKE.amp });   // the common one-group clear lands with a small knock too (S1-11)
 }
+// The clear's effects take the town's look in each era (S4-12): the tint of the ripple and the sweeping band (r, g, b), neon
+// flicker in the Roaring era and splintering planks in the Frontier era. The first era keeps the colours the game always had.
+const ERA_FX = {
+  'ancient': { ripple: '190,250,240', beam: '255,236,170' },
+  'frontier': { ripple: '232,204,150', beam: '255,214,150', plank: true },
+  'gilded-spa': { ripple: '255,226,150', beam: '255,228,160' },
+  'roaring': { ripple: '255,120,214', beam: '255,170,236', flicker: true },
+  'midcentury': { ripple: '150,236,226', beam: '255,226,190' },
+  'revival': { ripple: '190,238,170', beam: '236,246,190' },
+  'modern': { ripple: '172,214,255', beam: '230,240,255' },
+};
 const SINGLE_SHAKE = { dur: 120, amp: 1.5 };   // before S1-11 a single group did not shake at all
 function popup(textStr, x, y, col = '#FFFFFF', size = 22, opts = {}) {
   const b = LAY.board; ctx.font = '800 ' + size + 'px ' + FONT_DISPLAY;
@@ -2418,7 +2429,8 @@ function popup(textStr, x, y, col = '#FFFFFF', size = 22, opts = {}) {
 }
 // Feedback for a clearing placement: score popup at the clear, a centred combo banner that escalates with
 // groups cleared at once and with the water's heat word (Warm, Hot, Steaming, Scalding, Boiling).
-const COMBO_WORDS = ['', '', 'Double!', 'Triple!', 'Quadruple!', 'Spring Surge!'];
+// Place words, all already in the game (Daily Soak, the steam, the Thermal Water Cascade, the Spring Surge). The count of groups is in the line under it.
+const COMBO_WORDS = ['', '', 'Soak!', 'Steam!', 'Cascade!', 'Spring Surge!'];
 function clearFeedback(res, cx, cy, prevHeat) {
   const b = LAY.board, cell = b.cell;
   const word = heatWord(S.heat), rose = word && word !== heatWord(prevHeat);
@@ -2431,7 +2443,7 @@ function clearFeedback(res, cx, cy, prevHeat) {
   if (!banner) popup(res.G + (res.G > 1 ? ' groups' : ' group') + ' · heat ×' + res.mult.toFixed(2).replace(/0$/, ''), px, py + psize * 0.95, '#E9F4F1', Math.round(cell * 0.3), { delay: reducedMotion() ? 0 : 120, rise: !banner });   // why this many points (S3-12)
   if (banner) {
     const main = res.bonus ? 'Clear Spring!' : head || word + '!';
-    const sub = res.bonus ? '+300' : (head && word ? word + ' · ×' + res.mult.toFixed(2).replace(/0$/, '') : '×' + res.mult.toFixed(2).replace(/0$/, ''));
+    const sub = res.bonus ? '+300' : (head ? res.G + ' groups · ' : '') + (head && word ? word + ' · ×' : '×') + res.mult.toFixed(2).replace(/0$/, '');
     addFx({ type: 'banner', text: main, sub, level: Math.min(5, res.G + (S.heat >= 12 ? 1 : 0)), dur: reducedMotion() ? 900 : 1300 });
   }
   if (res.vents) popup(res.vents + (res.vents > 1 ? ' springs' : ' spring') + ' opened', cx, cy - cell * 1.1, '#9FF2E4', Math.round(cell * 0.32));
@@ -2468,9 +2480,10 @@ function drawFx(now) {
       const X0 = b.gx + x0 * cell, Y0 = b.gy + y0 * cell, W = (x1 - x0) * cell, H = (y1 - y0) * cell, horiz = W >= H;
       const p = easeOut(Q), gx = horiz ? X0 - W * 0.3 + p * W * 1.6 : X0 + W / 2, gy = horiz ? Y0 + H / 2 : Y0 - H * 0.3 + p * H * 1.6;
       ctx.save(); ctx.beginPath(); ctx.rect(X0, Y0, W, H); ctx.clip(); ctx.globalCompositeOperation = 'lighter';
-      ctx.fillStyle = 'rgba(255,236,170,' + 0.22 * a + ')'; ctx.fillRect(X0, Y0, W, H);
+      const bt = f.tint || '255,236,170';
+      ctx.fillStyle = 'rgba(' + bt + ',' + 0.22 * a + ')'; ctx.fillRect(X0, Y0, W, H);
       const lg = horiz ? ctx.createLinearGradient(gx - cell * 2, 0, gx + cell * 2, 0) : ctx.createLinearGradient(0, gy - cell * 2, 0, gy + cell * 2);
-      lg.addColorStop(0, 'rgba(255,240,190,0)'); lg.addColorStop(0.5, 'rgba(255,248,215,' + 0.75 * a + ')'); lg.addColorStop(1, 'rgba(255,240,190,0)');
+      lg.addColorStop(0, 'rgba(' + bt + ',0)'); lg.addColorStop(0.5, 'rgba(255,248,230,' + 0.75 * a + ')'); lg.addColorStop(1, 'rgba(' + bt + ',0)');
       ctx.fillStyle = lg; ctx.fillRect(X0, Y0, W, H);
       ctx.restore();
     } else if (f.type === 'ripple') {
@@ -2478,16 +2491,19 @@ function drawFx(now) {
       const rings = WATER.on ? 1 : 2;
       for (let j = 0; j < rings; j++) {
         const qq = Q - j * 0.2; if (qq <= 0) continue;
-        ctx.strokeStyle = 'rgba(190,250,240,' + ((WATER.on ? 0.3 : 0.45) * (1 - qq)) + ')'; ctx.lineWidth = Math.max(2, cell * 0.14 * (1 - qq));
+        ctx.strokeStyle = 'rgba(' + (f.tint || '190,250,240') + ',' + ((WATER.on ? 0.3 : 0.45) * (1 - qq) * (f.flicker ? 0.7 + 0.3 * Math.sin(qq * 70) : 1)) + ')'; ctx.lineWidth = Math.max(2, cell * 0.14 * (1 - qq));
         ctx.beginPath(); ctx.arc(f.x, f.y, f.r * easeOut(qq), 0, Math.PI * 2); ctx.stroke();
       }
       ctx.restore();
     } else if (f.type === 'shard') {
       const tt = Q * f.dur / 1000, x = f.x + f.vx * tt, y = f.y + f.vy * tt + cell * 14 * tt * tt;
       ctx.save(); ctx.globalAlpha = 1 - Q * Q; ctx.translate(x, y); ctx.rotate(f.rot + f.vr * tt);
-      ctx.fillStyle = TILE_HEX[(f.code - 1) % 6] || W8.tufa; if (f.code > 6) ctx.fillStyle = W8.rim;
-      ctx.fillRect(-f.s / 2, -f.s / 2, f.s, f.s * 0.7);
-      ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fillRect(-f.s / 2, -f.s / 2, f.s, f.s * 0.18);
+      if (f.plank) { ctx.fillStyle = '#9A6B3C'; ctx.fillRect(-f.s * 1.1, -f.s * 0.14, f.s * 2.2, f.s * 0.28); ctx.fillStyle = 'rgba(255,230,170,.5)'; ctx.fillRect(-f.s * 1.1, -f.s * 0.14, f.s * 2.2, f.s * 0.07); }   // a splinter of board
+      else {
+        ctx.fillStyle = TILE_HEX[(f.code - 1) % 6] || W8.tufa; if (f.code > 6) ctx.fillStyle = W8.rim;
+        ctx.fillRect(-f.s / 2, -f.s / 2, f.s, f.s * 0.7);
+        ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fillRect(-f.s / 2, -f.s / 2, f.s, f.s * 0.18);
+      }
       ctx.restore();
     } else if (f.type === 'drop') {
       const tt = Q * f.dur / 1000, x = f.x + f.vx * tt, y = f.y + f.vy * tt + cell * 16 * tt * tt;
@@ -3900,6 +3916,7 @@ window.__game = {
       case 'freezeFx': { const last = FX.reduce((m, f) => Math.max(m, f.t0), 0); UI.fxFrozen = last + (a[0] || 0); dirty = true; draw(performance.now()); return FX.length; }
       case 'unfreezeFx': UI.fxFrozen = null; dirty = true; return true;
       case 'fxTypes': return FX.map(f => f.type);
+      case 'clearFx': return FX.filter(f => f.type === 'ripple' || f.type === 'beam' || f.type === 'shard').map(f => ({ type: f.type, tint: f.tint || '', flicker: !!f.flicker, plank: !!f.plank }));
       case 'shakes': return FX.filter(f => f.type === 'shake').map(f => ({ dur: f.dur, amp: f.amp }));
       case 'fxList': return FX.filter(f => f.type === 'popup' || f.type === 'banner').map(f => ({ type: f.type, text: f.text, sub: f.sub || '', x: f.x || 0, size: f.size || 0, level: f.level || 0 }));
       case 'art': return { on: ART.on, files: ART_FILES, loaded: Object.keys(ART.img).filter(k => ART.img[k].ok), failed: ART.failed, loading: ART.loading, water: WATER.on, gl: !!WATER.gl, software: !!WATER.software, autoLite: PERF.autoLite };

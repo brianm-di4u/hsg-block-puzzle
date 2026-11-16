@@ -97,7 +97,7 @@ export const tests = [
       t.equal(r.G, 2, 'two rows');
       let fx = await t.game('act', 'fxList');
       const ban = fx.find(f => f.type === 'banner');
-      t.expect(ban && ban.text === 'Double!', 'Double! banner: ' + JSON.stringify(ban));
+      t.expect(ban && ban.text === 'Soak!', 'Soak! banner for two groups: ' + JSON.stringify(ban));
       const L = await t.game('layout');
       for (const p of fx.filter(f => f.type === 'popup')) {
         const half = p.text.length * p.size * 0.32;

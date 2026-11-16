@@ -96,7 +96,7 @@ Visual v2 (2026-10-29) replaced the v1 vector art; see `VISUAL-PLAN.md` and `VIS
   pressed-in pattern (dot, bars, chevron, lozenge, wave, cross) for colorblind play.
 - **Tufa stones and vents:** rendered porous travertine; vents are a glowing pool sunk into tufa with a steam wisp.
 - **Clears:** a quick swell and glow, steam plumes, droplets and a few glaze chips from the cleared cells, a ring on
-  the water, and a centred banner that escalates with groups cleared at once (Double, Triple, Quadruple, Spring Surge)
+  the water, and a centred banner that escalates with groups cleared at once (Soak, Steam, Cascade, Spring Surge; the line under it counts the groups)
   and the water's heat word (Warm, Hot, Steaming, Scalding, Boiling).
 - **Type:** Fraunces (OFL) for the logo, score, headings and banners; system sans for UI text; no text under 12 px.
 - **Layout:** no side panels. A large score in a transparent HUD; a brass thermometer beside the board (landscape) or a
