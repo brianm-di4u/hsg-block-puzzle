@@ -1217,7 +1217,13 @@ function audioInit() {
 }
 // The first gesture anywhere (a click on a dead corner of the title, a key, a touch) starts audio, so the title has its
 // music at once. A touch only counts for the browser's autoplay rule when it lifts, so pointerup calls this too (it resumes).
-for (const ev of ['pointerdown', 'pointerup', 'keydown']) window.addEventListener(ev, () => audioInit(), { capture: true, passive: true });
+// The very first one, on the title and not on a button or a field (their own click sounds follow at once), plays the game's three-note motif once.
+const onControl = el => !!(el && el.closest && el.closest('button, a, input, select, textarea, label, [role="button"]'));
+for (const ev of ['pointerdown', 'pointerup', 'keydown']) window.addEventListener(ev, e => {
+  const first = !AU.ctx;
+  audioInit();
+  if (first && AU.ctx && S.scene === 'title' && !onControl(e.target) && !(e.type === 'keydown' && (e.key === 'Tab' || e.key === 'Enter' || e.key === ' '))) sfx('motif');
+}, { capture: true, passive: true });
 function musicLevel() { const s = SAVE.settings; return s.music ? Math.min(1, s.musicVol) : 0; }
 function ambienceLevel() { const s = SAVE.settings; return s.ambience ? Math.min(1, s.ambVol) : 0; }
 function applyVolume() {
@@ -1247,7 +1253,9 @@ let JIT = { f: 1, g: 1, o: 0, pan: 0 };
 function jitter(pan = 0) {
   return { f: 2 ** ((Math.random() * 2 - 1) * 20 / 1200), g: 10 ** (-Math.random() * 1.5 / 20), o: Math.random() * 0.9, pan: Math.max(-0.7, Math.min(0.7, pan)) };
 }
+let CUE_BUS = null;
 function cueDest() {
+  if (CUE_BUS) return CUE_BUS;
   const c = AU.ctx;
   if (!JIT.pan || !c.createStereoPanner) return AU.master;
   const p = c.createStereoPanner(); p.pan.value = JIT.pan; p.connect(AU.master); return p;
@@ -1269,14 +1277,28 @@ function hiss(t, dur, vol, f1, f2, q = 1.2, type = 'bandpass') {
   s.connect(f); f.connect(g); g.connect(cueDest()); s.start(t, JIT.o); s.stop(t + dur + 0.05);
 }
 const PENTA = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24];
-const CUES = ['click', 'pick', 'place', 'invalid', 'deal', 'undo', 'clear', 'vent', 'era', 'over', 'win', 'bonus', 'ach', 'heat', 'warn', 'best', 'card', 'pause', 'resume'];
+const CUES = ['motif', 'click', 'pick', 'place', 'invalid', 'deal', 'undo', 'clear', 'vent', 'era', 'over', 'win', 'bonus', 'ach', 'heat', 'warn', 'best', 'card', 'pause', 'resume'];
 const semi = (f, st) => f * Math.pow(2, st / 12);
 // o.n: tiles in the piece (place), o.k: tray slot (pick), o.G / o.heat / o.run: groups, water temperature and clearing
 // placements in a row (clear).
 const CLEAR_LIFT = 3;   // the ladder starts up to this many steps higher after clears in a row
+const MOTIF = [0, 7, 12];   // the game's three notes, in semitones: a root, a fifth, the octave. The title plays them alone; the era and win cues carry them
+const MOTIF_BASE = 330;   // Hz: the era cue's root, so the title motif and the era cue are the same three notes
+const MOTIF_ECHO = { gap: 0.25, feedback: 0.55, wet: 0.3 };   // seconds between echoes, share fed back, level of the echo
+function motif(t, base, vol) {   // three soft sine notes through a short feedback delay
+  const c = AU.ctx, dest = cueDest(), dry = c.createGain(), dl = c.createDelay(0.5), fb = c.createGain(), wet = c.createGain();
+  dry.connect(dest); dl.delayTime.value = MOTIF_ECHO.gap; fb.gain.value = MOTIF_ECHO.feedback; wet.gain.value = MOTIF_ECHO.wet;
+  dl.connect(fb); fb.connect(dl); dl.connect(wet); wet.connect(dest);
+  CUE_BUS = dry;   // tone() sends to the dry bus for these three notes, and the dry bus also feeds the echo
+  try { MOTIF.forEach((st, k) => tone(semi(base, st), t + k * 0.22, 0.7, 'sine', vol)); } finally { CUE_BUS = null; }
+  dry.connect(dl);
+  setTimeout(() => { try { dry.disconnect(); dl.disconnect(); fb.disconnect(); wet.disconnect(); } catch (e) { /* already gone */ } }, 6000);
+}
+const DEAL_BASE = 196;  // Hz of the first tick of the deal (was 392)
 const BIG_CLEAR = 3;    // groups at once that earn the long ringing bell on top of the ladder
 function playCue(name, o, t) {
   switch (name) {
+    case 'motif': motif(t, MOTIF_BASE, 0.27); break;
     case 'click': tone(660, t, 0.06, 'triangle', 0.12); break;
     case 'pick': {
       const f = semi(520, PENTA[o.k || 0]);
@@ -1290,9 +1312,9 @@ function playCue(name, o, t) {
       break;
     }
     case 'invalid': tone(330, t, 0.11, 'triangle', 0.29, 300); tone(247, t + 0.11, 0.16, 'triangle', 0.29, 210); hiss(t, 0.08, 0.05, 900, 500, 0.8); break;   // a two-note fall (was a 110 Hz square buzz)
-    case 'deal': {
-      hiss(t, 0.16, 0.07, 1800, 5200, 0.8);
-      [0, 1, 2].forEach(k => { tone(392 + k * 98, t + k * 0.05, 0.1, 'triangle', 0.26); tone(784 + k * 196, t + k * 0.05, 0.05, 'sine', 0.05); });
+    case 'deal': {     // three soft wood ticks, an octave under the clear chimes (they sit at 440 Hz and up; the deal was 392 to 588 Hz, on top of them)
+      hiss(t, 0.16, 0.05, 1800, 5200, 0.8);
+      [0, 1, 2].forEach(k => { tone(DEAL_BASE + k * 49, t + k * 0.05, 0.08, 'triangle', 0.24); tone((DEAL_BASE + k * 49) * 2, t + k * 0.05, 0.04, 'sine', 0.07); });
       break;
     }
     case 'undo': tone(500, t, 0.14, 'triangle', 0.31, 280); tone(250, t + 0.02, 0.12, 'sine', 0.12, 170); hiss(t, 0.12, 0.08, 1800, 600, 0.8); break;
@@ -1313,12 +1335,12 @@ function playCue(name, o, t) {
       break;
     }
     case 'vent': for (let k = 0; k < 5; k++) tone(300 + k * 90 + Math.random() * 60, t + k * 0.05 + Math.random() * 0.02, 0.08, 'sine', 0.27, 700); hiss(t, 0.35, 0.08, 1200, 3200, 0.9); break;
-    case 'era': [0, 7, 12, 16].forEach((st, k) => { tone(semi(330, st), t + k * 0.12, 1.0, 'sine', 0.2); tone(semi(165, st), t + k * 0.12, 1.2, 'sine', 0.08); }); break;
+    case 'era': [...MOTIF, 16].forEach((st, k) => { tone(semi(MOTIF_BASE, st), t + k * 0.12, 1.0, 'sine', 0.2); tone(semi(MOTIF_BASE / 2, st), t + k * 0.12, 1.2, 'sine', 0.08); }); break;   // the motif, then a third above it
     case 'over': {     // a falling four-note phrase over a low pad that swells under it and settles
       [12, 7, 4, 0].forEach((st, k) => { tone(semi(330, st), t + k * 0.18, 0.6, 'triangle', 0.22); tone(semi(165, st), t + k * 0.18, 0.7, 'sine', 0.08); });
       tone(82.4, t, 1.5, 'sine', 0.16, null, 0.45); tone(123.5, t, 1.5, 'sine', 0.07, null, 0.45); break;
     }
-    case 'win': [0, 4, 7, 12, 16, 19, 24].forEach((st, k) => tone(semi(392, st), t + k * 0.08, 0.5, 'sine', 0.3)); tone(196, t, 1.2, 'sine', 0.16); hiss(t, 1.2, 0.12, 800, 4000); break;
+    case 'win': [0, 4, 7, 12, 16, 19, 24].forEach((st, k) => tone(semi(392, st), t + k * 0.08, 0.5, 'sine', 0.3)); tone(196, t, 1.2, 'sine', 0.16); hiss(t, 1.2, 0.12, 800, 4000); motif(t + 0.8, MOTIF_BASE, 0.09); break;   // ends on the game's motif, softly
     case 'ach': {      // a goal earned: three bell notes (brass-bright) with a little shimmer
       [0, 7, 12].forEach((st, k) => { const f = semi(660, st); tone(f, t + k * 0.1, 0.55, 'sine', 0.2); tone(f * 2.76, t + k * 0.1, 0.3, 'sine', 0.05); });
       hiss(t, 0.35, 0.05, 3200, 6500, 1.2); break;
@@ -1365,11 +1387,16 @@ function duckTails(t0, t1) {
   g.setValueAtTime(0.5, t1 - 0.02); g.linearRampToValueAtTime(1, t1 + 0.03);
 }
 // o.at: seconds after now to start the cue, on the audio clock (the over and win cues follow the last placement by 0.3 s).
+const INVALID_GAP = 250;   // ms: a blocked drag that keeps being blocked sounds and buzzes once in this time
+let lastInvalid = -Infinity;
+const HEARD_LOG = [];      // the cues that really started, for the test hook (CUE_LOG also holds the ones held back)
 function sfx(name, o = {}) {
   CUE_LOG.push(name); if (CUE_LOG.length > 60) CUE_LOG.shift();
+  if (name === 'invalid') { const nowMs = performance.now(); if (nowMs - lastInvalid < INVALID_GAP) return; lastInvalid = nowMs; }
   hapticFor(name, o);
   if (!AU.ctx || !SAVE.settings.sound || !SAVE.settings.sfx) return;
   try {
+    HEARD_LOG.push(name); if (HEARD_LOG.length > 60) HEARD_LOG.shift();
     JIT = jitter(o.pan || 0);
     if (o.soft) JIT.g *= o.soft;
     // On a context that has only just started, the output device is not pulling samples yet: a cue at the very start of
@@ -3948,8 +3975,9 @@ window.__game = {
       case 'hint': return useHint();
       case 'hintState': return { hint: UI.hint ? { ...UI.hint } : null, avail: hintAvail(), round: UI.hintRound };
       case 'cues': return CUE_LOG.slice();
+      case 'heardCues': return HEARD_LOG.slice();
       case 'dragBody': return UI.drag && UI.drag.moved && S.tray[UI.drag.slot] ? dragBody(UI.drag, performance.now() + 1000) : null;
-      case 'clearCues': CUE_LOG.length = 0; return true;
+      case 'clearCues': CUE_LOG.length = 0; HEARD_LOG.length = 0; return true;
       case 'audioState': {
         const k = AU.kit; if (!k) return { kit: false };
         return { kit: true, lead: AU.lead || 0, state: AU.ctx.state, held: k.held, music: Object.keys(SCORES).find(n => SCORES[n] === k.music.score) || null, amb: Object.keys(SCENES).find(n => SCENES[n] === k.amb.scene) || null, musicGain: k.buses.music.gain.value, ambGain: k.buses.amb.gain.value, musicLevel: musicLevel(), ambLevel: ambienceLevel(), master: AU.master.gain.value, bars: k.music.info() ? k.music.info().bars : -1 };
