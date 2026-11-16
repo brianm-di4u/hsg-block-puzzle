@@ -259,3 +259,49 @@ tests.push(
     },
   },
 );
+
+// ---------------------------------------------------------------------- C4-05: nothing the speakers get passes 0.95, however loud the moment
+tests.push(
+  {
+    name: 'C4-05 the soft ceiling leaves quiet sound alone and holds the loudest under 0.95',
+    viewports: ['desktop'],
+    async run(t) {
+      // The ceiling alone (its curve is the same on every machine, so this cannot fail by luck): a sine through it, rendered offline.
+      const peakThrough = amp => t.page.evaluate(async a => {
+        const oc = new OfflineAudioContext(1, 22050, 44100);
+        const o = oc.createOscillator(), g = oc.createGain(), lim = makeLimiter(oc);
+        o.frequency.value = 220; g.gain.value = a;
+        o.connect(g); g.connect(lim.output); lim.output.connect(oc.destination); o.start();
+        const d = (await oc.startRendering()).getChannelData(0);
+        let m = 0; for (let i = 0; i < d.length; i++) m = Math.max(m, Math.abs(d[i]));
+        return m;
+      }, amp);
+      const quiet = await peakThrough(0.5);
+      t.expect(Math.abs(quiet - 0.5) < 0.01, 'a sine of 0.5 comes out at 0.5: ' + quiet.toFixed(3));
+      for (const amp of [0.9, 1.0, 2.0, 5.0]) {
+        const out = await peakThrough(amp);
+        t.expect(out <= 0.941, 'a sine of ' + amp + ' is held at ' + out.toFixed(3) + ' (under 0.95)');
+      }
+      t.expect((await peakThrough(0.8)) > (await peakThrough(0.5)), 'louder in is still louder out');
+      // The whole chain, as the player hears it: the live tap after the last node stays under 0.95 on the busiest mixes at maximum volume.
+      const list = await t.game('audioList');
+      for (const id of list.mix) {
+        const r = await t.page.evaluate(([n, o]) => window.__game.audioRender(n, 14, false, o), ['mix:' + id, { volume: 1, musicVol: 1, ambVol: 1 }]);
+        t.expect(r.peak <= 0.941, id + ': the busiest mix at maximum peaks ' + r.peak + ' (under 0.95)');
+      }
+      const m = await t.page.evaluate(() => ({ scale: MASTER_SCALE, vol: defaultSave().settings.volume }));
+      t.equal(m.scale, 1.25, 'MASTER_SCALE stays 1.25: at 1.15 the pick and invalid cues fall under 0.2');
+    },
+  },
+  {
+    name: 'C4-05 the live chain ends in the ceiling: the last node before the speakers is the one probes read',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.game('act', 'audio', 'click');
+      await t.page.waitForFunction(() => AU.ctx && AU.ctx.state === 'running', null, { timeout: 8000 });
+      const info = await t.page.evaluate(() => ({ type: AU.limiter.constructor.name, curve: AU.limiter.curve ? AU.limiter.curve.length : 0 }));
+      t.equal(info.type, 'WaveShaperNode', 'AU.limiter is the ceiling');
+      t.equal(info.curve, 2049, 'with its curve');
+    },
+  },
+);

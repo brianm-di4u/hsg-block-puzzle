@@ -1153,21 +1153,32 @@ function eraId() { return ERAS[S.era].id; }
 
 // ===================================================================== AUDIO (WebAudio synthesis)
 // Cues are one-shot oscillators and noise (sfx). Music and ambience come from the generative kit below, which
-// schedules a little ahead of the audio clock. Everything feeds AU.master (Sound switch + Volume), then a limiter.
+// schedules a little ahead of the audio clock. Everything feeds AU.master (Sound switch + Volume), then a limiter and a soft ceiling.
 const AU = { ctx: null, master: null, duck: null, noise: null, kit: null, limiter: null };
 // The master gain is Volume x MASTER_SCALE. It was 0.6, which left cues peaking about 0.12 and the music about 0.05 at the
-// default volume of 0.7; at 1.25 the default master is 0.875, so cues peak 0.2 to 0.45 and music 0.06 to 0.16 as heard,
-// and the busiest moment at full volume stays under 0.95.
+// default volume of 0.7; at 1.25 the default master is 0.875, so cues peak 0.2 to 0.45 and music 0.06 to 0.16 as heard.
+// Lowering it does not tame the busiest moment (the compressor below squeezes loud sound to about full scale whatever the
+// scale, and lets fast peaks through: a Springs win at full volume measured up to 1.09), and at 1.15 the pick and invalid cues
+// fall under 0.2. So a soft ceiling follows the compressor: nothing under CEILING_KNEE changes, nothing can pass CEILING_MAX.
 const MASTER_SCALE = 1.25;
+const CEILING_KNEE = 0.7, CEILING_MAX = 0.94;
 function makeNoiseBuffer(c) {
   const len = c.sampleRate, buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
   let s = 7; for (let i = 0; i < len; i++) { s = (s * 16807) % 2147483647; d[i] = s / 1073741823.5 - 1; }
   return buf;
 }
+// The limiter is a compressor and then a soft ceiling: { input, output }. Quiet sound passes both unchanged.
 function makeLimiter(c) {
   const l = c.createDynamicsCompressor();
   l.threshold.value = -3; l.knee.value = 0; l.ratio.value = 20; l.attack.value = 0.003; l.release.value = 0.12;
-  return l;
+  const curve = new Float32Array(2049), room = CEILING_MAX - CEILING_KNEE;
+  for (let i = 0; i < curve.length; i++) {
+    const x = i / 1024 - 1, a = Math.abs(x);
+    curve[i] = a <= CEILING_KNEE ? x : Math.sign(x) * (CEILING_KNEE + room * Math.tanh((a - CEILING_KNEE) / room));
+  }
+  const ceiling = c.createWaveShaper(); ceiling.curve = curve; ceiling.oversample = '2x';
+  l.connect(ceiling);
+  return { input: l, output: ceiling };
 }
 function audioInit() {
   if (AU.ctx) { if (AU.ctx.state !== 'running') AU.ctx.resume().catch(() => {}); return; }
@@ -1176,9 +1187,10 @@ function audioInit() {
     if (!AC) return;
     AU.ctx = new AC();
     AU.master = AU.ctx.createGain();
-    AU.limiter = makeLimiter(AU.ctx);
+    const lim = makeLimiter(AU.ctx);
+    AU.limiter = lim.output;   // the last node before the speakers
     AU.duck = AU.ctx.createGain();   // dips for a moment before the end-of-game cues; Volume and the Sound switch live on AU.master
-    AU.master.connect(AU.duck); AU.duck.connect(AU.limiter); AU.limiter.connect(AU.ctx.destination);
+    AU.master.connect(AU.duck); AU.duck.connect(lim.input); AU.limiter.connect(AU.ctx.destination);
     AU.noise = makeNoiseBuffer(AU.ctx);
     AU.kit = makeAudioKit(AU.ctx, AU.master, { seed: (Date.now() ^ 0x5EED) >>> 0, music: 0, ambience: 0 });
     applyVolume();
@@ -1730,8 +1742,8 @@ async function audioRender(name, seconds = 30, wantWav = false, opt = {}) {
   const lv = { ...defaultSave().settings, ...opt };
   const chain = (oc, dest) => {   // master gain, then the limiter, then (for a probe) a high-pass standing in for a small speaker
     const m = oc.createGain(); m.gain.value = lv.volume * MASTER_SCALE;
-    const lim = makeLimiter(oc); m.connect(lim);
-    if (lv.highpass) { const hp = oc.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = lv.highpass; hp.Q.value = 0.7; lim.connect(hp); hp.connect(dest); } else lim.connect(dest);
+    const lim = makeLimiter(oc); m.connect(lim.input);
+    if (lv.highpass) { const hp = oc.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = lv.highpass; hp.Q.value = 0.7; lim.output.connect(hp); hp.connect(dest); } else lim.output.connect(dest);
     return m;
   };
   const withAU = (oc, master, fn) => {   // cues read the AU globals: point them at the offline graph for one synchronous call
