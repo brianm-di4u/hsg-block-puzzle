@@ -266,7 +266,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
     <button class="primary big" id="b-continue" style="display:none">Continue game</button>
     <button class="play" data-mode="classic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg><span class="t"><b>Play Classic</b><span>Endless. Climb through seven eras.</span></span></button>
     <div class="modes">
-      <button data-mode="daily"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg><b>Daily Soak</b><span id="daily-sub">Same board for everyone today.</span></button>
+      <button data-mode="daily"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg><b>Daily Soak</b><span id="daily-sub">Today’s board on this device.</span></button>
       <button data-mode="springs"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4c-2 2 2 3 0 6M12 3c-2 2 2 3 0 6M16 4c-2 2 2 3 0 6"/><ellipse cx="12" cy="17" rx="8" ry="3.5"/></svg><b>Springs</b><span>Open 47 hot-spring vents.</span></button>
       <button data-go="trail"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-6.2-6-11a6 6 0 0112 0c0 4.8-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/></svg><b>Spring Trail</b><span id="trail-sub">24 puzzles at real places.</span></button>
     </div>
@@ -382,7 +382,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
     <h3>Modes</h3>
     <ul>
       <li><b>Classic</b>: endless. Score carries you through the town's seven eras. Eras change the backdrop and its caption only; the game plays the same.</li>
-      <li><b>Daily Soak</b>: everyone gets the same tufa stones and the same pieces today, and one best score per day counts.</li>
+      <li><b>Daily Soak</b>: today’s board is made on this device from your clock’s date, with the same tufa stones and the same pieces for anyone playing that date. A new board comes at your midnight, and one best score per day counts.</li>
       <li><b>Springs</b>: vents sit on the floor. Clear a vent's row, column or pool to open it (+40 × the heat multiplier). Open all 47 to win. Hot Springs is usually said to have 47 springs; one source says 43 still flow, and NPS says "about four dozen".</li>
       <li><b>Difficulty</b> (Settings): Relaxed serves more small pieces and keeps the rescue deal strong; Master serves more big ones and thins it. It applies to Classic and Springs, each difficulty keeps its own best, and Daily Soak and Spring Trail are the same for everyone.</li>
       <li><b>Spring Trail</b>: hand-made puzzles with a goal and a fixed set of pieces. Undo is unlimited there, but each puzzle earns up to three stars: fewer undos, more stars.</li>
@@ -2844,7 +2844,7 @@ function newGame(opts = {}) {
     const L = LEVELS.find(l => l.id === S.level);
     toast(L.name, L.hint, 5000);
   } else if (!kept && !UI.tip && mode === 'springs') toast('Springs', 'Open all 47 vents: complete a vent’s row, column or pool.', 4500);
-  else if (!kept && !UI.tip && mode === 'daily') toast('Daily Soak', 'Same board for everyone today. One best score per day.', 4500);
+  else if (!kept && !UI.tip && mode === 'daily') toast('Daily Soak', 'Today’s board on this device, ' + dayLabel(S.daily) + '. A new one comes at midnight here. One best score per day.', 4500);
   announce('New ' + modeLabel() + ' game. ' + trayDesc() + (UI.tip && UI.tip.cur ? ' Tip: ' + tipText(UI.tip.cur) : ''));
   return S;
 }
@@ -3339,7 +3339,7 @@ function fillTitle() {
   if (r && !r.over) $('b-continue').textContent = 'Continue ' + ({ classic: 'Classic', springs: 'Springs' }[r.mode] || '') + diffSuffix(r) + ' · ' + r.score.toLocaleString('en-US');
   const d = SAVE.best.daily[todayStr()];
   const run = dailyStreak(), streak = run ? run + '-day streak · ' : '';
-  $('daily-sub').textContent = savedRun('daily', todayStr()) ? 'Run in progress · tap to continue' : d ? streak + 'Today’s best: ' + d.toLocaleString('en-US') : run ? streak + 'play today to keep it' : 'Same board for everyone today.';
+  $('daily-sub').textContent = savedRun('daily', todayStr()) ? 'Run in progress · tap to continue' : d ? streak + 'Today’s best: ' + d.toLocaleString('en-US') : run ? streak + 'play today to keep it' : 'Today’s board on this device · ' + dayLabel(todayStr()).replace(' ', ' ');   // the date stays on one line
   $('trail-sub').textContent = (trailTitle() ? trailTitle() + ' · ' : '') + SAVE.trail.done.length + ' of ' + LEVELS.length + ' solved · ' + trailStarTotal() + ' stars.';
   $('ticker').textContent = TICKER[tickerI % TICKER.length];
 }

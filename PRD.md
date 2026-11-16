@@ -28,7 +28,7 @@ residents who enjoy local history; nothing assumes prior knowledge.
 | Mode | Summary | Ends |
 |---|---|---|
 | **Classic** | Endless. Three pieces a round with a mercy deal. Score raises the era. | No piece fits |
-| **Daily Soak** | Seeded by the local date: the same tufa stones and the same piece sequence for everyone that day. One best score per date. | No piece fits |
+| **Daily Soak** | Seeded by the local date: the same tufa stones and piece sequence for anyone playing that date. The board changes at the device's midnight, so it is today's board on this device. One best score per date. | No piece fits |
 | **Springs** | Spring vents sit on the board. Clear the row, column or pool a vent is in to tap it (+40 × heat). New vents bubble up each round (up to 6). Tap 47 to win. | 47 taps (win) or no fit |
 | **Spring Trail** | 12 hand-designed puzzles named for Hot Springs places, each with a fixed piece list and a goal. Winning unlocks that place's fact card. Unlimited undo and restart. | Goal met (win), or pieces run out / no fit (retry) |
 

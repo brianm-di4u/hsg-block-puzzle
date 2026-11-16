@@ -320,12 +320,12 @@ export const tests = [
 
   // ------------------------------------------------------------------ S2-16 the daily rule, and a date a person can read
   {
-    name: 'S2-16 Daily Soak shows a readable date and says it is the same board for everyone, one best a day',
+    name: 'S2-16 Daily Soak shows a readable date and says it is the board on this device, one best a day',
     async run(t) {
       const toastOn = () => t.page.evaluate(() => { const e = document.getElementById('toast'); return e.classList.contains('on') ? e.textContent : ''; });
       await t.game('act', 'setting', 'tipsSeen', true);
       await t.game('newGame', { mode: 'daily', date: '2026-11-12' });
-      t.equal(await toastOn(), 'Daily SoakSame board for everyone today. One best score per day.', 'the opening toast');
+      t.equal(await toastOn(), 'Daily SoakToday’s board on this device, Nov 12. A new one comes at midnight here. One best score per day.', 'the opening toast');   // P-N05: said as the game does it
       await t.game('scene', 'over');
       await t.waitFrames(2);
       t.equal((await text(t, '#ov-sub')).split(' · ').slice(0, 2).join(' · '), 'Daily Soak · Nov 12', 'the results card, not 2026-11-12');

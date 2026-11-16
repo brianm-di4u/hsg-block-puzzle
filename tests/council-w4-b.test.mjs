@@ -149,3 +149,23 @@ tests.push(
     },
   },
 );
+
+tests.push({
+  name: 'P-N05 Daily Soak says it is today’s board on this device and shows the date, in the menu, the opening toast and Help',
+  viewports: BOTH,
+  async run(t) {
+    await t.game('act', 'setting', 'tipsSeen', true);
+    await t.game('scene', 'title');
+    const today = await t.page.evaluate(() => { const d = new Date(); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); });
+    const sub = (await t.page.textContent('#daily-sub')).replace(/ /g, ' ');
+    t.equal(sub, 'Today’s board on this device · ' + today, 'the menu line, with the date');
+    t.expect(await t.page.evaluate(() => { const e = document.getElementById('daily-sub'); return e.scrollWidth <= e.clientWidth + 1 && e.getBoundingClientRect().right <= innerWidth; }), 'the line fits its button');
+    await t.shot('P-N05-title');
+    await t.game('newGame', { mode: 'daily', date: '2026-11-12' });
+    const toast = await t.page.evaluate(() => document.getElementById('toast').textContent);
+    t.expect(toast.includes('Today’s board on this device, Nov 12') && toast.includes('midnight'), 'the opening toast: ' + toast);
+    const help = await t.page.evaluate(() => document.getElementById('sc-help').textContent);
+    t.expect(help.includes('on this device') && help.includes('your midnight'), 'Help says the same');
+    for (const old of [sub, toast, help]) t.expect(!/for everyone today|everyone gets/i.test(old), 'nothing still promises one board for everyone');
+  },
+});
