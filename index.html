@@ -1877,6 +1877,8 @@ function readInsets() {
   const cs = getComputedStyle(document.getElementById('inset')), px = v => Math.max(0, parseFloat(v) || 0);
   INS = { l: px(cs.paddingLeft), r: px(cs.paddingRight), b: px(cs.paddingBottom) };
 }
+// Tray pieces on a wide screen, as a share of a board cell (was 0.62). A piece grows from this to a full cell when it is picked up, so the nearer to 1 the smaller the jump.
+const TRAY_LAND_SCALE = 0.75;
 function computeLayout() {
   const W = VW - INS.l - INS.r, H = VH - INS.b;
   const hud = document.getElementById('hud').offsetHeight || 64;
@@ -1919,7 +1921,7 @@ function computeLayout() {
   b.gx = b.x + b.frame; b.gy = b.y + b.frame;
   // one tray scale for every piece (up to 0.62 of a board cell); long pieces shrink to fit their slot
   L.trayPad = L.short ? 12 : 22;   // room kept round a tray piece inside its slot (22 everywhere before S1-07)
-  L.trayScale = land ? (L.short ? Math.min(b.cell * 0.9, (L.slots[0].h - 16) / 3.2) : Math.min(b.cell * 0.62, (L.slots[0].h - 30) / 3.2)) : Math.min(b.cell * 0.9, (L.slots[0].h - 24) / 4);
+  L.trayScale = land ? (L.short ? Math.min(b.cell * 0.9, (L.slots[0].h - 16) / 3.2) : Math.min(b.cell * TRAY_LAND_SCALE, (L.slots[0].h - 30) / 3.2)) : Math.min(b.cell * 0.9, (L.slots[0].h - 24) / 4);
   return L;
 }
 function resize() {

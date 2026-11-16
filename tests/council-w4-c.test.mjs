@@ -86,4 +86,47 @@ export const tests = [
       t.expect(w.peak <= 0.95, 'the win cue at full volume stays under 0.95: ' + w.peak);
     },
   },
+
+  {
+    name: 'S1-13 tray pieces on a wide screen are 0.75 of a board cell and every piece still sits inside its well',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.seed(4);
+      await t.game('newGame', { mode: 'classic' });
+      const geo = () => t.page.evaluate(() => {
+        const L = window.__game.layout(), cell = LAY.board.cell, bad = [];
+        for (const id of Object.keys(PIECES)) {
+          S.tray = [{ id }, null, null];
+          const g = slotPieceGeom(0), sl = L.slots[0], p = PIECES[id];
+          if (g.x < sl.x + 8 - 0.01 || g.x + p.wd * g.s > sl.x + sl.w - 8 + 0.01 || g.y < sl.y || g.y + p.h * g.s > sl.y + sl.h) bad.push(id);
+        }
+        return { land: L.land, ratio: L.trayScale / cell, cell, bad, n: Object.keys(PIECES).length, slotH: L.slots[0].h };
+      });
+      for (const [w, h] of [[1280, 800], [1024, 700]]) {
+        await t.page.setViewportSize({ width: w, height: h });
+        await t.page.waitForFunction(([vw]) => window.__game.layout().land && LAY.W + INS.l + INS.r === vw, [w], { timeout: 5000 });
+        const g = await geo();
+        t.expect(g.land, w + 'x' + h + ' is a wide layout');
+        t.expect(Math.abs(g.ratio - 0.75) < 0.005, w + 'x' + h + ': the tray scale is 0.75 of a cell, not 0.62 (' + g.ratio.toFixed(3) + ')');
+        t.equal(g.bad, [], w + 'x' + h + ': all ' + g.n + ' pieces sit inside the well');
+        t.expect(1 / g.ratio < 1.4, 'a piece grows by less than 40 percent when picked up (' + (1 / g.ratio).toFixed(2) + ')');
+        if (w === 1280) { await t.seed(4); await t.game('newGame', { mode: 'classic' }); await t.shot('S1-13-tray'); }
+      }
+      await t.page.setViewportSize({ width: 844, height: 390 });
+      await t.page.waitForFunction(() => window.__game.layout().land && LAY.short, null, { timeout: 5000 });
+      const short = await geo();
+      t.expect(short.ratio > 0.62 && short.ratio <= 0.9 + 1e-6, 'a phone on its side keeps its own scale (' + short.ratio.toFixed(2) + ')');
+      await t.page.setViewportSize({ width: 1280, height: 800 });
+    },
+  },
+  {
+    name: 'S1-13 a phone in portrait keeps its tray scale of 0.9 of a cell at most',
+    viewports: ['mobile'],
+    async run(t) {
+      await t.game('newGame', { mode: 'classic' });
+      const r = await t.page.evaluate(() => ({ land: LAY.land, ratio: LAY.trayScale / LAY.board.cell }));
+      t.expect(!r.land && r.ratio <= 0.9 + 1e-6 && r.ratio > 0.5, 'portrait ratio ' + r.ratio.toFixed(2));
+      await t.shot('S1-13-tray');
+    },
+  },
 ];
