@@ -79,15 +79,21 @@ button.primary{background:var(--color-primary) linear-gradient(rgba(255,255,255,
 #b-hint[hidden]{display:none}
 #b-hint:disabled{opacity:.45}
 #b-undo .cnt{font-weight:800;font-family:var(--font-sans)}
-/* Phone HUD (S4-14, S2-12): the four buttons leave about 140 px at 360 wide, so the figures are smaller, the labels are tighter, the buttons
-   closer, and Best steps aside while a goal shows. A five-digit figure (.long) steps down once more. */
-@media (max-width:520px){
+/* Phone HUD (S4-14, S2-12, C4-04): the four buttons leave about 140 px at 360 wide, so the figures are smaller, the labels are tighter, the buttons
+   closer, and Best steps aside while a goal shows. A five-digit figure (.long) steps down once more: at 360 px a 12,345 beside a 99,999 needs it.
+   The rules hold up to 640 px wide, which takes in a phone on its side; below 360 px the buttons shrink as well. */
+@media (max-width:640px){
   #hud{gap:5px} #hud button{padding:6px 7px}
   #hud .mode{display:none} #hud .mid{gap:8px}
   #hud .lbl{font-size:.62em;letter-spacing:.06em}
   #hud .stat.score .num{font-size:1.55em} #hud .stat.best .num,#hud .stat.goal .num{font-size:1.05em}
   #hud.hasgoal .stat.best{display:none}
   #hud.long .stat.score .num{font-size:1.25em} #hud.long .stat.best .num,#hud.long .stat.goal .num{font-size:.9em}
+}
+@media (max-width:359px){
+  #hud{gap:3px} #hud button{padding:5px} #hud svg{width:20px;height:20px}
+  #hud .mid{gap:5px} #hud .stat.score .num{font-size:1.4em} #hud .stat.best .num,#hud .stat.goal .num{font-size:.95em}
+  #hud.long .stat.score .num{font-size:1.2em} #hud.long .stat.best .num,#hud.long .stat.goal .num{font-size:.85em}
 }
 @media (orientation:landscape) and (min-width:900px){:root.big{--hud-h:88px}}
 @media (orientation:landscape) and (max-height:480px){:root{--hud-h:52px} #hud{padding-top:calc(9px + env(safe-area-inset-top))} #hud .stat.score .num{font-size:2.2em}}
@@ -2137,10 +2143,12 @@ function ensureBoard() {
 }
 
 // ---------- HUD on canvas: thermometer, heat strip, caption
+let TEXT_LOG = null;   // the test hook canvasText sets this for one drawn frame, to read back what the canvas printed
 function text(t, x, y, size, col = W8.text, align = 'left', font = 'sans', weight = '', shadow = true) {
   const fam = font === 'display' || font === 'serif' ? FONT_DISPLAY : FONT_SANS;
   ctx.font = (weight ? weight + ' ' : '') + Math.round(size) + 'px ' + fam;
   ctx.textAlign = align; ctx.textBaseline = 'middle';
+  if (TEXT_LOG) TEXT_LOG.push({ text: String(t), x, y, size: Math.round(size), align, width: ctx.measureText(t).width });
   if (shadow) { ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillText(t, x + 1, y + 1.5); }
   ctx.fillStyle = col; ctx.fillText(t, x, y);
 }
@@ -3789,6 +3797,7 @@ window.__game = {
       case 'undo': return doUndo();
       case 'setting': return setSetting(a[0], a[1]);
       case 'fill': { for (const i of a[0]) S.board[i] = a[1]; dirty = true; return true; }
+      case 'canvasText': { TEXT_LOG = []; dirty = true; try { draw(performance.now()); return { texts: TEXT_LOG, info: { ...LAY.info }, cap: LAY.cap ? { ...LAY.cap } : null, land: !!LAY.land, vw: VW }; } finally { TEXT_LOG = null; } }
       case 'freezeFx': { const last = FX.reduce((m, f) => Math.max(m, f.t0), 0); UI.fxFrozen = last + (a[0] || 0); dirty = true; draw(performance.now()); return FX.length; }
       case 'unfreezeFx': UI.fxFrozen = null; dirty = true; return true;
       case 'fxTypes': return FX.map(f => f.type);

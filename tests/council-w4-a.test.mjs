@@ -108,3 +108,154 @@ export const tests = [
     },
   },
 ];
+
+// ---------------------------------------------------------------------- C4-04 and C4-06: the HUD holds its figures at every width, phone and desktop
+// The painted extent of every piece of HUD text (a Range over the text node, not the element box) and of every button.
+const hudExtents = t => t.page.evaluate(() => {
+  const out = { stats: [], buttons: [] };
+  for (const st of document.querySelectorAll('#hud .stat:not([hidden])')) {
+    const texts = [];
+    for (const el of st.querySelectorAll('.lbl, .num')) {
+      if (!el.getClientRects().length) continue;
+      const r = document.createRange(); r.selectNodeContents(el);
+      const b = r.getBoundingClientRect();
+      texts.push({ text: el.textContent, l: b.left, r: b.right });
+    }
+    if (texts.length) out.stats.push({ texts, l: Math.min(...texts.map(x => x.l)), r: Math.max(...texts.map(x => x.r)), name: texts.map(x => x.text).join(' ') });
+  }
+  for (const el of document.querySelectorAll('#hud button')) {
+    const b = el.getBoundingClientRect();
+    if (b.width > 0) out.buttons.push({ id: el.id, l: b.left, r: b.right });
+  }
+  const mode = document.getElementById('h-mode');
+  if (mode && mode.getClientRects().length) { const b = mode.getBoundingClientRect(); out.mode = { l: b.left, r: b.right }; }   // the element box: its text is clipped to it
+  return out;
+});
+// Each stat is a column (label over figure): no two share horizontal ground, and none shares any with a button or the mode name.
+function assertClear(t, ex, where) {
+  const fmt = x => '"' + x.name + '" (' + x.l.toFixed(0) + ' to ' + x.r.toFixed(0) + ')';
+  for (let i = 0; i < ex.stats.length; i++) for (let j = i + 1; j < ex.stats.length; j++) {
+    const a = ex.stats[i], b = ex.stats[j];
+    t.expect(a.r <= b.l + 0.5 || b.r <= a.l + 0.5, where + ': ' + fmt(a) + ' does not run into ' + fmt(b));
+  }
+  for (const a of ex.stats) for (const b of ex.buttons) t.expect(a.r <= b.l + 0.5 || a.l >= b.r - 0.5, where + ': ' + fmt(a) + ' does not run under ' + b.id + ' (' + b.l.toFixed(0) + ' to ' + b.r.toFixed(0) + ')');
+  if (ex.mode) for (const b of ex.buttons) t.expect(ex.mode.r <= b.l + 0.5 || ex.mode.l >= b.r - 0.5, where + ': the mode name does not run under ' + b.id);
+  const edge = Math.min(...ex.stats.map(x => x.l), ...ex.buttons.map(x => x.l)), far = Math.max(...ex.stats.map(x => x.r), ...ex.buttons.map(x => x.r));
+  t.expect(edge >= -0.5, where + ': nothing is cut off at the left (' + edge.toFixed(0) + ')');
+  return far;
+}
+// Every mode shows its widest figures: Classic with a big score and best, Springs and Trail with the goal beside the score.
+async function sweepHud(t, w, h, scores, label) {
+  await t.page.setViewportSize({ width: w, height: h });
+  const lv = await t.game('getLevels');
+  for (const [mode, score, shown] of scores) {
+    await t.game('newGame', mode === 'trail' ? { mode, level: lv.find(l => l.name === 'Thermal Water Cascade').id } : { mode });
+    await t.game('setState', mode === 'springs' ? { score, springs: 46 } : { score });
+    await t.waitFrames(2);
+    const ex = await hudExtents(t);
+    t.expect(ex.stats.some(x => x.texts.some(y => y.text === shown)), label + ' ' + w + 'x' + h + ': the score ' + shown + ' is showing in ' + mode);
+    const far = assertClear(t, ex, label + ' ' + mode + ' ' + score + ' at ' + w + 'x' + h);
+    t.expect(far <= w + 0.5, label + ' ' + mode + ' at ' + w + 'x' + h + ': nothing runs off the right edge (' + far.toFixed(0) + ')');
+    const doc = await t.page.evaluate(() => document.documentElement.scrollWidth);
+    t.expect(doc <= w, label + ' ' + w + 'x' + h + ': no sideways scroll: ' + doc);
+  }
+}
+const HUD_SCORES = [['classic', 1234, '1,234'], ['classic', 12345, '12,345'], ['springs', 99, '99'], ['springs', 999, '999'], ['springs', 8888, '8,888'], ['springs', 12345, '12,345'], ['trail', 8888, '8,888']];
+const setBests = async t => {
+  await t.game('act', 'setting', 'tipsSeen', true);
+  await t.page.evaluate(k => { const v = JSON.parse(localStorage.getItem(k)); v.best = { ...(v.best || {}), classic: 99999, springs: 9999 }; v.settings = { ...v.settings, tipsSeen: true }; localStorage.setItem(k, JSON.stringify(v)); }, KEY);
+  await t.reload();
+  await t.game('act', 'setting', 'tipsSeen', true);
+};
+
+tests.push(
+  {
+    name: 'C4-04 phone HUD: score, best, goal and buttons stay apart from 320 to 640 px portrait',
+    viewports: ['mobile'],
+    async run(t) {
+      await setBests(t);
+      for (const w of [320, 360, 375, 390, 414, 521, 540, 568, 600, 640]) await sweepHud(t, w, 844, HUD_SCORES, 'portrait');
+      await t.page.setViewportSize({ width: 521, height: 844 });
+      await t.game('newGame', { mode: 'springs' }); await t.game('setState', { score: 999, springs: 46 }); await t.waitFrames(2);
+      await t.shot('C4-04-springs-521');
+      await t.page.setViewportSize({ width: 390, height: 844 });
+    },
+  },
+  {
+    name: 'C4-04 phone HUD: the same holds on a phone on its side (568 to 844 wide, under 430 high)',
+    viewports: ['mobile'],
+    async run(t) {
+      await setBests(t);
+      for (const [w, h] of [[568, 320], [640, 360], [667, 375], [740, 360], [844, 390], [932, 430]]) await sweepHud(t, w, h, HUD_SCORES, 'landscape');
+      await t.page.setViewportSize({ width: 568, height: 320 });
+      await t.game('newGame', { mode: 'springs' }); await t.game('setState', { score: 1234, springs: 46 }); await t.waitFrames(2);
+      await t.shot('C4-04-springs-568x320');
+      await t.page.setViewportSize({ width: 390, height: 844 });
+    },
+  },
+  {
+    name: 'C4-06 desktop HUD: score, best, goal and buttons stay apart at 1280 and 1024 px, as the figures grow',
+    viewports: ['desktop'],
+    async run(t) {
+      await setBests(t);
+      for (const [w, h] of [[1280, 800], [1024, 768], [900, 700], [768, 1024], [700, 900]]) await sweepHud(t, w, h, HUD_SCORES, 'desktop');
+      await t.page.setViewportSize({ width: 1280, height: 800 });
+      await t.game('newGame', { mode: 'springs' }); await t.game('setState', { score: 12345, springs: 46 }); await t.waitFrames(2);
+      await t.shot('C4-06-springs-hud-1280');
+    },
+  },
+);
+
+// ---------------------------------------------------------------------- C4-06: the text the canvas prints (heat label, goal line) can be read and checked
+const canvasText = t => t.game('act', 'canvasText');
+const find = (c, re) => c.texts.find(x => re.test(x.text));
+
+tests.push(
+  {
+    name: 'C4-06 the heat label on the canvas reads the temperature, in 12 px or more, inside its strip',
+    async run(t) {
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('newGame', { mode: 'classic', seed: 4 });
+      await t.game('setState', { heat: 6 });
+      let c = await canvasText(t);
+      t.expect(c.texts.length > 3, 'the canvas printed text: ' + c.texts.length + ' pieces');
+      const label = c.land ? find(c, /^102°$/) : find(c, /^Heat 102°F$/);
+      t.expect(label, 'the heat reading 102 degrees is on the canvas (' + (c.land ? 'beside the board' : 'in the strip') + '): ' + c.texts.map(x => x.text).join(' | '));
+      if (c.land) t.expect(find(c, /^HEAT$/), 'the word HEAT is above the reading');
+      else t.expect(label.x + label.width <= c.info.x + c.info.w - 14, 'the heat label stays left of the era name');
+      for (const x of c.texts.filter(x => /°|HEAT|Heat|×/.test(x.text))) t.expect(x.size >= 12, 'heat text "' + x.text + '" is 12 px or more: ' + x.size);
+      await t.game('setState', { heat: 12 });
+      c = await canvasText(t);
+      t.expect(c.land ? find(c, /^143°$/) : find(c, /^Heat Boiling$/), 'boiling water is labelled');
+      await t.game('setState', { heat: 0 });
+      c = await canvasText(t);
+      t.expect(c.land ? find(c, /^60°$/) : find(c, /^Heat 60°F$/), 'cold water reads 60 degrees');
+    },
+  },
+  {
+    name: 'C4-06 the goal line on the canvas names the goal of each mode and fits its strip',
+    async run(t) {
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('newGame', { mode: 'springs', seed: 4 });
+      await t.game('setState', { springs: 12 });
+      let c = await canvasText(t);
+      let g = find(c, /Springs opened 12 \/ 47/);
+      t.expect(g, 'Springs prints its count: ' + c.texts.map(x => x.text).join(' | '));
+      await t.game('newGame', { mode: 'daily', date: '2026-11-12' });
+      c = await canvasText(t);
+      g = find(c, /Daily Soak · Nov 12/);
+      t.expect(g, 'the Daily goal line names the day: ' + c.texts.map(x => x.text).join(' | '));
+      if (!c.land) t.expect(g.x + g.width <= c.info.x + c.info.w - 14 + 0.5 && g.size >= 12, 'the Daily line fits its strip at 12 px or more: ' + g.size + ' px, right edge ' + (g.x + g.width).toFixed(0) + ' of ' + (c.info.x + c.info.w - 14).toFixed(0));
+      await t.game('newGame', { mode: 'classic', seed: 4 });
+      await t.game('setState', { groups: 7 });
+      c = await canvasText(t);
+      t.expect(find(c, /Lines 7/), 'Classic prints its lines: ' + c.texts.map(x => x.text).join(' | '));
+      const lv = await t.game('getLevels');
+      await t.game('newGame', { mode: 'trail', level: lv.find(l => l.name === 'Thermal Water Cascade').id });
+      c = await canvasText(t);
+      g = find(c, /piece/);
+      t.expect(g && /left|done/.test(g.text), 'the Trail goal line counts what is left: ' + (g && g.text));
+      if (!c.land) t.expect(g.x + g.width <= c.info.x + c.info.w - 14 + 0.5, 'the Trail line fits its strip');
+    },
+  },
+);
