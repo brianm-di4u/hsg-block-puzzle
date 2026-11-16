@@ -423,6 +423,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
     <label class="set"><span>Large text</span><input type="checkbox" id="s-big"></label>
     <label class="set"><span>First-game tips</span><button id="b-tips" type="button">Show tips again</button></label>
     <label class="set"><span>Effects</span><select id="s-effects"><option value="full">Full (live water)</option><option value="lite">Lite (faster)</option></select></label>
+    <label class="set"><span>Tray side (wide screens)</span><select id="s-tray"><option value="right">Right</option><option value="left">Left</option></select></label>
     <label class="set"><span>Menu theme</span><select id="s-theme"><option value="system">Follow system</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
     <div class="row"><button data-back class="primary">Done</button></div>
   </div>
@@ -911,7 +912,7 @@ const W8 = { pool:'#1F5F6B', pool2:'#25697A'/*d*/, surface:'#174A54', algae:'#2A
 // ===================================================================== STATE + SAVE
 const STORE_KEY = 'hs-thermal-blocks-v1';
 function defaultSave() {
-  return { v: 1, settings: { sound: true, volume: 0.7, sfx: true, music: true, musicVol: 0.5, ambience: true, ambVol: 0.5, motion: 'system', patterns: true, undo: 1, bigText: false, theme: 'system', effects: 'full', tapPlace: false, tipsSeen: false, haptics: true, difficulty: 'standard' },
+  return { v: 1, settings: { sound: true, volume: 0.7, sfx: true, music: true, musicVol: 0.5, ambience: true, ambVol: 0.5, motion: 'system', patterns: true, undo: 1, bigText: false, theme: 'system', effects: 'full', traySide: 'right', tapPlace: false, tipsSeen: false, haptics: true, difficulty: 'standard' },
     best: { classic: 0, springs: 0, daily: {}, diff: { relaxed: { classic: 0, springs: 0 }, master: { classic: 0, springs: 0 } } }, trail: { done: [], stars: {} }, stats: { games: 0, lines: 0, bestHeat: 0, springs: 0, bestCombo: 0, longest: 0, recent: { classic: [], springs: [], daily: [] } },
     daily: { longest: 0, played: [] }, ach: {}, goals: { boiled: 0 }, eraMax: 0, hints: {}, resume: null };
 }
@@ -1863,8 +1864,10 @@ function computeLayout() {
     const bx = Math.round((W - size) / 2), by = Math.round(top + (availH - size) / 2);
     L.board = { x: bx, y: by, size };
     const th = (size - 20) / 3;
-    L.slots = [0, 1, 2].map(k => ({ x: bx + size + 28, y: by + k * (th + 10), w: trayW, h: th }));
-    L.info = { x: bx - 78, y: by, w: 60, h: size };
+    // The tray can sit on the left and the thermometer on the right, for left-handed play (S2-11).
+    const left = SAVE.settings.traySide === 'left';
+    L.slots = [0, 1, 2].map(k => ({ x: left ? bx - 28 - trayW : bx + size + 28, y: by + k * (th + 10), w: trayW, h: th }));
+    L.info = { x: left ? bx + size + 18 : bx - 78, y: by, w: 60, h: size };
     L.cap = { x: bx, y: by + size + 8, w: size, h: capH - 8 };
   } else {
     // S2-05: the info strip has three rows (heat and era, the goal line at 14 px, the heat bar) and was 40 px; the tray was capped at
@@ -3520,7 +3523,7 @@ function fillSettings() {
   for (const id of ['b-tips', 'b-tips-help']) $(id).textContent = 'Show tips again';
   const s = SAVE.settings;
   $('s-sound').checked = s.sound; $('s-volume').value = Math.round(s.volume * 100); $('s-motion').value = s.motion;
-  $('s-patterns').checked = s.patterns; $('s-undo').value = String(s.undo); $('s-difficulty').value = DIFFICULTIES.includes(s.difficulty) ? s.difficulty : 'standard'; $('s-big').checked = s.bigText; $('s-theme').value = s.theme; $('s-effects').value = s.effects;
+  $('s-patterns').checked = s.patterns; $('s-undo').value = String(s.undo); $('s-difficulty').value = DIFFICULTIES.includes(s.difficulty) ? s.difficulty : 'standard'; $('s-big').checked = s.bigText; $('s-theme').value = s.theme; $('s-effects').value = s.effects; $('s-tray').value = s.traySide === 'left' ? 'left' : 'right';
   $('s-tapplace').checked = s.tapPlace; $('s-haptics').checked = s.haptics; $('row-haptics').style.display = canVibrate() ? '' : 'none';
   $('s-sfx').checked = s.sfx; $('s-music').checked = s.music; $('s-musicvol').value = Math.round(s.musicVol * 100);
   $('s-ambience').checked = s.ambience; $('s-ambvol').value = Math.round(s.ambVol * 100);
@@ -3586,6 +3589,7 @@ function wireDom() {
   $('s-big').addEventListener('change', e => setSetting('bigText', e.target.checked));
   $('s-theme').addEventListener('change', e => setSetting('theme', e.target.value));
   $('s-effects').addEventListener('change', e => setSetting('effects', e.target.value));
+  $('s-tray').addEventListener('change', e => setSetting('traySide', e.target.value));
 }
 function goalSentence() {
   if (S.mode === 'trail') { const L = LEVELS.find(l => l.id === S.level); return 'Goal: ' + (L ? goalLabel(L.goal) : 'solve the puzzle') + '.'; }

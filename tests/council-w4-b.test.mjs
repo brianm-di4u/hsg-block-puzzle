@@ -265,3 +265,54 @@ tests.push({
     t.expect(rowOf(rows, 'Next era') === undefined, 'no Next era row in the last era');
   },
 });
+
+tests.push({
+  name: 'S2-11 the tray can sit on the left in a wide window; the default is unchanged and a piece can be dragged from the left tray',
+  viewports: ['desktop'],
+  async run(t) {
+    await t.game('act', 'setting', 'tipsSeen', true);
+    await t.game('newGame', { mode: 'classic', seed: 3 });
+    const right = await t.game('layout');
+    t.expect(right.land, 'a wide window is a landscape layout');
+    t.expect(right.slots[0].x > right.board.x + right.board.size && right.info.x + right.info.w < right.board.x, 'default: tray right of the board, thermometer left');
+    t.equal((await t.game('act', 'save')).settings.traySide, 'right', 'the default is Right');
+    await t.page.evaluate(() => window.__game.scene('settings'));
+    await t.page.selectOption('#s-tray', 'left');
+    t.equal((await t.game('act', 'save')).settings.traySide, 'left', 'the choice is saved');
+    await t.game('scene', 'game');
+    const left = await t.game('layout');
+    t.expect(left.slots.every(s => s.x + s.w <= left.board.x) && left.info.x >= left.board.x + left.board.size, 'tray left of the board, thermometer right');
+    t.expect(left.slots[0].x >= 0 && left.info.x + left.info.w <= 1280, 'both inside the window');
+    t.equal([left.board.x, left.board.size], [right.board.x, right.board.size], 'the board has not moved');
+    await t.shot('S2-11-tray-left');
+    // drag the first piece from the left tray onto the board with the mouse
+    const before = (await t.state()).placed;
+    const s0 = left.slots[0], tray = (await t.state()).tray[0];
+    const cell = left.board.cell || (left.board.size - 2 * left.board.frame) / 9;
+    await t.page.mouse.move(s0.x + s0.w / 2, s0.y + s0.h / 2);
+    await t.page.mouse.down();
+    await t.page.mouse.move(left.board.x + left.board.size / 2, left.board.y + left.board.size / 2, { steps: 6 });
+    await t.page.mouse.up();
+    t.expect(tray && (await t.state()).placed === before + 1, 'the piece from the left tray was placed');
+    await t.checkLayout();
+  },
+});
+
+tests.push({
+  name: 'S2-11 on a phone on its side the tray can sit on the left too, and portrait ignores the setting',
+  viewports: ['mobile'],
+  async run(t) {
+    await t.game('act', 'setting', 'tipsSeen', true);
+    await t.game('act', 'setting', 'traySide', 'left');
+    await t.game('newGame', { mode: 'classic', seed: 3 });
+    const portrait = await t.game('layout');
+    t.expect(!portrait.land && portrait.slots[0].y > portrait.board.y + portrait.board.size, 'portrait keeps the tray under the board');
+    await t.page.setViewportSize({ width: 844, height: 390 });
+    await t.page.waitForFunction(() => window.__game.layout().land, null, { timeout: 5000 });
+    const L = await t.game('layout');
+    t.expect(L.slots.every(s => s.x + s.w <= L.board.x) && L.slots[0].x >= 0, 'tray left of the board and on the screen');
+    t.expect(L.info.x >= L.board.x + L.board.size && L.info.x + L.info.w <= 844, 'thermometer right of the board and on the screen');
+    await t.shot('S2-11-tray-left-844x390');
+    await t.page.setViewportSize({ width: 390, height: 844 });
+  },
+});
