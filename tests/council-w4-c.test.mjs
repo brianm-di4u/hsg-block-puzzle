@@ -151,4 +151,94 @@ export const tests = [
       await t.shot('C4-02-credits-line');
     },
   },
+
+  {
+    name: 'C4-03 the approved lines are on the cards, in the ticker and in the era captions, character for character, and the Superior year is 2013',
+    viewports: ['desktop'],
+    async run(t) {
+      const w = await t.game('act', 'words');
+      const eras = await t.page.evaluate(() => ERAS.map(e => ({ id: e.id, cap: e.cap })));
+      const facts = id => w.cards[id].facts;
+      t.equal(facts('hale-bathhouse')[2], 'Its former sweat cave in the tufa bluff was called the "electric cave."', 'Hale, third fact');
+      t.equal(facts('superior-bathhouse'), ['The northernmost house on the Row. Its concrete facade is painted to look like tile, with green tile medallions.', 'Since 2013 it has housed a brewery and distillery.', 'Smallest on the Row, it offered only basic hydrotherapy, mercury and massage, at the lowest rates.'], 'Superior: 2013 and a third fact');
+      t.expect(w.cards['superior-bathhouse'].src.includes('Superior Bathhouse Brewery: History'), 'the brewery page is a source of that card');
+      t.equal(facts('ozark-bathhouse')[2], 'It was a bathhouse for middle-class bathers, and it stopped operating in 1977.', 'Ozark, third fact');
+      t.equal(facts('maurice-spring-fountain')[2], 'A new jug fountain was installed on the sidewalk in front of the NPS Administration Building in 1966.', 'Maurice Spring Fountain, third fact');
+      for (const line of ['The park’s traditional bath routine: full tub 98 to 100 degrees, head-out vapor cabinet five minutes.', 'In 1920 an attendant’s fee at Hot Springs was capped at 20 cents a bath, or $4 a course.', 'The park provides spring water free of charge at all of its jug fountains.'])
+        t.expect(w.ticker.includes(line), 'the ticker has: ' + line);
+      const second = { ancient: 'Native peoples quarried novaculite from the hills around Hot Springs for many thousands of years.', 'gilded-spa': '1875: the first Arlington Hotel opens as the state’s largest hotel.', roaring: 'Leo P. McLaughlin was mayor from 1927 to 1947 and ran an "open town," with gamblers paying regular fines.', midcentury: '1967: Gov. Winthrop Rockefeller orders the State Police to crack down on gambling in Hot Springs.', modern: 'Hot Springs Creek flows under Bathhouse Row and empties into Lake Hamilton.' };
+      for (const [id, line] of Object.entries(second)) t.expect(eras.find(e => e.id === id).cap.endsWith(' ' + line), id + ' caption ends with its second sentence');
+      t.expect(eras.find(e => e.id === 'frontier').cap === '1804: William Dunbar writes Thomas Jefferson about "the boiling springs."', 'the other captions are as they were');
+      t.expect(!JSON.stringify(w).includes('Since 2012'), 'no 2012 left');
+      const help = await t.page.evaluate(() => document.getElementById('sc-help').textContent);
+      for (const src of ['Traditional Baths', 'Experience the Water', 'Superior Bathhouse', 'Ozark Bathhouse', 'Arlington Hotel', 'Superior Bathhouse Brewery']) t.expect(help.includes(src), 'Help lists the source: ' + src);
+    },
+  },
+  {
+    name: 'C4-03 the longer cards, postcards, era toast and ticker fit at both sizes',
+    viewports: BOTH,
+    async run(t) {
+      await t.game('act', 'setting', 'tipsSeen', true);
+      const levels = await t.game('getLevels');
+      await t.page.evaluate(([k, ids]) => { const v = JSON.parse(localStorage.getItem(k) || '{}'); v.trail = { ...(v.trail || {}), done: ids, stars: {} }; v.eraMax = 7; localStorage.setItem(k, JSON.stringify(v)); }, ['hs-thermal-blocks-v1', levels.map(l => l.id)]);
+      await t.reload();
+      await t.game('scene', 'cards');
+      const fit = await t.page.evaluate(() => {
+        const bad = [], vw = innerWidth;
+        for (const el of document.querySelectorAll('#sc-cards article.card')) {
+          const r = el.getBoundingClientRect();
+          if (r.right > vw + 0.5 || r.left < -0.5) bad.push('card off screen: ' + el.querySelector('h4, h3, b')?.textContent);
+          for (const c of el.querySelectorAll('li, p, h4')) { const cr = c.getBoundingClientRect(); if (cr.right > r.right + 0.5 || cr.bottom > r.bottom + 0.5 || c.scrollWidth > c.clientWidth + 1) bad.push('clipped in ' + el.textContent.slice(0, 30) + ': ' + c.textContent.slice(0, 40)); }
+        }
+        return { bad, n: document.querySelectorAll('#sc-cards article.card:not(.locked)').length, sw: document.documentElement.scrollWidth, vw };
+      });
+      t.equal(fit.bad, [], 'nothing is clipped or off the screen on the Cards screen (' + fit.n + ' open cards)');
+      t.expect(fit.sw <= fit.vw, 'no sideways scroll');
+      await t.page.evaluate(() => document.getElementById('cards-era').scrollIntoView({ block: 'start' }));
+      await t.waitFrames(2);
+      await t.shot('C4-03-postcards');
+      await t.page.evaluate(() => { const c = [...document.querySelectorAll('#sc-cards article.card')].find(a => /Superior Bathhouse/.test(a.textContent)); c.scrollIntoView({ block: 'center' }); });
+      await t.waitFrames(2);
+      await t.shot('C4-03-superior-card');
+      // the arrival toast of the era with the longest second sentence, with the first-time tip in front and the postcard line behind
+      await t.game('newGame', { mode: 'classic' });
+      const toastBox = await t.page.evaluate(() => {
+        const out = [];
+        for (const e of ERAS) {
+          window.__game.act('toast', e.name + ' · ' + e.years, 'Your score moved the town forward; eras are scenery only. ' + e.cap + ' Postcard added to Fact cards.');
+          const r = document.getElementById('toast').getBoundingClientRect();
+          out.push({ id: e.id, top: r.top, left: r.left, right: r.right, bottom: r.bottom, vw: innerWidth, vh: innerHeight });
+        }
+        return out;
+      });
+      for (const b of toastBox) t.expect(b.top >= 0 && b.left >= 0 && b.right <= b.vw && b.bottom <= b.vh, b.id + ': the era toast is on the screen (top ' + Math.round(b.top) + ')');
+      if (t.viewport === 'mobile') t.expect(toastBox.every(b => b.right - b.left >= 330), 'on a phone the toast uses the width, not half of it: ' + toastBox.map(b => Math.round(b.right - b.left)).join(', '));
+      await t.game('act', 'toast', 'Roaring Spa Town · 1921–1946', 'Your score moved the town forward; eras are scenery only. ' + await t.page.evaluate(() => ERAS[3].cap) + ' Postcard added to Fact cards.');
+      await t.shot('C4-03-era-toast');
+      await t.game('act', 'hideToast');
+    },
+  },
+
+  {
+    name: 'C4-03 the results card shows the longer era caption inside itself, and the title ticker holds the new lines',
+    viewports: BOTH,
+    async run(t) {
+      await t.game('act', 'setting', 'tipsSeen', true);
+      const lines = await t.page.evaluate(() => TICKER.slice(-3));
+      const tk = await t.page.evaluate(ls => ls.map(l => { document.getElementById('ticker').textContent = l; const r = document.getElementById('ticker').getBoundingClientRect(); return { l, left: r.left, right: r.right, vw: innerWidth, h: r.height, sw: document.documentElement.scrollWidth }; }), lines);
+      for (const x of tk) t.expect(x.left >= 0 && x.right <= x.vw && x.sw <= x.vw, 'the ticker line fits the title: ' + x.l.slice(0, 40));
+      await t.shot('C4-03-ticker');
+      await t.seed(8);
+      await t.game('newGame', { mode: 'classic' });
+      const b = new Array(81).fill(0); for (let i = 0; i < 81; i++) if ((Math.floor(i / 9) + i % 9) % 2 === 0) b[i] = 1 + (i % 6);
+      await t.game('setState', { board: b, tray: [{ id: 'o1' }, { id: 'o4' }, { id: 'i2h' }], score: 900, era: 3, groups: 12, placed: 40, undoLeft: 0 });
+      await t.game('act', 'hideToast');
+      await t.game('act', 'place', 0, 0, 1);
+      await t.page.waitForFunction(() => window.__game.getState().scene === 'over', null, { timeout: 8000 });
+      const r = await t.page.evaluate(() => { const e = document.getElementById('ov-era'), p = document.querySelector('#sc-over .panel').getBoundingClientRect(), q = e.getBoundingClientRect(); return { text: e.textContent, inside: q.left >= p.left - 0.5 && q.right <= p.right + 0.5, sw: document.documentElement.scrollWidth, vw: innerWidth }; });
+      t.expect(r.text.includes('Leo P. McLaughlin was mayor from 1927 to 1947'), 'the card carries the Roaring caption: ' + r.text.slice(0, 60));
+      t.expect(r.inside && r.sw <= r.vw, 'the caption sits inside the card');
+      await t.shot('C4-03-results-era');
+    },
+  },
 ];

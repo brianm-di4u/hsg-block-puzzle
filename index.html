@@ -204,7 +204,7 @@ table.keys{border-collapse:collapse;width:100%}
 table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertical-align:top}
 
 /* Toast */
-#toast{position:fixed;left:50%;bottom:max(12px,env(safe-area-inset-bottom));transform:translateX(-50%);max-width:min(460px,calc(100% - 24px));background:var(--panel);color:var(--color-text);border:2px solid var(--color-highlight);border-radius:var(--radius-lg);padding:10px 14px;z-index:8;display:none;box-shadow:0 6px 20px rgba(0,0,0,.3);text-align:center;font-size:.95em;pointer-events:none}
+#toast{position:fixed;left:50%;bottom:max(12px,env(safe-area-inset-bottom));transform:translateX(-50%);width:max-content;max-width:min(460px,calc(100% - 24px));background:var(--panel);color:var(--color-text);border:2px solid var(--color-highlight);border-radius:var(--radius-lg);padding:10px 14px;z-index:8;display:none;box-shadow:0 6px 20px rgba(0,0,0,.3);text-align:center;font-size:.95em;pointer-events:none}
 #toast.on{display:block}
 #toast.above{z-index:40}   /* the save notices are read over a title or settings screen too */
 #achtoast{position:fixed;left:50%;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 78px);transform:translateX(-50%);max-width:min(380px,calc(100% - 24px));background:var(--panel);color:var(--color-text);border:2px solid #C9A23F;border-radius:999px;padding:6px 16px;z-index:20;display:none;box-shadow:0 6px 20px rgba(0,0,0,.35);text-align:center;font-size:.9em;line-height:1.25;pointer-events:none}
@@ -397,7 +397,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
     <p class="muted">Undo: one per round by default (change it in Settings). Stuck? The lightbulb button (or <kbd>H</kbd>) shows one good move, once for each tray, in Classic, Daily Soak and Springs.</p>
     <div class="row"><button id="b-tips-help" type="button">Show tips again</button></div>
     <h3>Sources</h3>
-    <p class="muted">The facts in the tickers, cards and Records come from National Park Service (NPS) pages (Maurice Historic Display Spring; History &amp; Culture; Hot Springs &amp; North Mountain Trails; a 1920 brochure), USGS tritium and carbon-14 dating, the Encyclopedia of Arkansas, and Wikipedia (Bathhouse Row; Hot Springs National Park; Hot Springs, Arkansas). Each card keeps its own source in the game files.</p>
+    <p class="muted">The facts in the tickers, cards and Records come from National Park Service (NPS) pages (Maurice Historic Display Spring; History &amp; Culture; Hot Springs &amp; North Mountain Trails; Traditional Baths; Experience the Water; Superior Bathhouse; Ozark Bathhouse; a 1920 brochure), USGS tritium and carbon-14 dating, the Encyclopedia of Arkansas, Wikipedia (Bathhouse Row; Hot Springs National Park; Hot Springs, Arkansas), and the history pages of the Arlington Hotel and the Superior Bathhouse Brewery. Each card keeps its own source in the game files.</p>
     <h3>About the pictures</h3>
     <p class="muted">Art: 3D block-outs painted with AI image tools for this game.</p>
     <p class="muted">The backdrops are game art of downtown Hot Springs seen from the hills above Central Avenue and Bathhouse Row, one per era, from the wild creek valley before 1804 to today. Times of day, seasons and small details are artistic; landmarks follow sources listed in the game files. Terrain: USGS 3D Elevation Program (public domain). Building footprints: © OpenStreetMap contributors (ODbL). Font: Fraunces (SIL Open Font License).</p>
@@ -436,19 +436,19 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
 // ===================================================================== DATA
 const ERAS = [ // ids, names and ranges: research/timeline.json; score thresholds are game design
   { id:'ancient',    name:'Ancient Valley',    years:'before 1804', at:0,     pal:'ouachita-forest',
-    cap:'Steam off the springs gave the valley its old nickname: the Valley of Vapors.' },
+    cap:'Steam off the springs gave the valley its old nickname: the Valley of Vapors. Native peoples quarried novaculite from the hills around Hot Springs for many thousands of years.' },
   { id:'frontier',   name:'Frontier Springs',  years:'1804–1874',   at:150,   pal:'frontier-valley',
     cap:'1804: William Dunbar writes Thomas Jefferson about "the boiling springs."' },
   { id:'gilded-spa', name:'Gilded Spa',        years:'1875–1920',   at:400,   pal:'gilded-spa',
-    cap:'Brick bathhouses rise along Bathhouse Row. The Hale (1892–93) is the oldest one still standing.' },
+    cap:'Brick bathhouses rise along Bathhouse Row. The Hale (1892–93) is the oldest one still standing. 1875: the first Arlington Hotel opens as the state’s largest hotel.' },
   { id:'roaring',    name:'Roaring Spa Town',  years:'1921–1946',   at:800,   pal:'deco-neon',
-    cap:'March 4, 1921: the reservation becomes Hot Springs National Park, the nation’s 18th.' },
+    cap:'March 4, 1921: the reservation becomes Hot Springs National Park, the nation’s 18th. Leo P. McLaughlin was mayor from 1927 to 1947 and ran an "open town," with gamblers paying regular fines.' },
   { id:'midcentury', name:'Midcentury Vapors', years:'1947–1967',   at:1500,  pal:'motor-hotel',
-    cap:'Bathing peaked in 1946, then declined. The Fordyce was the first Row bathhouse to close, in 1962.' },
+    cap:'Bathing peaked in 1946, then declined. The Fordyce was the first Row bathhouse to close, in 1962. 1967: Gov. Winthrop Rockefeller orders the State Police to crack down on gambling in Hot Springs.' },
   { id:'revival',    name:'Revival Years',     years:'1968–1999',   at:2500,  pal:'nps-rustic',
     cap:'1982: NPS creates the Thermal Water Cascade. 1989: the Fordyce reopens as the park visitor center.' },
   { id:'modern',     name:'Modern Spa City',   years:'2000–2026',   at:4000,  pal:'lake-life',
-    cap:'Today the Buckstaff still gives traditional baths, and the Superior pours beer as a brewery.' },
+    cap:'Today the Buckstaff still gives traditional baths, and the Superior pours beer as a brewery. Hot Springs Creek flows under Bathhouse Row and empties into Lake Hamilton.' },
 ];
 
 // Piece table (original set). Each orientation is its own piece; a shape family keeps one color (1..6).
@@ -852,6 +852,9 @@ const TICKER = [
   'In 1904 Bertram Boltwood found the waters slightly radioactive, mostly from dissolved radon.',
   'Dunbar and Hunter counted four principal springs and two lesser ones in 1804.',
   'In 1920 a prescribed bath "course" meant 21 baths.',
+  'The park’s traditional bath routine: full tub 98 to 100 degrees, head-out vapor cabinet five minutes.',
+  'In 1920 an attendant’s fee at Hot Springs was capped at 20 cents a bath, or $4 a course.',
+  'The park provides spring water free of charge at all of its jug fountains.',
 ];
 // Water cards (S3-15): collected by play in any mode, not only Spring Trail. Each shows one of the ticker's sourced lines above
 // (its source is on the Help screen). `lines` is lifetime groups cleared (10 years of water's age each); `streak` is the longest run of Daily Soak days.
@@ -873,10 +876,12 @@ const CARDS = {
     'Its water comes up at about 143°F and runs into Hot Springs Creek.'], src:'NPS: Maurice Historic Display Spring' },
   'hale-bathhouse': { place:'Hale Bathhouse', year:'1892–93', facts:[
     'The oldest bathhouse still standing on Bathhouse Row.',
-    'In 1939–40 its front was remodeled in Mission style: red-tile hipped roof, wrought-iron grilles.'], src:'Encyclopedia of Arkansas; Wikipedia: Bathhouse Row' },
+    'In 1939–40 its front was remodeled in Mission style: red-tile hipped roof, wrought-iron grilles.',
+    'Its former sweat cave in the tufa bluff was called the "electric cave."'], src:'Encyclopedia of Arkansas; Wikipedia: Bathhouse Row' },
   'maurice-spring-fountain': { place:'Maurice Spring Fountain', year:'1903', facts:[
     'A fountain with a retaining wall, finished on Bathhouse Row in 1903.',
-    'The Noble Fountain was moved to the Reserve Avenue end of the Grand Promenade in 1957.'], src:'Wikipedia: Bathhouse Row' },
+    'The Noble Fountain was moved to the Reserve Avenue end of the Grand Promenade in 1957.',
+    'A new jug fountain was installed on the sidewalk in front of the NPS Administration Building in 1966.'], src:'Wikipedia: Bathhouse Row' },
   'buckstaff-bathhouse': { place:'Buckstaff Bathhouse', year:'1912', facts:[
     'Baths have been offered here since 1912, and after 1985 it was the only Row bathhouse still open.',
     'Look for cream brick, white stucco trim and brass "Buckstaff Baths" letters.'], src:'Encyclopedia of Arkansas; Wikipedia: Bathhouse Row' },
@@ -885,13 +890,15 @@ const CARDS = {
     '"Spring number 46" sits in a glazed-tile room in its basement. It reopened as the park visitor center in 1989.'], src:'Wikipedia: Bathhouse Row' },
   'superior-bathhouse': { place:'Superior Bathhouse', year:'1916', facts:[
     'The northernmost house on the Row. Its concrete facade is painted to look like tile, with green tile medallions.',
-    'Since 2012 it has housed a brewery and distillery.'], src:'Wikipedia: Bathhouse Row; Wikipedia: Hot Springs, Arkansas' },
+    'Since 2013 it has housed a brewery and distillery.',
+    'Smallest on the Row, it offered only basic hydrotherapy, mercury and massage, at the lowest rates.'], src:'Wikipedia: Bathhouse Row; Wikipedia: Hot Springs, Arkansas; NPS: Superior Bathhouse; Superior Bathhouse Brewery: History' },
   'quapaw-bathhouse': { place:'Quapaw Bathhouse', year:'1922', facts:[
     'It was to be the Platt Bathhouse, until digging its basement turned up Native artifacts and a tufa cave.',
     'A chevron-mosaic tiled dome with a small copper cupola crowns it.'], src:'Encyclopedia of Arkansas; Wikipedia: Bathhouse Row' },
   'ozark-bathhouse': { place:'Ozark Bathhouse', year:'1922', facts:[
     'A Spanish Colonial Revival design by Mann & Stern, with twin towers in three-tiered setbacks.',
-    'It reopened in 2014 as a cultural center showing artist-in-residence work.'], src:'Wikipedia: Bathhouse Row' },
+    'It reopened in 2014 as a cultural center showing artist-in-residence work.',
+    'It was a bathhouse for middle-class bathers, and it stopped operating in 1977.'], src:'Wikipedia: Bathhouse Row; NPS: Ozark Bathhouse' },
   'lamar-bathhouse': { place:'Lamar Bathhouse', year:'1923', facts:[
     'Its 1923 opening completed Bathhouse Row.',
     'Baths stopped here in November 1985, and today it holds the park store.'], src:'NPS: History & Culture; Wikipedia: Bathhouse Row' },

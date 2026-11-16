@@ -66,7 +66,7 @@ facts and the source line. Puzzle layouts are game design; only the card text is
 | 3 | Maurice Spring Fountain | `maurice-spring-fountain` | Completed on Bathhouse Row in 1903. The Noble Fountain was moved to the Promenade's south end in 1957. | hs-0091 | Wikipedia: Bathhouse Row |
 | 4 | Buckstaff Bathhouse | `buckstaff-bathhouse` | Has offered baths continuously since 1912. Cream brick with brass "Buckstaff Baths" letters. | hs-0062, hs-0069 | EOA / Wikipedia: Bathhouse Row |
 | 5 | Fordyce Bathhouse | `fordyce-bathhouse` | Built 1914–15 for $212,749.55. Spring number 46 sits in a glazed-tile basement room. | hs-0064, hs-0075 | Wikipedia: Bathhouse Row |
-| 6 | Superior Bathhouse | `superior-bathhouse` | The northernmost Row house (1916), with green tile medallions. A brewery and distillery since 2012. | hs-0066, hs-0102 | Wikipedia: Bathhouse Row / Hot Springs |
+| 6 | Superior Bathhouse | `superior-bathhouse` | The northernmost Row house (1916), with green tile medallions. A brewery and distillery since 2013. | hs-0066, hs-0102 | Wikipedia: Bathhouse Row / Hot Springs |
 | 7 | Quapaw Bathhouse | `quapaw-bathhouse` | Planned as the Platt Bathhouse; renamed after Native artifacts and a tufa cave turned up in its basement. Crowned by a chevron-mosaic dome. | hs-0078, hs-0082 | EOA / Wikipedia: Bathhouse Row |
 | 8 | Ozark Bathhouse | `ozark-bathhouse` | Mann & Stern, 1922, with twin towers. Reopened in 2014 as a cultural center. | hs-0085, hs-0104 | Wikipedia: Bathhouse Row |
 | 9 | Lamar Bathhouse | `lamar-bathhouse` | Its 1923 opening completed Bathhouse Row. Bathing ended in November 1985. | hs-0077, hs-0097 | NPS / Wikipedia: Bathhouse Row |
