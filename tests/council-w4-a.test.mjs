@@ -296,6 +296,57 @@ tests.push(
   },
 );
 
+// ---------------------------------------------------------------------- S4-10: Settings in the bathhouse's own materials
+tests.push(
+  {
+    name: 'S4-10 Settings has brass toggles, enamel pills and leaded-glass corners, and they still work',
+    async run(t) {
+      await t.game('act', 'setting', 'tipsSeen', true);
+      for (const scheme of ['light', 'dark']) {
+        await t.game('act', 'setting', 'theme', scheme);
+        t.equal(await t.page.evaluate(() => document.documentElement.classList.contains('theme-dark')), scheme === 'dark', scheme + ': the menu theme is applied');
+        await t.game('scene', 'settings');
+        await t.waitForAnimations();
+        const info = await t.page.evaluate(() => {
+          const cb = document.getElementById('s-music'), sel = document.getElementById('s-difficulty'), panel = document.querySelector('#sc-settings .panel');
+          const cs = getComputedStyle(cb), ss = getComputedStyle(sel), ps = getComputedStyle(panel), knob = getComputedStyle(cb, '::before');
+          const r = cb.getBoundingClientRect(), pr = sel.getBoundingClientRect();
+          return { cbAppearance: cs.appearance, cbRadius: parseFloat(cs.borderTopLeftRadius), cbW: r.width, cbH: r.height, checked: cb.checked, knob: knob.transform, knobContent: knob.content,
+            selAppearance: ss.appearance, selRadius: parseFloat(ss.borderTopLeftRadius), selH: pr.height, selBorder: ss.borderTopColor, panelImg: ps.backgroundImage, panelBgSize: ps.backgroundSize,
+            rowH: cb.closest('.set').getBoundingClientRect().height };
+        });
+        t.equal(info.cbAppearance, 'none', scheme + ': the checkbox is drawn by the game, not the system');
+        t.expect(info.cbRadius >= info.cbH / 2 - 0.5 && info.cbW > info.cbH * 1.5, scheme + ': the checkbox is a pill-shaped toggle ' + info.cbW + 'x' + info.cbH);
+        t.expect(info.knobContent !== 'none', scheme + ': the toggle has a knob');
+        t.equal(info.selAppearance, 'none', scheme + ': the select is drawn by the game');
+        t.expect(info.selRadius >= info.selH / 2 - 0.5 && info.selH >= 44, scheme + ': the select is an enamel pill at least 44 px tall: ' + info.selH);
+        t.expect(info.rowH >= 44, scheme + ': the row is a touch target at least 44 px tall: ' + info.rowH);
+        t.equal((info.panelImg.match(/data:image\/svg\+xml/g) || []).length, 4, scheme + ': the card has four corner diamonds');
+        // The knob slides when the switch changes, and the switch still changes the setting (by its label too).
+        const before = (await t.game('act', 'save')).settings.music;
+        await t.page.click('#s-music');
+        t.equal((await t.game('act', 'save')).settings.music, !before, scheme + ': clicking the toggle changes Music');
+        const moved = await t.page.evaluate(() => getComputedStyle(document.getElementById('s-music'), '::before').transform);
+        t.expect(moved !== info.knob, scheme + ': the knob moved with the switch (' + info.knob + ' to ' + moved + ')');
+        await t.page.click('#sc-settings .set:has(#s-music) span');
+        t.equal((await t.game('act', 'save')).settings.music, before, scheme + ': clicking the label changes it back');
+        await t.page.focus('#s-music'); await t.page.keyboard.press('Tab');
+        await t.page.focus('#s-music');
+        const ring = await t.page.evaluate(() => getComputedStyle(document.getElementById('s-music')).outlineStyle);
+        t.expect(ring !== 'none', scheme + ': a focused toggle shows a focus ring');
+        await t.checkLayout();
+        await t.shot('S4-10-settings-' + scheme);
+      }
+      await t.game('act', 'setting', 'theme', 'light');
+      await t.game('scene', 'title');
+      await t.game('newGame', { mode: 'classic', seed: 2 });
+      await t.game('act', 'pause');
+      await t.waitForAnimations();
+      await t.shot('S4-10-pause');
+    },
+  },
+);
+
 // ---------------------------------------------------------------------- C4-05: nothing the speakers get passes 0.95, however loud the moment
 tests.push(
   {
