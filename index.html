@@ -2406,7 +2406,9 @@ function spawnClearFx(res) {
     addFx({ type: 'steam', x, y, dur: 1000 + R() * 700, h: cell * (1.8 + R() * 2), ph: R() * 6, w: cell * (0.45 + R() * 0.3), delay: 120 + R() * 160 });
   }
   if (res.G >= 2 || res.bonus) addFx({ type: 'shake', dur: 300, amp: Math.min(9, 2 + res.G * 1.8) });
+  else addFx({ type: 'shake', dur: SINGLE_SHAKE.dur, amp: SINGLE_SHAKE.amp });   // the common one-group clear lands with a small knock too (S1-11)
 }
+const SINGLE_SHAKE = { dur: 120, amp: 1.5 };   // before S1-11 a single group did not shake at all
 function popup(textStr, x, y, col = '#FFFFFF', size = 22, opts = {}) {
   const b = LAY.board; ctx.font = '800 ' + size + 'px ' + FONT_DISPLAY;
   const half = ctx.measureText(textStr).width / 2 + 10;
@@ -3898,6 +3900,7 @@ window.__game = {
       case 'freezeFx': { const last = FX.reduce((m, f) => Math.max(m, f.t0), 0); UI.fxFrozen = last + (a[0] || 0); dirty = true; draw(performance.now()); return FX.length; }
       case 'unfreezeFx': UI.fxFrozen = null; dirty = true; return true;
       case 'fxTypes': return FX.map(f => f.type);
+      case 'shakes': return FX.filter(f => f.type === 'shake').map(f => ({ dur: f.dur, amp: f.amp }));
       case 'fxList': return FX.filter(f => f.type === 'popup' || f.type === 'banner').map(f => ({ type: f.type, text: f.text, sub: f.sub || '', x: f.x || 0, size: f.size || 0, level: f.level || 0 }));
       case 'art': return { on: ART.on, files: ART_FILES, loaded: Object.keys(ART.img).filter(k => ART.img[k].ok), failed: ART.failed, loading: ART.loading, water: WATER.on, gl: !!WATER.gl, software: !!WATER.software, autoLite: PERF.autoLite };
       case 'loadAllArt': ART_FILES.forEach(n => loadArt(n)); return ART.loading;

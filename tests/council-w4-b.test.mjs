@@ -109,3 +109,43 @@ export const tests = [
     },
   },
 ];
+
+// A board one cell short of a full top row: the single tile at (0,8) clears that row and nothing else.
+async function oneGroup(t) {
+  await t.seed(8);
+  await t.game('newGame', { mode: 'classic' });
+  const b = EMPTY(); for (let c = 0; c < 8; c++) b[c] = 1;
+  await t.game('setState', { board: b, tray: [{ id: 'o1' }, { id: 'o1' }, { id: 'o1' }], score: 0, heat: 3, placed: 5 });
+  await t.game('act', 'hideToast');
+}
+
+tests.push(
+  {
+    name: 'S1-11 a single-group clear gives a short, small shake; a plain drop gives none; a double keeps its bigger one',
+    viewports: BOTH,
+    async run(t) {
+      await oneGroup(t);
+      const none = await t.page.evaluate(() => { const g = window.__game; g.act('place', 1, 4, 4); return g.act('shakes'); });
+      t.equal(none, [], 'a drop that clears nothing does not shake');
+      const one = await t.page.evaluate(() => { const g = window.__game; const r = g.act('place', 0, 0, 8); return { G: r.G, shakes: g.act('shakes') }; });
+      t.equal(one.G, 1, 'one group cleared');
+      t.equal(one.shakes, [{ dur: 120, amp: 1.5 }], 'a 120 ms shake with amp 1.5');
+      await t.game('newGame', { mode: 'classic' });
+      const b = EMPTY(); for (let c = 0; c < 8; c++) { b[c] = 1; b[9 + c] = 1; }
+      await t.game('setState', { board: b, tray: [{ id: 'i2v' }, { id: 'o1' }, { id: 'o1' }], score: 0, heat: 3, placed: 5 });
+      const two = await t.page.evaluate(() => { const g = window.__game; const r = g.act('place', 0, 0, 8); return { G: r.G, shakes: g.act('shakes') }; });
+      t.equal(two.G, 2, 'two groups cleared');
+      t.equal(two.shakes, [{ dur: 300, amp: 5.6 }], 'the double-clear shake is as it was');
+    },
+  },
+  {
+    name: 'S1-11 reduced motion: a single-group clear does not shake',
+    viewports: ['desktop'],
+    reducedMotion: true,
+    async run(t) {
+      await oneGroup(t);
+      const r = await t.page.evaluate(() => { const g = window.__game; g.act('place', 0, 0, 8); return g.act('shakes'); });
+      t.equal(r, [], 'no shake');
+    },
+  },
+);
