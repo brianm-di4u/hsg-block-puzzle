@@ -296,6 +296,102 @@ tests.push(
   },
 );
 
+// ---------------------------------------------------------------------- S1-12: a gamepad drives the keyboard path
+// A simulated pad (nobody here has a controller; a real one needs trying by hand). The test holds a button down until the game
+// has acted on it, then lets go, so it waits for the game and not for a time.
+const fakePad = () => {
+  const pad = { id: 'Test pad (simulated)', index: 0, connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) };
+  window.__pad = pad;
+  navigator.getGamepads = () => [pad, null, null, null];
+};
+const BTN = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, START: 9, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
+// Press a button, wait until `cond` holds in the page, release.
+async function press(t, name, cond, arg) {
+  await t.page.evaluate(i => { window.__pad.buttons[i] = { pressed: true, value: 1 }; }, BTN[name]);
+  try { await t.page.waitForFunction(cond, arg, { timeout: 8000 }); } catch (e) { t.fail('the game did not answer the ' + name + ' button: ' + String(cond).slice(0, 90)); } finally {
+    await t.page.evaluate(i => { window.__pad.buttons[i] = { pressed: false, value: 0 }; }, BTN[name]);
+    await t.waitFrames(2);   // the game has to see the button up before the next press can count as a new press
+  }
+}
+
+tests.push(
+  {
+    name: 'S1-12 a gamepad picks, moves and places a piece, undoes, asks for a hint and pauses',
+    initScript: fakePad,
+    async run(t) {
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('newGame', { mode: 'classic', seed: 21 });
+      await t.waitFrames(2);
+      // D-pad down selects the first piece (as the Down arrow does), then moves it.
+      await press(t, 'DOWN', () => window.__game.getState().sel >= 0);
+      const s0 = await t.state();
+      t.expect(s0.ghost, 'a ghost is showing after the first D-pad press');
+      const c0 = s0.ghost.c, r0 = s0.ghost.r;
+      await press(t, 'RIGHT', c => window.__game.getState().ghost && window.__game.getState().ghost.c > c, c0);
+      t.expect((await t.state()).ghost.c > c0, 'D-pad right moves the ghost right');
+      const r1 = (await t.state()).ghost.r;
+      await press(t, 'DOWN', r => window.__game.getState().ghost.r > r, r1);
+      await press(t, 'UP', r => window.__game.getState().ghost.r < r, (await t.state()).ghost.r);
+      // The shoulder buttons cycle the piece, as Q and E do.
+      const sel = (await t.state()).sel;
+      await press(t, 'RB', s => window.__game.getState().sel !== s, sel);
+      await press(t, 'LB', s => window.__game.getState().sel === s, sel);
+      // A places.
+      const before = (await t.state()).placed;
+      await press(t, 'A', n => window.__game.getState().placed > n, before);
+      t.equal((await t.state()).placed, before + 1, 'A placed the piece');
+      // B undoes.
+      await press(t, 'B', n => window.__game.getState().placed < n, before + 1);
+      t.equal((await t.state()).placed, before, 'B undid the move');
+      // Y asks for a hint, once for the tray.
+      await press(t, 'Y', () => !!window.__game.act('hintState').hint);
+      t.expect((await t.game('act', 'hintState')).hint, 'Y showed a hint');
+      // Start pauses, and pauses again resumes.
+      await press(t, 'START', () => window.__game.getState().scene === 'pause');
+      await press(t, 'START', () => window.__game.getState().scene === 'game');
+    },
+  },
+  {
+    name: 'S1-12 the left stick moves the piece like the D-pad, and a held direction repeats',
+    initScript: fakePad,
+    async run(t) {
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('newGame', { mode: 'classic', seed: 22 });
+      await t.waitFrames(2);
+      await press(t, 'DOWN', () => window.__game.getState().sel >= 0);
+      const c0 = (await t.state()).ghost.c;
+      await t.page.evaluate(() => { window.__pad.axes[0] = 1; });
+      await t.page.waitForFunction(c => window.__game.getState().ghost.c >= c + 3, c0, { timeout: 8000 });
+      await t.page.evaluate(() => { window.__pad.axes[0] = 0; });
+      t.expect((await t.state()).ghost.c >= c0 + 3, 'a held stick keeps moving the piece right');
+      const c1 = (await t.state()).ghost.c;
+      await t.page.evaluate(() => { window.__pad.axes[0] = -1; });
+      await t.page.waitForFunction(c => window.__game.getState().ghost.c < c, c1, { timeout: 8000 });
+      await t.page.evaluate(() => { window.__pad.axes[0] = 0; });
+    },
+  },
+  {
+    name: 'S1-12 on the menus the D-pad moves between buttons, A presses one and B goes back',
+    initScript: fakePad,
+    async run(t) {
+      await t.game('scene', 'title');
+      await t.waitFrames(3);
+      const first = await t.page.evaluate(() => document.activeElement && document.activeElement.id + '|' + document.activeElement.textContent.trim().slice(0, 20));
+      await press(t, 'DOWN', f => { const a = document.activeElement; return a && (a.id + '|' + a.textContent.trim().slice(0, 20)) !== f; }, first);
+      const focus = async () => t.page.evaluate(() => document.activeElement && document.activeElement.textContent.trim());
+      // Walk to the How to play button, then press A.
+      let guard = 0;
+      while (!/How to play/.test(await focus()) && guard++ < 12) {
+        const f = await t.page.evaluate(() => document.activeElement.textContent.trim());
+        await press(t, 'DOWN', f0 => document.activeElement.textContent.trim() !== f0, f);
+      }
+      t.expect(/How to play/.test(await focus()), 'the D-pad reached How to play');
+      await press(t, 'A', () => window.__game.getState().scene === 'help');
+      await press(t, 'B', () => window.__game.getState().scene === 'title');
+    },
+  },
+);
+
 // ---------------------------------------------------------------------- S4-10: Settings in the bathhouse's own materials
 tests.push(
   {
@@ -426,6 +522,36 @@ tests.push(
         t.equal((await t.state()).over, true, key + ' ' + value + ': the game ended');
         t.equal(await t.page.evaluate(() => window.__vib.length), 0, key + ' ' + value + ': no pulse');
       }
+    },
+  },
+);
+
+tests.push(
+  {
+    name: 'S1-12 on Settings the pad changes a slider with left and right, and a choice with A',
+    initScript: fakePad,
+    async run(t) {
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('scene', 'settings');
+      await t.waitFrames(3);
+      await t.page.focus('#s-musicvol');
+      const v0 = (await t.game('act', 'save')).settings.musicVol;
+      await press(t, 'LEFT', v => window.__game.getState().settings.musicVol < v, v0);
+      t.expect((await t.game('act', 'save')).settings.musicVol < v0, 'left lowers the Music volume');
+      await t.page.focus('#s-difficulty');
+      const d0 = (await t.game('act', 'save')).settings.difficulty;
+      await press(t, 'A', d => window.__game.getState().settings.difficulty !== d, d0);
+      t.expect((await t.game('act', 'save')).settings.difficulty !== d0, 'A moves the Difficulty choice on');
+      await t.page.focus('#s-sfx');
+      const s0 = (await t.game('act', 'save')).settings.sfx;
+      await press(t, 'A', s => window.__game.getState().settings.sfx !== s, s0);
+      t.expect((await t.game('act', 'save')).settings.sfx !== s0, 'A flips a switch');
+      await t.game('scene', 'help');
+      await t.waitFrames(2);
+      t.expect(/Gamepad/.test(await t.page.textContent('#sc-help table.keys')), 'How to play lists the gamepad buttons');
+      await t.page.locator('#sc-help table.keys tr:last-child').scrollIntoViewIfNeeded();
+      await t.checkLayout();
+      await t.shot('S1-12-help-gamepad');
     },
   },
 );
