@@ -129,4 +129,26 @@ export const tests = [
       await t.shot('S1-13-tray');
     },
   },
+
+  {
+    name: 'C4-02 the Help screen says how the art was made, in one plain line that is on screen and inside its card',
+    viewports: BOTH,
+    async run(t) {
+      await t.game('scene', 'help');
+      const LINE = 'Art: 3D block-outs painted with AI image tools for this game.';
+      const info = await t.page.evaluate(line => {
+        const p = [...document.querySelectorAll('#sc-help p')].find(e => e.textContent.trim() === line);
+        if (!p) return null;
+        p.scrollIntoView({ block: 'center' });
+        const r = p.getBoundingClientRect(), panel = document.querySelector('#sc-help .panel').getBoundingClientRect();
+        return { left: r.left, right: r.right, panelL: panel.left, panelR: panel.right, vw: innerWidth, lines: Math.round(r.height / parseFloat(getComputedStyle(p).lineHeight)), count: [...document.querySelectorAll('#sc-help p')].filter(e => /AI image/i.test(e.textContent)).length };
+      }, LINE);
+      t.expect(!!info, 'the line is in the Help screen exactly as written');
+      t.expect(info.left >= info.panelL && info.right <= info.panelR && info.right <= info.vw, 'it sits inside the card and the screen');
+      t.equal(info.count, 1, 'it is said once');
+      t.expect(await t.page.evaluate(() => !/OpenAI|Codex|Blender|Midjourney|Stable/i.test(document.querySelector('#sc-help').innerText.split('About the pictures')[1] || '')), 'no company or product is named in that section');
+      await t.checkLayout({ allowScrollY: true });
+      await t.shot('C4-02-credits-line');
+    },
+  },
 ];
