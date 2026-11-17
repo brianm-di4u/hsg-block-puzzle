@@ -81,7 +81,7 @@ button.primary{background:var(--color-primary) linear-gradient(rgba(255,255,255,
 #b-hint:disabled{opacity:.45}
 #b-undo .cnt{font-weight:800;font-family:var(--font-sans)}
 /* Phone HUD (S4-14, S2-12, C4-04): the four buttons leave about 140 px at 360 wide, so the figures are smaller, the labels are tighter, the buttons
-   closer, and Best steps aside while a goal shows. A five-digit figure (.long) steps down once more: at 360 px a 12,345 beside a 99,999 needs it.
+   closer, and Best steps aside while a goal shows. A five-digit figure (.long) steps down once more: at 360 px a 12,345 beside a 99,999 needs it, and below 340 px it steps down again.
    The rules hold up to 640 px wide, which takes in a phone on its side; below 360 px the buttons shrink as well. */
 @media (max-width:640px){
   #hud{gap:5px} #hud button{padding:6px 7px}
@@ -95,6 +95,9 @@ button.primary{background:var(--color-primary) linear-gradient(rgba(255,255,255,
   #hud{gap:3px} #hud button{padding:5px} #hud svg{width:20px;height:20px}
   #hud .mid{gap:5px} #hud .stat.score .num{font-size:1.4em} #hud .stat.best .num,#hud .stat.goal .num{font-size:.95em}
   #hud.long .stat.score .num{font-size:1.2em} #hud.long .stat.best .num,#hud.long .stat.goal .num{font-size:.85em}
+}
+@media (max-width:339px){
+  #hud.long .stat.score .num{font-size:1.02em} #hud.long .stat.best .num,#hud.long .stat.goal .num{font-size:.8em}
 }
 @media (orientation:landscape) and (min-width:900px){:root.big{--hud-h:88px}}
 @media (orientation:landscape) and (max-height:480px){:root{--hud-h:52px} #hud{padding-top:calc(9px + env(safe-area-inset-top))} #hud .stat.score .num{font-size:2.2em}}
@@ -1927,7 +1930,7 @@ function computeLayout() {
   b.cell = (b.size - b.frame * 2) / 9;
   if (INS.l) { b.x += INS.l; L.slots.forEach(sl => { sl.x += INS.l; }); L.info.x += INS.l; if (L.cap) L.cap.x += INS.l; }
   b.gx = b.x + b.frame; b.gy = b.y + b.frame;
-  // one tray scale for every piece (up to 0.62 of a board cell); long pieces shrink to fit their slot
+  // one tray scale for every piece (0.75 of a board cell on a wide screen, TRAY_LAND_SCALE); long pieces shrink to fit their slot
   L.trayPad = L.short ? 12 : 22;   // room kept round a tray piece inside its slot (22 everywhere before S1-07)
   L.trayScale = land ? (L.short ? Math.min(b.cell * 0.9, (L.slots[0].h - 16) / 3.2) : Math.min(b.cell * TRAY_LAND_SCALE, (L.slots[0].h - 30) / 3.2)) : Math.min(b.cell * 0.9, (L.slots[0].h - 24) / 4);
   return L;

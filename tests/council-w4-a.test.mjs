@@ -160,7 +160,7 @@ async function sweepHud(t, w, h, scores, label) {
     t.expect(doc <= w, label + ' ' + w + 'x' + h + ': no sideways scroll: ' + doc);
   }
 }
-const HUD_SCORES = [['classic', 1234, '1,234'], ['classic', 12345, '12,345'], ['springs', 99, '99'], ['springs', 999, '999'], ['springs', 8888, '8,888'], ['springs', 12345, '12,345'], ['trail', 8888, '8,888']];
+const HUD_SCORES = [['classic', 1234, '1,234'], ['classic', 12345, '12,345'], ['classic', 99999, '99,999'], ['springs', 99, '99'], ['springs', 999, '999'], ['springs', 8888, '8,888'], ['springs', 12345, '12,345'], ['trail', 8888, '8,888']];
 const setBests = async t => {
   await t.game('act', 'setting', 'tipsSeen', true);
   await t.page.evaluate(k => { const v = JSON.parse(localStorage.getItem(k)); v.best = { ...(v.best || {}), classic: 99999, springs: 9999 }; v.settings = { ...v.settings, tipsSeen: true }; localStorage.setItem(k, JSON.stringify(v)); }, KEY);
@@ -175,6 +175,9 @@ tests.push(
     async run(t) {
       await setBests(t);
       for (const w of [320, 360, 375, 390, 414, 521, 540, 568, 600, 640]) await sweepHud(t, w, 844, HUD_SCORES, 'portrait');
+      await t.page.setViewportSize({ width: 320, height: 844 });
+      await t.game('newGame', { mode: 'classic' }); await t.game('setState', { score: 99999 }); await t.waitFrames(2);
+      await t.shot('K-01-score-99999-320');
       await t.page.setViewportSize({ width: 521, height: 844 });
       await t.game('newGame', { mode: 'springs' }); await t.game('setState', { score: 999, springs: 46 }); await t.waitFrames(2);
       await t.shot('C4-04-springs-521');
