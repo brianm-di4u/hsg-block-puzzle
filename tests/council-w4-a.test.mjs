@@ -419,10 +419,24 @@ tests.push(
         t.expect(info.rowH >= 44, scheme + ': the row is a touch target at least 44 px tall: ' + info.rowH);
         t.equal((info.panelImg.match(/data:image\/svg\+xml/g) || []).length, 4, scheme + ': the card has four corner diamonds');
         // The knob slides when the switch changes, and the switch still changes the setting (by its label too).
+        // The knob's transform is read at rest: wait until it stops changing (and, after the click, until it has left the old rest position).
+        const knobAtRest = leaveFrom => t.page.evaluate(([from]) => new Promise(resolve => {
+          const read = () => getComputedStyle(document.getElementById('s-music'), '::before').transform;
+          const end = performance.now() + 4000;
+          let last = null, same = 0;
+          const step = () => {
+            const now = read();
+            same = now === last ? same + 1 : 0;
+            last = now;
+            if ((same >= 6 && now !== from) || performance.now() > end) resolve(now); else requestAnimationFrame(step);
+          };
+          step();
+        }), [leaveFrom]);
+        info.knob = await knobAtRest(null);
         const before = (await t.game('act', 'save')).settings.music;
         await t.page.click('#s-music');
         t.equal((await t.game('act', 'save')).settings.music, !before, scheme + ': clicking the toggle changes Music');
-        const moved = await t.page.evaluate(() => getComputedStyle(document.getElementById('s-music'), '::before').transform);
+        const moved = await knobAtRest(info.knob);
         t.expect(moved !== info.knob, scheme + ': the knob moved with the switch (' + info.knob + ' to ' + moved + ')');
         await t.page.click('#sc-settings .set:has(#s-music) span');
         t.equal((await t.game('act', 'save')).settings.music, before, scheme + ': clicking the label changes it back');
