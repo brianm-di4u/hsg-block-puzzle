@@ -288,6 +288,8 @@ tests.push(
       const before = await t.state();
       await t.page.click('#b-pause');
       await t.page.click('#b-resume');
+      // The game hands the board the keyboard on the next task, so wait for that, not for a time.
+      await t.page.waitForFunction(() => document.activeElement && document.activeElement.id === 'cv', null, { timeout: 5000 }).catch(() => {});
       t.equal(await t.page.evaluate(() => document.activeElement && document.activeElement.id), 'cv', 'the board has the keyboard again');
       await t.page.keyboard.press('ArrowDown');
       await t.page.keyboard.press('Enter');
