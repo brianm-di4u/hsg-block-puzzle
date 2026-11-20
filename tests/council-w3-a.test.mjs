@@ -328,11 +328,30 @@ export const tests = [
       t.expect(!(await t.page.isVisible('#sc-confirm')) && (await t.state()).scene === 'title', 'Escape means no');
       t.equal(JSON.stringify((await readSave(t)).resume), JSON.stringify(kept), 'and the run is untouched');
       await t.page.click('#sc-title [data-mode=springs]');
-      t.expect((await t.page.textContent('#sc-confirm')).includes('Your saved Classic run'), 'Springs asks too, naming the Classic run it would replace');
+      t.expect(!(await t.page.isVisible('#sc-confirm')), 'CD-WF6-02: switching to Springs preserves Classic without asking');
+      let s = await t.state();
+      t.expect(s.scene === 'game' && s.mode === 'springs' && s.score === 0, 'Springs starts cleanly in its own slot');
+      t.equal(JSON.stringify((await readSave(t)).resume), JSON.stringify(kept), 'Classic resume stays intact across cross-mode switch');
+      await t.game('setState', { board: rowReady(), ...setTray(['o1', 'o1', 'o4']) });
+      await t.game('act', 'place', 0, 0, 0);
+      const runStore = await t.page.evaluate(() => JSON.parse(localStorage.getItem('hs-thermal-blocks-v1-run') || 'null'));
+      t.expect(runStore && runStore.springs && runStore.springs.state && runStore.springs.state.score > 0, 'Springs run is stored in its own RUN_KEY sub-slot');
+      t.equal(JSON.stringify((await readSave(t)).resume), JSON.stringify(kept), 'Classic resume still untouched after Springs progress');
+      await t.game('scene', 'title');
+      await t.page.click('#sc-title [data-mode=springs]');
+      t.expect(await t.page.isVisible('#sc-confirm'), 'same-mode Springs overwrite still asks');
+      t.expect((await t.page.textContent('#sc-confirm')).includes('Your saved Springs run'), 'names the saved Springs run it would replace');
       await t.page.click('#cf-yes');
-      const s = await t.state();
-      t.expect(s.scene === 'game' && s.mode === 'springs' && s.score === 0, 'Yes starts the new game');
-      t.equal((await readSave(t)).resume, null, 'the old run is gone');
+      s = await t.state();
+      t.expect(s.scene === 'game' && s.mode === 'springs' && s.score === 0, 'Yes starts a fresh Springs game');
+      t.equal(JSON.stringify((await readSave(t)).resume), JSON.stringify(kept), 'Classic resume still untouched after replacing Springs');
+      await t.game('scene', 'title');
+      await t.page.click('#sc-title [data-mode=classic]');
+      t.expect(await t.page.isVisible('#sc-confirm'), 'same-mode Classic overwrite still asks');
+      await t.page.click('#cf-yes');
+      s = await t.state();
+      t.expect(s.scene === 'game' && s.mode === 'classic' && s.score === 0, 'Yes starts the new Classic game');
+      t.equal((await readSave(t)).resume, null, 'the old Classic run is gone');
     },
   },
   {

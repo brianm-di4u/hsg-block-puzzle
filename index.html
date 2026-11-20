@@ -234,6 +234,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
 .goals li.got b::before{content:"\2713  "}
 @media (orientation:portrait){#toast{font-size:.8em;padding:8px 12px;line-height:1.3}}
 @media (orientation:landscape) and (min-width:900px){#toast{left:16px;bottom:20px;transform:none;max-width:clamp(170px,calc(50vw - 440px),300px);text-align:left}}
+#toast.above{z-index:40;top:max(12px,env(safe-area-inset-top));bottom:auto;left:50%;right:auto;transform:translateX(-50%);max-width:min(460px,calc(100% - 24px - env(safe-area-inset-left) - env(safe-area-inset-right)));text-align:center}
 #toast b{font-family:var(--font-serif-victorian);color:var(--color-primary);display:block;font-size:1.1em}
 </style>
 </head>
@@ -817,7 +818,8 @@ function applyMove(g, slot, r, c) {
 function freshGame(mode) {
   return { v: 1, mode, board: new Array(81).fill(0), tray: [null, null, null], queue: [], score: 0, heat: 0, bestHeat: 0,
     groups: 0, placed: 0, round: 0, undoLeft: 1, undosUsed: 0, undoStack: [], era: 0, springs: 0, level: null, goal: null,
-    daily: null, over: false, won: false, rng: 1, diff: 'standard', dry: 0, cooled: 0, ptsPlace: 0, ptsClear: 0, ptsBonus: 0 };
+    daily: null, over: false, won: false, rng: 1, diff: 'standard', dry: 0, cooled: 0, ptsPlace: 0, ptsClear: 0, ptsBonus: 0,
+    priorBest: 0, bestCommitted: false, hintRound: -1 };
 }
 function setupGame(g, opts) {
   if (g.mode === 'trail') {
@@ -1009,7 +1011,7 @@ function createSaveStore(storage, defaults, revision, known = { save: 1 }) {
     } catch { /* Offline/storage-denied play may still use its last in-memory run. */ }
     return copy(value.resume);
   }
-  function persist(intent = 'none') {
+  function persist(intent = 'none', opts = null) {
     if (!['none', 'update', 'clear', 'replace'].includes(intent)) throw new Error('Unknown resume intent');
     if (intent !== 'none') pending = { kind: intent, resume: copy(value.resume), admitted: intent !== 'replace', newGeneration: intent === 'replace' || intent === 'clear' || !!pending?.newGeneration };
     let latest;
@@ -1020,7 +1022,7 @@ function createSaveStore(storage, defaults, revision, known = { save: 1 }) {
       // Only this explicit new-game action may replace a foreign run. Its retry is still exact-slot guarded.
       acknowledged = copy(slot(latest)); pending.admitted = true; warned = false;
     }
-    const merged = copy(latest), def = defaults();
+    const merged = copy(latest), def = defaults(), prevBest = copy(latest.best);
     for (const key of Object.keys(def.settings)) {
       if (!equal(value.settings[key], base.settings[key])) put(merged.settings, key, copy(value.settings[key]));
     }
@@ -1032,6 +1034,18 @@ function createSaveStore(storage, defaults, revision, known = { save: 1 }) {
     }
     for (const [key, n] of Object.entries(value.best.daily)) {
       if (number(n) && n > (base.best.daily[key] || 0)) put(merged.best.daily, key, Math.max(merged.best.daily[key] || 0, n));
+    }
+    if (opts && opts.rollbackBest) {
+      const rb = opts.rollbackBest;
+      if (rb.mode === 'daily' && rb.daily) {
+        if ((merged.best.daily[rb.daily] || 0) === rb.written) {
+          if (rb.restore > 0) put(merged.best.daily, rb.daily, rb.restore);
+          else delete merged.best.daily[rb.daily];
+        }
+      } else if (rb.mode === 'classic' || rb.mode === 'springs') {
+        const bslot = rb.diff && rb.diff !== 'standard' && object(merged.best.diff) && object(merged.best.diff[rb.diff]) ? merged.best.diff[rb.diff] : merged.best;
+        if (bslot[rb.mode] === rb.written) bslot[rb.mode] = rb.restore;
+      }
     }
     merged.trail.done = [...new Set([...merged.trail.done, ...value.trail.done.filter(id => !base.trail.done.includes(id))])];
     const stars = value.trail.stars || {}, baseStars = base.trail.stars || {};
@@ -1072,18 +1086,19 @@ function createSaveStore(storage, defaults, revision, known = { save: 1 }) {
     catch { dirty = true; return { ok: false, conflict }; }
     value = normalize(merged); base = copy(value); dirty = false;
     if (wroteResume) { acknowledged = copy(slot(value)); pending = null; warned = false; }
-    return { ok: true, conflict, wroteResume };
+    return { ok: true, conflict, wroteResume, prevBest };
   }
   return { get value() { return value; }, get newer() { return newer; }, load, readResume, persist };
 }
 // END SAVE MERGE CORE
 let saveRevisionCounter = 0;
+const nextRevision = () => globalThis.crypto?.randomUUID?.() || (Date.now().toString(36) + '-' + (++saveRevisionCounter) + '-' + Math.random().toString(36).slice(2));
 // Bump RESUME_VERSION when the game state changes shape; older stored runs are then dropped, not loaded half-wrong.
 const RESUME_VERSION = 1;
 const SAVE_STORE = createSaveStore({ getItem: () => localStorage.getItem(STORE_KEY), setItem: raw => localStorage.setItem(STORE_KEY, raw) }, defaultSave,
-  () => globalThis.crypto?.randomUUID?.() || (Date.now().toString(36) + '-' + (++saveRevisionCounter) + '-' + Math.random().toString(36).slice(2)),
-  { save: 1 });
+  nextRevision, { save: 1 });
 let SAVE = SAVE_STORE.value;
+let LAST_PERSIST_PREV_BEST = null;
 function loadSave() { SAVE = SAVE_STORE.load(); }
 // A stored run must have the shape the game reads; anything else is dropped instead of breaking the title or the board.
 function validResume(r, modes = ['classic', 'springs']) {
@@ -1092,18 +1107,28 @@ function validResume(r, modes = ['classic', 'springs']) {
   if (!modes.includes(r.mode)) return false;
   if (!Array.isArray(r.board) || r.board.length !== 81) return false;
   if (!Array.isArray(r.tray) || r.tray.length !== 3 || !r.tray.every(t => t === null || (!!t && typeof t === 'object' && Object.hasOwn(PIECES, t.id)))) return false;
+  if (!r.tray.some(Boolean)) return false;
   if (!r.board.every(c => Number.isInteger(c) && c >= 0 && c <= 8)) return false;
   if (!Array.isArray(r.queue) || !r.queue.every(id => Object.hasOwn(PIECES, id))) return false;
   const count = v => Number.isFinite(v) && v >= 0;
   if (![r.score, r.bestHeat, r.groups, r.placed, r.round, r.undoLeft, r.springs, r.rng].every(count)) return false;
   if (!(Number.isFinite(r.heat) && r.heat >= 0 && r.heat <= 12)) return false;
   if (!Number.isInteger(r.era) || r.era < 0 || r.era >= ERAS.length) return false;
-  return typeof r.over === 'boolean' && typeof r.won === 'boolean';
+  if (r.diff !== undefined && !DIFFICULTIES.includes(r.diff)) return false;
+  if (r.undosUsed !== undefined && !(Number.isInteger(r.undosUsed) && r.undosUsed >= 0)) return false;
+  if (r.hintRound !== undefined && !(Number.isInteger(r.hintRound) && r.hintRound >= -1)) return false;
+  if (r.priorBest !== undefined && !count(r.priorBest)) return false;
+  if (r.bestCommitted !== undefined && typeof r.bestCommitted !== 'boolean') return false;
+  return r.over === false && r.won === false;
 }
-// Trail puzzles and Daily runs keep their own slot (the Classic/Springs resume slot is untouched), written after every
-// placement and offered again when the same puzzle or the same day's Daily is opened from the menus.
+// Springs, Daily Soak and Spring Trail keep separate namespaced sub-slots under RUN_KEY ({ rv, springs, daily, trail }),
+// leaving Classic's SAVE.resume inside SAVE MERGE CORE untouched so all four modes preserve independent runs.
 const RUN_KEY = 'hs-thermal-blocks-v1-run';
-function runKey(mode, level, date) { return mode === 'trail' ? level : date; }
+const RUN_MODES = ['springs', 'daily', 'trail'];
+const RUN_ACK = { springs: undefined, daily: undefined, trail: undefined };
+const RUN_WARNED = { springs: false, daily: false, trail: false };
+function runKey(mode, level, date) { return mode === 'trail' ? level : mode === 'daily' ? date : 'springs'; }
+function emptyRunStore() { return { rv: RESUME_VERSION, springs: null, daily: null, trail: null }; }
 // A save or a stored run from a newer build is never written over (wave-4 ruling 11): the whole visit goes unsaved.
 function runSlotNewer() {
   try { const o = JSON.parse(localStorage.getItem(RUN_KEY)); return !!o && typeof o.rv === 'number' && o.rv > RESUME_VERSION; } catch (e) { return false; }
@@ -1121,41 +1146,154 @@ function saveNotice(kind) {   // each notice is shown once per visit, and waits 
     ? ['This visit is not being saved', 'Your save comes from a newer version of the game, so it is left as it is.']
     : ['Progress cannot be saved', 'This browser mode does not let the game keep progress.'];
   let tries = 0;   // the first look is after a beat, so a toast that a game start clears or raises does not take it away
-  setTimeout(function show() { if ($('toast').classList.contains('on') && tries++ < 20) { setTimeout(show, 500); return; } toast(text[0], text[1], 8000); $('toast').classList.add('above'); announce(text[0] + '. ' + text[1]); }, 700);
+  setTimeout(function show() { if ($('toast').classList.contains('on') && tries++ < 20) { setTimeout(show, 500); return; } toast(text[0], text[1], 8000, { above: true }); announce(text[0] + '. ' + text[1]); }, 700);
 }
-function clearRun() { if (savesLocked()) return; try { localStorage.removeItem(RUN_KEY); } catch (e) { /* storage unavailable */ } }
-function saveRun() {
-  if (savesLocked()) return;
+function readRunStore() {
   try {
-    const state = snapshot(); state.undoStack = [];
-    localStorage.setItem(RUN_KEY, JSON.stringify({ rv: RESUME_VERSION, mode: S.mode, key: runKey(S.mode, S.level, S.daily), state }));
-  } catch (e) { /* storage unavailable: the run just will not survive a reload */ }
-}
-function savedRun(mode, key) {
-  try {
-    if (SAVE_STORE.newer) return null;
     const raw = localStorage.getItem(RUN_KEY);
-    if (!raw) return null;
-    const o = JSON.parse(raw), st = o && o.state;
-    const ok = o && o.rv === RESUME_VERSION && o.mode === mode && o.key === key && validResume(st, [mode]) && !st.over &&
-      (mode === 'trail' ? LEVELS.some(l => l.id === st.level) && st.level === key : st.daily === key);
+    if (!raw) return emptyRunStore();
+    const o = JSON.parse(raw);
+    if (!o || typeof o !== 'object' || Array.isArray(o)) return emptyRunStore();
+    if (typeof o.rv === 'number' && o.rv > RESUME_VERSION) return null;
+    if (o.rv !== RESUME_VERSION) return emptyRunStore();
+    const out = emptyRunStore();
+    if (RUN_MODES.includes(o.mode) && o.state && typeof o.state === 'object' && !Array.isArray(o.state)) {
+      out[o.mode] = { key: o.key, rev: typeof o.rev === 'string' ? o.rev : null, updatedAt: Number.isFinite(o.updatedAt) ? o.updatedAt : 0, state: o.state };
+    }
+    for (const m of RUN_MODES) {
+      if (o[m] && typeof o[m] === 'object' && !Array.isArray(o[m]) && o[m].state && typeof o[m].state === 'object' && !Array.isArray(o[m].state)) {
+        out[m] = { key: o[m].key, rev: typeof o[m].rev === 'string' ? o[m].rev : null, updatedAt: Number.isFinite(o[m].updatedAt) ? o[m].updatedAt : 0, state: o[m].state };
+      }
+    }
+    return out;
+  } catch (e) { return emptyRunStore(); }
+}
+function compactTrailSnap(st) {
+  return {
+    b: st.board.slice(),
+    t: st.tray.map(x => (x ? x.id : null)),
+    q: st.queue.slice(),
+    sc: st.score, h: st.heat, bh: st.bestHeat,
+    gr: st.groups, pl: st.placed, rd: st.round, sp: st.springs,
+    dr: st.dry | 0, co: st.cooled | 0,
+    pp: st.ptsPlace | 0, pc: st.ptsClear | 0, pb: st.ptsBonus | 0,
+  };
+}
+function expandTrailStack(base, rawStack) {
+  if (!Array.isArray(rawStack)) return [];
+  const out = [];
+  const template = { ...base };
+  delete template.scene; delete template.undoStack; delete template.provBest;
+  for (const c of rawStack.slice(-60)) {
+    if (!c || typeof c !== 'object') continue;
+    const board = Array.isArray(c.b) ? c.b : Array.isArray(c.board) ? c.board : null;
+    const trayRaw = Array.isArray(c.t) ? c.t : Array.isArray(c.tray) ? c.tray : null;
+    const queue = Array.isArray(c.q) ? c.q : Array.isArray(c.queue) ? c.queue : null;
+    if (!board || board.length !== 81 || !board.every(v => Number.isInteger(v) && v >= 0 && v <= 8)) continue;
+    if (!trayRaw || trayRaw.length !== 3) continue;
+    const tray = trayRaw.map(x => (x === null ? null : typeof x === 'string' && Object.hasOwn(PIECES, x) ? { id: x } : (x && typeof x === 'object' && Object.hasOwn(PIECES, x.id) ? { id: x.id } : undefined)));
+    if (tray.includes(undefined)) continue;
+    if (!queue || !queue.every(id => Object.hasOwn(PIECES, id))) continue;
+    out.push({
+      ...JSON.parse(JSON.stringify(template)),
+      board: board.slice(),
+      tray,
+      queue: queue.slice(),
+      score: Number.isFinite(c.sc) ? c.sc : (Number.isFinite(c.score) ? c.score : 0),
+      heat: Number.isFinite(c.h) ? c.h : (Number.isFinite(c.heat) ? c.heat : 0),
+      bestHeat: Number.isFinite(c.bh) ? c.bh : (Number.isFinite(c.bestHeat) ? c.bestHeat : 0),
+      groups: Number.isFinite(c.gr) ? c.gr : (Number.isFinite(c.groups) ? c.groups : 0),
+      placed: Number.isFinite(c.pl) ? c.pl : (Number.isFinite(c.placed) ? c.placed : 0),
+      round: Number.isFinite(c.rd) ? c.rd : (Number.isFinite(c.round) ? c.round : 1),
+      springs: Number.isFinite(c.sp) ? c.sp : (Number.isFinite(c.springs) ? c.springs : 0),
+      dry: Number.isFinite(c.dr) ? c.dr : (Number.isFinite(c.dry) ? c.dry : 0),
+      cooled: Number.isFinite(c.co) ? c.co : (Number.isFinite(c.cooled) ? c.cooled : 0),
+      ptsPlace: Number.isFinite(c.pp) ? c.pp : (Number.isFinite(c.ptsPlace) ? c.ptsPlace : 0),
+      ptsClear: Number.isFinite(c.pc) ? c.pc : (Number.isFinite(c.ptsClear) ? c.ptsClear : 0),
+      ptsBonus: Number.isFinite(c.pb) ? c.pb : (Number.isFinite(c.ptsBonus) ? c.ptsBonus : 0),
+      over: false,
+      won: false,
+    });
+  }
+  return out;
+}
+function clearRun(mode = S.mode, onlyKey = null) {
+  if (savesLocked() || !RUN_MODES.includes(mode)) return;
+  try {
+    const store = readRunStore();
+    if (!store) return;
+    if (!store[mode]) { RUN_ACK[mode] = null; RUN_WARNED[mode] = false; return; }
+    if (onlyKey !== null && store[mode].key !== onlyKey) {
+      RUN_ACK[mode] = store[mode].rev;
+      RUN_WARNED[mode] = false;
+      return;
+    }
+    store[mode] = null;
+    if (RUN_MODES.every(m => !store[m])) localStorage.removeItem(RUN_KEY);
+    else localStorage.setItem(RUN_KEY, JSON.stringify(store));
+    RUN_ACK[mode] = null; RUN_WARNED[mode] = false;
+  } catch (e) { /* storage unavailable */ }
+}
+function saveRun() {
+  if (savesLocked() || S.over || !RUN_MODES.includes(S.mode)) return false;
+  try {
+    const store = readRunStore();
+    if (!store) return false;
+    const mode = S.mode;
+    const curRev = store[mode] ? store[mode].rev : null;
+    if (RUN_ACK[mode] !== undefined && curRev !== RUN_ACK[mode]) {
+      if (!RUN_WARNED[mode]) {
+        RUN_WARNED[mode] = true;
+        toast('Saved game changed in another tab', 'This game is still playable here. Continue from the title to use the saved game, or start a new game.', 6000, { above: true });
+      }
+      return false;
+    }
+    const state = snapshot();
+    state.undoStack = mode === 'trail' ? S.undoStack.slice(-60).map(compactTrailSnap) : [];
+    const rev = nextRevision();
+    store[mode] = { key: runKey(mode, S.level, S.daily), rev, updatedAt: Date.now(), state };
+    localStorage.setItem(RUN_KEY, JSON.stringify(store));
+    RUN_ACK[mode] = rev; RUN_WARNED[mode] = false;
+    return true;
+  } catch (e) { return false; /* storage unavailable: the run just will not survive a reload */ }
+}
+function savedRunEntry(mode, key = mode === 'springs' ? 'springs' : null) {
+  try {
+    if (SAVE_STORE.newer || runSlotNewer() || !RUN_MODES.includes(mode)) return null;
+    const store = readRunStore();
+    if (!store) return null;
+    const entry = store[mode];
+    if (!entry || !entry.state) return null;
+    if (key != null && entry.key !== key) return null;
+    const st = entry.state;
+    const ok = validResume(st, [mode]) && !st.over &&
+      (mode === 'trail' ? LEVELS.some(l => l.id === st.level) && st.level === key
+        : mode === 'daily' ? st.daily === key
+        : st.mode === 'springs');
     if (!ok) return null;
-    return st;
+    return entry;
   } catch (e) { return null; }
+}
+function savedRun(mode, key = mode === 'springs' ? 'springs' : null) {
+  const entry = savedRunEntry(mode, key);
+  return entry ? entry.state : null;
 }
 function dropBadResume() {
   if (SAVE.resume === null || validResume(SAVE.resume)) return false;
-  SAVE.resume = null; persist('clear');
+  SAVE.resume = null;
+  if (!savesLocked()) persist('clear');
   return true;
 }
-function badResumeToast() { toast('Saved game discarded', 'It could not be read, so it was cleared. Start a new game.', 6000); }
-function persist(intent = 'none') {
-  const before = JSON.stringify(SAVE.settings), result = SAVE_STORE.persist(intent);
+function badResumeToast() { toast('Saved game discarded', 'It could not be read, so it was cleared. Start a new game.', 6000, { above: true }); }
+function persist(intent = 'none', opts = null) {
+  if (savesLocked()) return false;
+  const before = JSON.stringify(SAVE.settings), result = SAVE_STORE.persist(intent, opts);
   SAVE = SAVE_STORE.value;
+  LAST_PERSIST_PREV_BEST = result.prevBest || null;
   if (before !== JSON.stringify(SAVE.settings)) applySettings();
   if (result.newer) saveNotice('newer');
   else if (!result.ok) saveNotice('blocked');
-  if (result.conflict) toast('Saved game changed in another tab', 'This game is still playable here. Continue from the title to use the saved game, or start a new game.', 6000);
+  if (result.conflict) toast('Saved game changed in another tab', 'This game is still playable here. Continue from the title to use the saved game, or start a new game.', 6000, { above: true });
   return result.ok;
 }
 
@@ -1172,10 +1310,25 @@ function dateSeed(s) { return parseInt(s.replace(/-/g, ''), 10) >>> 0; }
 function undoMax() { return S.mode === 'trail' ? Infinity : SAVE.settings.undo; }
 // Classic and Springs keep one best per difficulty: Standard in best.classic / best.springs (as before), the others in best.diff.
 function bestSlot(mode, diff) { return diff && diff !== 'standard' && SAVE.best.diff && SAVE.best.diff[diff] ? SAVE.best.diff[diff] : SAVE.best; }
-function bestFor(mode) {
-  if (mode === 'daily') return SAVE.best.daily[S.daily] || 0;
-  if (mode === 'trail') return 0;
-  return bestSlot(mode, S.diff)[mode] || 0;
+function readBestFromObj(best, mode, diff, daily) {
+  if (!best || mode === 'trail') return 0;
+  if (mode === 'daily') return (best.daily && best.daily[daily]) || 0;
+  const sl = diff && diff !== 'standard' && best.diff && best.diff[diff] ? best.diff[diff] : best;
+  return (sl && sl[mode]) || 0;
+}
+function bestForState(g) { return readBestFromObj(SAVE.best, g.mode, g.diff, g.daily); }
+function bestFor(mode) { return readBestFromObj(SAVE.best, mode, S.diff, S.daily); }
+function rollbackBestInMemory(rb) {
+  if (!rb) return;
+  if (rb.mode === 'daily' && rb.daily) {
+    if ((SAVE.best.daily[rb.daily] || 0) === rb.written) {
+      if (rb.restore > 0) SAVE.best.daily[rb.daily] = rb.restore;
+      else delete SAVE.best.daily[rb.daily];
+    }
+  } else if (rb.mode === 'classic' || rb.mode === 'springs') {
+    const sl = bestSlot(rb.mode, rb.diff);
+    if (sl[rb.mode] === rb.written) sl[rb.mode] = rb.restore;
+  }
 }
 function eraId() { return ERAS[S.era].id; }
 
@@ -2730,16 +2883,16 @@ let frameFails = 0, errorToasted = false;
 function failSafe() {
   try { dropBadResume(); } catch (e) { SAVE.resume = null; }
   try {
-    UI.sel = -1; UI.ghost = null; UI.drag = null; UI.overAt = 0; FX.length = 0;
+    UI.sel = -1; UI.ghost = null; UI.drag = null; UI.overAt = 0; UI.skipEnd = false; FX.length = 0;
     S = freshGame('classic'); S.scene = 'game';
     showScene('title');
   } catch (e) { /* the loop keeps running regardless */ }
-  toast('Something went wrong', 'Back at the title screen. Start a new game to keep playing.', 7000);
+  toast('Something went wrong', 'Back at the title screen. Start a new game to keep playing.', 7000, { above: true });
 }
 function loop(now) {
   requestAnimationFrame(loop);
   try {
-    if (UI.overAt && now >= UI.overAt && (FX.length === 0 || UI.skipEnd)) { UI.overAt = 0; UI.skipEnd = false; FX.length = 0; showEnd(); }
+    if (UI.overAt && S.scene === 'game' && now >= UI.overAt && (FX.length === 0 || UI.skipEnd)) { UI.overAt = 0; UI.skipEnd = false; FX.length = 0; showEnd(); }
     watchFrame(now);
     pollPad(now);
     // ambient-only frames (steam, water shimmer) run at 30 fps; anything the player caused runs at full rate
@@ -2754,12 +2907,12 @@ window.addEventListener('error', () => {
   if (errorToasted) return;
   errorToasted = true;
   try { dropBadResume(); } catch (e) { /* storage may be unavailable */ }
-  toast('Something went wrong', 'If the game stops responding, reload the page.', 6000);
+  toast('Something went wrong', 'If the game stops responding, reload the page.', 6000, { above: true });
 });
 window.addEventListener('unhandledrejection', () => {
   if (errorToasted) return;
   errorToasted = true;
-  toast('Something went wrong', 'If the game stops responding, reload the page.', 6000);
+  toast('Something went wrong', 'If the game stops responding, reload the page.', 6000, { above: true });
 });
 
 // ===================================================================== WATER (WebGL thermal water under the board)
@@ -2867,34 +3020,72 @@ void main(){
 const $ = id => document.getElementById(id);
 function announce(msg) { const el = $('live'); el.textContent = ''; setTimeout(() => { el.textContent = msg; }, 30); }
 let toastTimer = 0;
-function toast(title, body, ms = 4500) {
+function toast(title, body, ms = 4500, opts = null) {
   const el = $('toast');
-  el.innerHTML = ''; el.classList.remove('above');
+  const above = !!(opts && opts.above);
+  if (!above && el.classList.contains('on') && el.classList.contains('above')) return;
+  el.innerHTML = '';
+  el.classList.toggle('above', above);
   const b = document.createElement('b'); b.textContent = title; el.appendChild(b);
   el.appendChild(document.createTextNode(body));
   el.classList.add('on');
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('on'), ms);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.classList.remove('on', 'above'); }, ms);
 }
-function hideToast() { clearTimeout(toastTimer); $('toast').classList.remove('on'); }
+function hideToast(force = false) {
+  const el = $('toast');
+  if (!force && el.classList.contains('above')) return;
+  clearTimeout(toastTimer);
+  el.classList.remove('on', 'above');
+}
 
 function newGame(opts = {}) {
   const mode = opts.mode || 'classic';
-  const kept = opts.resume && (mode === 'trail' || mode === 'daily') ? savedRun(mode, mode === 'trail' ? opts.level : (opts.date || todayStr())) : null;
-  const g = kept ? JSON.parse(JSON.stringify(kept)) : freshGame(mode);
-  if (!kept) {
-    if (mode === 'trail' || mode === 'daily') clearRun();
+  const rKey = runKey(mode, opts.level, opts.date || todayStr());
+  const keptEntry = opts.resume && RUN_MODES.includes(mode) ? savedRunEntry(mode, rKey) : null;
+  const kept = keptEntry ? keptEntry.state : null;
+  let g;
+  if (kept) {
+    const hasPriorBest = Object.hasOwn(kept, 'priorBest') && Number.isFinite(kept.priorBest) && kept.priorBest >= 0;
+    const rawStack = Array.isArray(kept.undoStack) ? kept.undoStack : [];
+    g = Object.assign(freshGame(mode), JSON.parse(JSON.stringify(kept)), { undoStack: [] });
+    if (!DIFFICULTIES.includes(g.diff)) g.diff = 'standard';
+    if (!Number.isInteger(g.undosUsed) || g.undosUsed < 0) g.undosUsed = 0;
+    if (!Number.isInteger(g.hintRound) || g.hintRound < -1) g.hintRound = -1;
+    if (!hasPriorBest) g.priorBest = bestForState(g);
+    g.bestCommitted = false;
+    g.provBest = null;
+    if (mode === 'trail') g.undoStack = expandTrailStack(g, rawStack);
+    RUN_ACK[mode] = keptEntry.rev;
+    RUN_WARNED[mode] = false;
+  } else {
+    g = freshGame(mode);
+    if (RUN_MODES.includes(mode)) {
+      if (!opts.resume) {
+        clearRun(mode, rKey);
+        if (mode === 'springs' && SAVE.resume && SAVE.resume.mode === 'springs') { SAVE.resume = null; persist('clear'); }
+      } else {
+        const curStore = readRunStore();
+        RUN_ACK[mode] = curStore && curStore[mode] ? curStore[mode].rev : null;
+        RUN_WARNED[mode] = false;
+      }
+    }
     if (mode === 'daily') { g.daily = opts.date || todayStr(); g.rng = dateSeed(g.daily); }
     else if (opts.seed != null) g.rng = opts.seed >>> 0;
     else if (SEED_PENDING != null) g.rng = SEED_PENDING >>> 0;
     else g.rng = (Date.now() ^ Math.floor(Math.random() * 0xFFFFFFFF)) >>> 0;
     g.undoLeft = mode === 'trail' ? 999 : SAVE.settings.undo;
     g.diff = (mode === 'classic' || mode === 'springs') && DIFFICULTIES.includes(SAVE.settings.difficulty) ? SAVE.settings.difficulty : 'standard';
+    g.priorBest = bestForState(g);
+    g.bestCommitted = false;
+    g.provBest = null;
+    g.hintRound = -1;
     UI.trailWin = null;
     setupGame(g, opts);
-  } else g.undoStack = [];
+  }
   S = Object.assign(g, { scene: 'game' });
-  UI.sel = -1; UI.ghost = null; UI.drag = null; UI.overAt = 0; FX.length = 0; UI.hint = null; UI.hintRound = -1;
-  if (mode === 'classic' || mode === 'springs') { SAVE.resume = null; persist('replace'); }
+  UI.sel = -1; UI.ghost = null; UI.drag = null; UI.overAt = 0; UI.skipEnd = false; FX.length = 0; UI.hint = null; UI.hintRound = currentHintRound();
+  if (mode === 'classic') { SAVE.resume = null; persist('replace'); }
   hideToast();
   UI.earned = [];
   if (!kept && (mode === 'classic' || mode === 'springs' || mode === 'daily')) tipStart(); else tipStart(true);
@@ -2927,7 +3118,7 @@ function trayDesc() {
   return (trayDoomed() ? 'Not all of these pieces will fit. ' : '') + 'Tray: ' + S.tray.map((t, k) => (t ? (k + 1) + ' ' + PIECES[t.id].n + '-tile piece' + (fitsAnywhere(S.board, t.id) ? '' : ' (no room)') : (k + 1) + ' empty')).join(', ') + '.';
 }
 function snapshot() {
-  const { scene, undoStack, ...rest } = S;
+  const { scene, undoStack, provBest, ...rest } = S;
   return JSON.parse(JSON.stringify(rest));
 }
 const CLEAR_RUN = new WeakMap();   // clearing placements in a row in this game (an undo or a new game starts a new count)
@@ -2990,8 +3181,15 @@ function doPlace(slot, r, c) {
   return res;
 }
 function saveResume() {
-  if (S.mode === 'classic' || S.mode === 'springs') { SAVE.resume = snapshot(); SAVE.resume.undoStack = []; persist('update'); }
-  else if ((S.mode === 'trail' || S.mode === 'daily') && !S.over) { if (S.placed > 0) saveRun(); else clearRun(); }
+  if (S.over) return;
+  if (S.mode === 'classic') {
+    SAVE.resume = snapshot();
+    SAVE.resume.undoStack = [];
+    SAVE.resume.updatedAt = Date.now();
+    persist('update');
+  } else if (RUN_MODES.includes(S.mode)) {
+    if (S.placed > 0 || (S.mode === 'trail' && S.undosUsed > 0)) saveRun();
+  }
 }
 // Hint (S2-12), Classic, Daily Soak and Springs: one per tray. A one-move search over every place each tray piece can go. It prefers a
 // move after which the pieces left can still all be placed, then one that clears the most (vents and tufa count extra), then one that
@@ -3024,13 +3222,15 @@ function findHint(g) {
   });
   return best;
 }
-function hintAvail() { return S.scene === 'game' && !S.over && S.mode !== 'trail' && UI.hintRound !== S.round && S.tray.some(t => t && fitsAnywhere(S.board, t.id)); }
+function currentHintRound() { return Number.isInteger(S.hintRound) ? S.hintRound : -1; }
+function hintAvail() { return S.scene === 'game' && !S.over && S.mode !== 'trail' && currentHintRound() < S.round && S.tray.some(t => t && fitsAnywhere(S.board, t.id)); }
 function useHint() {
   if (S.mode === 'trail' || S.scene !== 'game' || S.over) return { ok: false };
-  if (!hintAvail()) { sfx('invalid'); announce(UI.hintRound === S.round ? 'You have used the hint for this tray.' : 'No piece has room for a hint.'); return { ok: false }; }
+  if (!hintAvail()) { sfx('invalid'); announce(currentHintRound() >= S.round ? 'You have used the hint for this tray.' : 'No piece has room for a hint.'); return { ok: false }; }
   const h = findHint(S);
   if (!h) { sfx('invalid'); return { ok: false }; }
-  UI.hint = h; UI.hintRound = S.round; UI.sel = -1; UI.ghost = null;
+  UI.hint = h; S.hintRound = Math.max(currentHintRound(), S.round); UI.hintRound = S.hintRound; UI.sel = -1; UI.ghost = null;
+  if (S.placed > 0) saveResume();
   sfx('pick'); announce('Hint: piece ' + (h.slot + 1) + ' goes at row ' + (h.r + 1) + ', column ' + (h.c + 1) + '.');
   updateHud(); dirty = true;
   return { ok: true, ...h };
@@ -3052,10 +3252,18 @@ function doUndo() {
   const snap = S.undoStack.pop();
   UI.skipEnd = false;
   const stack = S.undoStack, left = S.undoLeft, used = S.undosUsed || 0;
+  const priorBest = Number.isFinite(S.priorBest) ? S.priorBest : bestFor(S.mode);
+  const provBest = S.provBest || null;
+  const hintRound = Math.max(currentHintRound(), Number.isInteger(snap.hintRound) ? snap.hintRound : -1);
+  const wasOver = S.scene === 'over' || $('sc-over').classList.contains('on');
   const scene = S.scene === 'over' ? 'game' : S.scene;
-  S = Object.assign(snap, { scene, undoStack: stack, counted: S.counted });
-  UI.overAt = 0;
-  if (scene !== S.scene || $('sc-over').classList.contains('on')) showScene('game');
+  S = Object.assign(snap, { scene, undoStack: stack, counted: S.counted, priorBest, bestCommitted: false, provBest: null, hintRound });
+  UI.overAt = 0; UI.hintRound = currentHintRound();
+  if (provBest) {
+    rollbackBestInMemory(provBest);
+    persist('none', { rollbackBest: provBest });
+  }
+  if (wasOver) showScene('game');
   if (S.mode !== 'trail') { S.undoLeft = left - 1; if (hintOnce('undo')) toast('Undo used', 'Undo refills with each new tray.', 3500); }
   else {
     S.undosUsed = used + 1;
@@ -3200,7 +3408,7 @@ function replayTips() {
 }
 function endGame(res) {
   const linesBefore = SAVE.stats.lines, streakBefore = dailyLongest();
-  if (S.mode === 'trail' || S.mode === 'daily') clearRun();
+  if (RUN_MODES.includes(S.mode)) clearRun(S.mode);
   if (S.won) S.undoStack = [];
   const st = SAVE.stats, fresh = !S.counted;   // a Trail loss that is undone and finished again is one game, not two (S6-05)
   S.counted = true;
@@ -3209,14 +3417,29 @@ function endGame(res) {
     st.bestCombo = Math.max(st.bestCombo, S.bestG || 0); st.longest = Math.max(st.longest, S.placed);
     if (st.recent[S.mode]) st.recent[S.mode] = [...st.recent[S.mode], S.score].slice(-10);
   }
+  const prior = Number.isFinite(S.priorBest) ? S.priorBest : bestFor(S.mode);
   UI.newBest = false;
-  UI.prevBest = S.mode === 'daily' ? SAVE.best.daily[S.daily] || 0 : S.mode === 'classic' || S.mode === 'springs' ? bestSlot(S.mode, S.diff)[S.mode] || 0 : 0;   // the best this game is measured against (S3-08)
+  UI.prevBest = S.mode === 'trail' ? 0 : prior;   // the best this run started against (W6-P-N02, S3-08)
+  let wroteBest = null;
+  const hadLegacySpringsSave = S.mode === 'springs' && SAVE.resume && SAVE.resume.mode === 'springs';
   if (S.mode === 'classic' || S.mode === 'springs') {
     const slot = bestSlot(S.mode, S.diff);
-    if (S.score > (slot[S.mode] || 0)) { slot[S.mode] = S.score; UI.newBest = true; }
-    SAVE.resume = null;
+    const prevLocal = slot[S.mode] || 0;
+    if (S.score > prior) UI.newBest = true;
+    if (S.score > prevLocal) {
+      slot[S.mode] = S.score;
+      wroteBest = { mode: S.mode, diff: S.diff, daily: null, written: S.score, restore: Math.max(prior, prevLocal) };
+      S.bestCommitted = true;
+    }
+    if (S.mode === 'classic' || hadLegacySpringsSave) SAVE.resume = null;
   } else if (S.mode === 'daily') {
-    if (S.score > (SAVE.best.daily[S.daily] || 0)) { SAVE.best.daily[S.daily] = S.score; UI.newBest = true; }
+    const prevLocal = SAVE.best.daily[S.daily] || 0;
+    if (S.score > prior) UI.newBest = true;
+    if (S.score > prevLocal) {
+      SAVE.best.daily[S.daily] = S.score;
+      wroteBest = { mode: 'daily', diff: 'standard', daily: S.daily, written: S.score, restore: Math.max(prior, prevLocal) };
+      S.bestCommitted = true;
+    }
   } else if (S.mode === 'trail' && S.won) {
     const stars = trailStars(S.undosUsed || 0), prev = SAVE.trail.stars[S.level] || 0;
     const titled = !!trailTitle(), finished = trailAllDone();
@@ -3228,7 +3451,13 @@ function endGame(res) {
   goalsOnEnd(fresh);
   const streakNow = dailyLongest();
   UI.newCards = WATER_CARDS.filter(c => !waterCardOpen(c, linesBefore, streakBefore) && waterCardOpen(c, st.lines, streakNow)).map(c => c.title);
-  persist(S.mode === 'classic' || S.mode === 'springs' ? 'clear' : 'none');
+  persist(S.mode === 'classic' || hadLegacySpringsSave ? 'clear' : 'none');
+  if (wroteBest) {
+    const prevRemote = LAST_PERSIST_PREV_BEST ? readBestFromObj(LAST_PERSIST_PREV_BEST, wroteBest.mode, wroteBest.diff, wroteBest.daily) : wroteBest.restore;
+    if (prevRemote >= wroteBest.written) { wroteBest = null; S.bestCommitted = false; }
+    else wroteBest.restore = Math.max(prior, prevRemote);
+  }
+  S.provBest = wroteBest;
   UI.skipEnd = false;
   UI.overAt = performance.now() + (reducedMotion() ? 350 : res && !res.G ? 450 : 1000);   // a last piece that clears nothing has no show to wait for
   sfx(S.won ? 'win' : 'over', { at: 0.3 });
@@ -3386,9 +3615,10 @@ function updateHud() {
   const gl = hudGoal(); $('h-goal').hidden = !gl; $('hud').classList.toggle('hasgoal', !!gl);
   $('hud').classList.toggle('long', Math.max($('h-score').textContent.length, $('h-best').textContent.length) > 5);
   if (gl) { $('h-goal-lbl').textContent = gl[0]; $('h-goal-num').textContent = gl[1]; }
+  $('b-pause').disabled = !!S.over;
   $('b-hint').hidden = S.mode === 'trail';
   $('b-hint').disabled = !hintAvail();
-  $('b-hint').title = UI.hintRound === S.round && S.mode !== 'trail' ? 'Hint used for this tray' : 'Hint (H): show one good move, once for each tray';
+  $('b-hint').title = currentHintRound() >= S.round && S.mode !== 'trail' ? 'Hint used for this tray' : 'Hint (H): show one good move, once for each tray';
   $('h-undo').textContent = undoCount();
   $('b-undo').disabled = !canUndo();
   $('b-undo').setAttribute('aria-label', S.mode === 'trail' ? 'Undo (this puzzle is worth ' + trailStars(S.undosUsed || 0) + ' stars; each undo may cost one)' : 'Undo (' + undoCount() + ' left this round)');
@@ -3398,8 +3628,30 @@ function updateHud() {
   $('snd-wave').style.display = on ? '' : 'none';
 }
 let tickerI = 0;
-function fillTitle() {
+function savedClassicRun() {
   const r = SAVE.resume;
+  return r && validResume(r, ['classic', 'springs']) && !r.over && r.mode === 'classic' ? r : null;
+}
+function savedSpringsRun() {
+  const e = savedRunEntry('springs', 'springs');
+  if (e) return { state: e.state, updatedAt: e.updatedAt || 0, source: 'run', rev: e.rev };
+  const r = SAVE.resume;
+  if (r && validResume(r, ['springs']) && !r.over) return { state: r, updatedAt: r.updatedAt || 0, source: 'save', rev: null };
+  return null;
+}
+function bestContinueRun() {
+  const c = savedClassicRun(), sp = savedSpringsRun();
+  if (c && sp) {
+    const ct = Number.isFinite(c.updatedAt) ? c.updatedAt : 0;
+    return sp.updatedAt > ct ? { mode: 'springs', state: sp.state, source: sp.source, rev: sp.rev } : { mode: 'classic', state: c, source: 'save', rev: null };
+  }
+  if (c) return { mode: 'classic', state: c, source: 'save', rev: null };
+  if (sp) return { mode: 'springs', state: sp.state, source: sp.source, rev: sp.rev };
+  return null;
+}
+function fillTitle() {
+  const cont = bestContinueRun(), r = cont ? cont.state : null;
+  UI.continueMode = cont ? cont.mode : null;
   $('b-continue').style.display = r && !r.over ? '' : 'none';
   if (r && !r.over) $('b-continue').textContent = 'Continue ' + ({ classic: 'Classic', springs: 'Springs' }[r.mode] || '') + diffSuffix(r) + ' · ' + r.score.toLocaleString('en-US');
   const d = SAVE.best.daily[todayStr()];
@@ -3651,35 +3903,65 @@ function closeConfirm(yes) {
   if (yes) c.onYes();
   else if (c.from && c.from.focus && document.contains(c.from)) c.from.focus({ preventScroll: true });
 }
-// What a saved Classic or Springs run is worth, or null: only a run with a piece placed is something to lose.
-function savedRunWorth() {
-  const r = SAVE.resume;
-  return r && !r.over && r.placed > 0 && validResume(r) ? { mode: r.mode, score: r.score } : null;
+// What a saved Classic or Springs run is worth for that mode, or null: only a run with a piece placed is something to lose.
+function savedRunWorth(mode) {
+  if (mode === 'classic') {
+    const r = savedClassicRun();
+    return r && r.placed > 0 ? { mode: 'classic', score: r.score } : null;
+  }
+  if (mode === 'springs') {
+    const sp = savedSpringsRun();
+    return sp && sp.state.placed > 0 ? { mode: 'springs', score: sp.state.score } : null;
+  }
+  return null;
 }
 function startMode(mode) {
-  const w = (mode === 'classic' || mode === 'springs') && savedRunWorth();
-  if (!w) return newGame({ mode, resume: true });
+  const w = (mode === 'classic' || mode === 'springs') && savedRunWorth(mode);
+  if (!w) return newGame({ mode, resume: mode === 'daily' || mode === 'trail' });
   const name = { classic: 'Classic', springs: 'Springs' }[w.mode];
-  askConfirm('Start a new game?', 'Your saved ' + name + ' run at ' + w.score.toLocaleString('en-US') + ' points will be replaced.', 'Start new game', 'Keep my saved run', () => newGame({ mode, resume: true }));
+  askConfirm('Start a new game?', 'Your saved ' + name + ' run at ' + w.score.toLocaleString('en-US') + ' points will be replaced.', 'Start new game', 'Keep my saved run', () => newGame({ mode }));
 }
 function askRestart() {
   if (S.over || !(S.placed > 0)) return restart();
   const what = S.mode === 'trail' ? 'puzzle' : S.mode === 'daily' ? 'Daily Soak' : 'game';
   askConfirm('Restart this ' + what + '?', S.mode === 'trail' ? 'Your moves so far will be undone.' : 'You are at ' + S.score.toLocaleString('en-US') + ' points. They will be lost.', 'Restart', 'Keep playing', restart);
 }
-function pauseGame() { if (S.scene === 'game') { UI.drag = null; UI.ghost = null; $('pause-goal').textContent = goalSentence(); sfx('pause'); showScene('pause'); } }
+function pauseGame() { if (S.scene === 'game' && !S.over) { UI.drag = null; UI.ghost = null; $('pause-goal').textContent = goalSentence(); sfx('pause'); showScene('pause'); } }
 function resumeGame() { sfx('resume'); showScene('game'); }
 function restart() {
   if (S.mode === 'trail') newGame({ mode: 'trail', level: S.level });
   else if (S.mode === 'daily') newGame({ mode: 'daily', date: S.daily });
   else newGame({ mode: S.mode });
 }
-function resumeSaved() {
-  const r = SAVE_STORE.readResume(); SAVE = SAVE_STORE.value; if (!r) { fillTitle(); return; }
-  if (dropBadResume()) { fillTitle(); badResumeToast(); return; }
-  S = Object.assign(JSON.parse(JSON.stringify(r)), { scene: 'game', undoStack: [] });
+function resumeSaved(preferredMode = null) {
+  const mode = preferredMode || UI.continueMode || (bestContinueRun() && bestContinueRun().mode) || 'classic';
+  let r = null;
+  if (mode === 'springs') {
+    const e = savedRunEntry('springs', 'springs');
+    if (e) { r = e.state; RUN_ACK.springs = e.rev; RUN_WARNED.springs = false; }
+    else {
+      const sr = SAVE_STORE.readResume(); SAVE = SAVE_STORE.value;
+      if (sr && validResume(sr, ['springs']) && !sr.over) r = sr;
+    }
+  } else {
+    r = SAVE_STORE.readResume(); SAVE = SAVE_STORE.value;
+    if (!r) { fillTitle(); return; }
+    if (dropBadResume()) { fillTitle(); badResumeToast(); return; }
+  }
+  if (!r || !validResume(r, ['classic', 'springs']) || r.over) { fillTitle(); return; }
+  const hasPriorBest = Object.hasOwn(r, 'priorBest') && Number.isFinite(r.priorBest) && r.priorBest >= 0;
+  S = Object.assign(freshGame(r.mode), JSON.parse(JSON.stringify(r)), { scene: 'game', undoStack: [] });
+  if (!DIFFICULTIES.includes(S.diff)) S.diff = 'standard';
+  if (!Number.isInteger(S.undosUsed) || S.undosUsed < 0) S.undosUsed = 0;
+  if (!Number.isInteger(S.hintRound) || S.hintRound < -1) S.hintRound = -1;
+  if (!hasPriorBest) S.priorBest = bestFor(S.mode);
+  S.bestCommitted = false;
+  S.provBest = null;
+  delete S.updatedAt;
   UI.earned = []; tipStart(true);
-  UI.sel = -1; UI.ghost = null; FX.length = 0; bgKey = ''; spriteCache.clear();
+  UI.sel = -1; UI.ghost = null; UI.drag = null; UI.overAt = 0; UI.skipEnd = false;
+  UI.hint = null; UI.hintRound = currentHintRound();
+  FX.length = 0; bgKey = ''; spriteCache.clear();
   showScene('game');
   announce('Game resumed. Score ' + S.score + '. ' + trayDesc());
 }
@@ -3831,7 +4113,7 @@ window.addEventListener('keydown', e => {
   }
   if (k === 'Escape') {
     e.preventDefault();
-    if (S.scene === 'game') { if (UI.sel >= 0 || UI.drag) { UI.sel = -1; UI.ghost = null; UI.drag = null; dirty = true; } else pauseGame(); }
+    if (S.scene === 'game') { if (UI.sel >= 0 || UI.drag) { UI.sel = -1; UI.ghost = null; UI.drag = null; dirty = true; } else if (!S.over) pauseGame(); }
     else if (S.scene === 'pause') resumeGame();
     else if (['help', 'settings', 'trail', 'cards', 'records'].includes(S.scene)) back();
     return;
@@ -3974,19 +4256,19 @@ window.__game = {
       case 'canvasHash': { const d = cv.toDataURL(); let h = 0; for (let i = 0; i < d.length; i += 7) h = (h * 31 + d.charCodeAt(i)) >>> 0; return h; }
       case 'pause': pauseGame(); return S.scene;
       case 'resume': showScene('game'); return S.scene;
-      case 'toast': toast(a[0], a[1]); return true;
-      case 'hideToast': hideToast(); return true;
+      case 'toast': toast(a[0], a[1], a[2], a[3]); return true;
+      case 'hideToast': hideToast(true); return true;
       case 'save': return JSON.parse(JSON.stringify(SAVE));
       case 'tips': return { on: !!UI.tip, cur: UI.tip ? UI.tip.cur : null, text: UI.tip && UI.tip.cur ? tipText(UI.tip.cur) : '', shown: UI.tip ? [...UI.tip.shown] : [], visible: $('tip').classList.contains('on'), seen: SAVE.settings.tipsSeen };
       case 'goals': return { earned: { ...SAVE.ach }, streak: dailyStreak(), longest: dailyLongest(), queue: goalQueue.length };
       case 'input': UI.input = a[0]; if (UI.tip) tipRender(); return UI.input;
-      case 'resumeSaved': resumeSaved(); return S.scene;
+      case 'resumeSaved': resumeSaved(a[0]); return S.scene;
       case 'audio': audioInit(); sfx(a[0] || 'click'); return { ctx: !!AU.ctx, state: AU.ctx ? AU.ctx.state : null, gain: AU.master ? AU.master.gain.value : null };
       case 'infoLine': return infoLine();
       case 'doomed': return trayDoomed();
       case 'words': return { ticker: TICKER.slice(), cards: Object.fromEntries(Object.entries(CARDS).map(([k, c]) => [k, { facts: c.facts.slice(), src: c.src }])) };
       case 'hint': return useHint();
-      case 'hintState': return { hint: UI.hint ? { ...UI.hint } : null, avail: hintAvail(), round: UI.hintRound };
+      case 'hintState': return { hint: UI.hint ? { ...UI.hint } : null, avail: hintAvail(), round: currentHintRound() };
       case 'cues': return CUE_LOG.slice();
       case 'heardCues': return HEARD_LOG.slice();
       case 'dragBody': return UI.drag && UI.drag.moved && S.tray[UI.drag.slot] ? dragBody(UI.drag, performance.now() + 1000) : null;
@@ -4013,7 +4295,7 @@ if (document.fonts && document.fonts.load) Promise.all([document.fonts.load('700
 applySettings();
 showScene('title');
 if (discardedResume) badResumeToast();
-if (SAVE_STORE.newer) saveNotice('newer');
+if (savesLocked()) saveNotice('newer');
 loadArtFor('title');
 requestAnimationFrame(loop);
 </script>
