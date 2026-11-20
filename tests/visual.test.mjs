@@ -179,4 +179,23 @@ export const tests = [
       t.equal((await t.game('act', 'art')).ripples, 0, 'doUndo() clears stale WebGL ripples');
     },
   },
+  {
+    name: 'W6-S6-05 built-in contrastReport WCAG gate across Light and Dark screens',
+    viewports: ['desktop'],
+    async run(t) {
+      // Activates run.mjs's built-in t.contrastReport({ fail: true }) in CI (Wave 2 W2-B03 expands with Warm Bathhouse Dark Mode).
+      for (const theme of ['light', 'dark']) {
+        await t.game('act', 'setting', 'theme', theme);
+        await t.game('scene', 'title');
+        const titleRep = await t.contrastReport({ fail: true, selector: '#sc-title .panel *', fallbackBg: [10, 24, 28] });
+        t.expect(titleRep.checked > 0, `${theme} title panel checked (${titleRep.checked})`);
+        for (const sc of ['settings', 'help', 'cards', 'records', 'trail']) {
+          await t.game('scene', sc);
+          const rep = await t.contrastReport({ fail: true, fallbackBg: [10, 24, 28] });
+          t.expect(rep.checked > 0, `${theme} ${sc} checked (${rep.checked})`);
+        }
+      }
+      await t.game('act', 'setting', 'theme', 'system');
+    },
+  },
 ];

@@ -1,5 +1,8 @@
-# Composition guide for the Thermal Blocks era backdrops: real terrain + real footprints from a real viewpoint.
-#   "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -b -P art-src/blender/backdrop.py -- <out.png> [eyeLat eyeLon eyeH az hfov]
+# ARCHIVAL composition guide for Thermal Blocks era backdrops: real terrain + real footprints from a real viewpoint.
+# Note: Shipped painterly WebPs (assets/era-*.webp, assets/title-hero.webp) are preserved verbatim (CD-WF2-01, CD-WF3-01),
+# and the generated local backdrop.blend is git-ignored (CD-WF3-07).
+#   ${BLENDER_BIN:-blender} -b -P art-src/blender/backdrop.py -- [out.png] [eyeLat eyeLon eyeH az hfov pitch]
+#   (On Windows PowerShell: & ($env:BLENDER_BIN ?? 'blender') -b -P art-src/blender/backdrop.py -- [out.png] ...)
 # Terrain: USGS 3DEP (art-src/dem/hs-3dep.bip, fetched by tools/skyline.mjs). Footprints: OpenStreetMap (ODbL),
 # art-src/geo/row-osm.json. Heights are estimates from storey counts (sourced features in research/backdrop-notes.md).
 import bpy, bmesh, sys, os, math, json, struct
@@ -12,7 +15,11 @@ M_LAT, M_LON = 110950.0, 111320.0 * math.cos(math.radians(34.515))
 def xy(lat, lon): return ((lon - LON0) * M_LON, (lat - LAT0) * M_LAT)
 
 BBOX, W, H = (-93.090, 34.470, -92.970, 34.560), 480, 360
-raw = open(os.path.join(GAME, 'art-src', 'dem', 'hs-3dep.bip'), 'rb').read()
+DEM_PATH = os.path.join(GAME, 'art-src', 'dem', 'hs-3dep.bip')
+if not os.path.exists(DEM_PATH):
+    sys.exit(f'Missing USGS 3DEP DEM cache at {DEM_PATH}. Fetch it first with: node tools/skyline.mjs')
+with open(DEM_PATH, 'rb') as f:
+    raw = f.read()
 dem = struct.unpack('<%df' % (W * H), raw[:W * H * 4])
 def elev(lat, lon):
     fx = (lon - BBOX[0]) / (BBOX[2] - BBOX[0]) * (W - 1); fy = (BBOX[3] - lat) / (BBOX[3] - BBOX[1]) * (H - 1)

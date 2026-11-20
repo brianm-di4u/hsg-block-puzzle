@@ -1,14 +1,16 @@
 #!/usr/bin/env node
 // Packs generated art into compact WebP game assets, using the harness's own Chromium (no image libs).
 //
-//   node shared/test-harness/art-pack.mjs games/<slug> [--only name1,name2]
+//   node shared/test-harness/art-pack.mjs <gameDir|.> [--only name1,name2] [--group name1,name2] [--verify]
 //
-// Reads games/<slug>/art-src/art.json:
-//   { "quality": 0.82, "items": [ { "name": "court-qh", "src": "court-qh.png", "w": 420, "h": 588,
-//       "fit": "cover"|"contain", "crop": [x, y, w, h] (0..1, optional), "keyWhite": 0..60 (optional),
-//       "quality": 0.85 (optional) } ] }
-// Writes games/<slug>/assets/<name>.webp, games/<slug>/assets/manifest.json and a review contact
-// sheet at games/<slug>/art-src/sheet.png (open it with the Read tool).
+// Reads <gameDir>/art-src/art.json:
+//   { "quality": 0.82, "items": [ { "name": "tile-1", "group": "tiles", "src": "tile-1.png",
+//       "w": 160, "h": 160, "fit": "cover"|"contain", "crop": [x, y, w, h] (0..1, optional),
+//       "keyWhite": 0..60 (optional), "quality": 0.85 (optional),
+//       "prebuilt": true (optional: preserve existing assets/<name>.webp without recompression) } ] }
+// Writes <gameDir>/assets/<name>.webp, <gameDir>/assets/manifest.json and a review contact
+// sheet at <gameDir>/art-src/sheet.png (open it with the Read tool).
+// --verify checks assets/manifest.json against disk WebP bytes & dimensions without launching Chromium.
 // keyWhite turns near-white background connected to the image edge into transparency (for motifs
 // generated on flat white); the value is the per-channel tolerance below 255.
 
@@ -19,27 +21,136 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
-const args = process.argv.slice(2);
-const target = args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--only');
-const only = (() => { const i = args.indexOf('--only'); return i >= 0 ? args[i + 1].split(',') : null; })();
-if (!target) { console.error('usage: node shared/test-harness/art-pack.mjs games/<slug> [--only a,b]'); process.exit(2); }
+const USAGE = 'usage: node shared/test-harness/art-pack.mjs <gameDir|.> [--only a,b] [--group g1,g2] [--verify]';
+const VALUE_FLAGS = new Set(['--only', '--group']);
 
-const gameDir = path.resolve(ROOT, target);
+const args = process.argv.slice(2);
+const target = args.find((a, i) => !a.startsWith('--') && !VALUE_FLAGS.has(args[i - 1]));
+function parseListFlag(flag) {
+  const i = args.indexOf(flag);
+  if (i < 0) return null;
+  const val = args[i + 1];
+  if (!val || val.startsWith('--')) {
+    console.error(`${flag} requires a comma-separated value\n${USAGE}`);
+    process.exit(2);
+  }
+  return val.split(',').map((s) => s.trim()).filter(Boolean);
+}
+const only = parseListFlag('--only');
+const groups = parseListFlag('--group');
+const verify = args.includes('--verify');
+if (!target) { console.error(USAGE); process.exit(2); }
+
+function resolveGameDir(t) {
+  const fromCwd = path.resolve(process.cwd(), t);
+  if (fs.existsSync(path.join(fromCwd, 'art-src', 'art.json'))) return fromCwd;
+  return path.resolve(ROOT, t);
+}
+
+function webpDimensions(buf) {
+  if (buf.length < 30 || buf.toString('ascii', 0, 4) !== 'RIFF' || buf.toString('ascii', 8, 12) !== 'WEBP') return null;
+  const chunk = buf.toString('ascii', 12, 16);
+  if (chunk === 'VP8X') {
+    const w = 1 + (buf[24] | (buf[25] << 8) | (buf[26] << 16));
+    const h = 1 + (buf[27] | (buf[28] << 8) | (buf[29] << 16));
+    return { w, h };
+  }
+  if (chunk === 'VP8L' && buf[20] === 0x2f) {
+    const bits = buf.readUInt32LE(21);
+    return { w: (bits & 0x3fff) + 1, h: ((bits >> 14) & 0x3fff) + 1 };
+  }
+  if (chunk === 'VP8 ' && buf[23] === 0x9d && buf[24] === 0x01 && buf[25] === 0x2a) {
+    return { w: buf.readUInt16LE(26) & 0x3fff, h: buf.readUInt16LE(28) & 0x3fff };
+  }
+  return null;
+}
+
+const gameDir = resolveGameDir(target);
 const srcDir = path.join(gameDir, 'art-src');
 const outDir = path.join(gameDir, 'assets');
 const spec = JSON.parse(fs.readFileSync(path.join(srcDir, 'art.json'), 'utf8'));
-fs.mkdirSync(outDir, { recursive: true });
 const manPath = path.join(outDir, 'manifest.json');
 const manifest = fs.existsSync(manPath) ? JSON.parse(fs.readFileSync(manPath, 'utf8')) : {};
 
+const selected = spec.items.filter((it) => {
+  if (only && !only.includes(it.name)) return false;
+  if (groups && !groups.includes(it.group)) return false;
+  return true;
+});
+
+if ((only || groups) && selected.length === 0) {
+  const knownGroups = [...new Set(spec.items.map((it) => it.group).filter(Boolean))];
+  const hint = only && only.some((v) => knownGroups.includes(v))
+    ? ` (did you mean --group ${only.join(',')}?)`
+    : (knownGroups.length ? ` (available groups: ${knownGroups.join(', ')})` : '');
+  console.error(`art-pack: 0 items matched filter${hint}`);
+  process.exit(1);
+}
+
+if (verify) {
+  let errors = 0;
+  if (!fs.existsSync(manPath)) {
+    console.error(`  missing  manifest.json (${manPath})`);
+    process.exit(1);
+  }
+  let totalBytes = 0;
+  for (const it of selected) {
+    const entry = manifest[it.name];
+    if (!entry) { console.error(`  missing  manifest entry for ${it.name}`); errors++; continue; }
+    const expectedFile = it.name + '.webp';
+    if (entry.file !== expectedFile) { console.error(`  mismatch ${it.name}: manifest file "${entry.file}" != "${expectedFile}"`); errors++; }
+    if (entry.w !== it.w || entry.h !== it.h) { console.error(`  mismatch ${it.name}: manifest ${entry.w}x${entry.h} != art.json ${it.w}x${it.h}`); errors++; }
+    const diskPath = path.join(outDir, entry.file);
+    if (!fs.existsSync(diskPath)) { console.error(`  missing  disk file ${entry.file}`); errors++; continue; }
+    const buf = fs.readFileSync(diskPath);
+    if (buf.length !== entry.bytes) { console.error(`  mismatch ${it.name}: disk ${buf.length} B != manifest ${entry.bytes} B`); errors++; }
+    const dim = webpDimensions(buf);
+    if (!dim) { console.error(`  invalid  ${it.name}: unreadable WebP header`); errors++; }
+    else if (dim.w !== it.w || dim.h !== it.h) { console.error(`  mismatch ${it.name}: WebP ${dim.w}x${dim.h} != expected ${it.w}x${it.h}`); errors++; }
+    totalBytes += buf.length;
+  }
+  if (!only && !groups) {
+    const specNames = new Set(spec.items.map((i) => i.name));
+    for (const k of Object.keys(manifest)) {
+      if (!specNames.has(k)) { console.error(`  orphan   manifest entry "${k}" not in art.json`); errors++; }
+    }
+    const diskWebps = fs.readdirSync(outDir).filter((f) => f.endsWith('.webp')).sort();
+    const expectedWebps = spec.items.map((i) => i.name + '.webp').sort();
+    for (const f of diskWebps) {
+      if (!expectedWebps.includes(f)) { console.error(`  orphan   disk file "${f}" not in art.json`); errors++; }
+    }
+  }
+  if (errors) {
+    console.error(`art-pack --verify: FAILED with ${errors} issue(s)`);
+    process.exit(1);
+  }
+  console.log(`  verified ${selected.length} assets, ${(totalBytes / 1024 / 1024).toFixed(2)} MB (exact disk-byte & WebP dimension parity)`);
+  process.exit(0);
+}
+
+fs.mkdirSync(outDir, { recursive: true });
+const needsPack = selected.some((it) => !it.prebuilt);
 const browser = await chromium.launch();
 const page = await browser.newPage();
 await page.setContent('<!doctype html><body></body>');
 
 const MIME = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' };
-let failed = 0;
-for (const it of spec.items) {
-  if (only && !only.includes(it.name)) continue;
+let failed = 0, changed = 0;
+for (const it of selected) {
+  const destPath = path.join(outDir, it.name + '.webp');
+  if (it.prebuilt) {
+    if (!fs.existsSync(destPath)) {
+      console.log(`  missing  ${it.name} (prebuilt assets/${it.name}.webp not found)`);
+      failed++;
+      continue;
+    }
+    const buf = fs.readFileSync(destPath);
+    const dim = webpDimensions(buf);
+    manifest[it.name] = { file: it.name + '.webp', w: dim ? dim.w : it.w, h: dim ? dim.h : it.h, bytes: buf.length };
+    changed++;
+    console.log(`  prebuilt ${it.name.padEnd(22)} ${manifest[it.name].w}x${manifest[it.name].h}  ${(buf.length / 1024).toFixed(1)} KB (preserved)`);
+    continue;
+  }
   const file = path.join(srcDir, it.src);
   if (!fs.existsSync(file)) { console.log(`  missing  ${it.name} (${it.src})`); failed++; continue; }
   const url = `data:${MIME[path.extname(file).toLowerCase()] || 'image/png'};base64,` + fs.readFileSync(file).toString('base64');
@@ -96,32 +207,39 @@ for (const it of spec.items) {
     return out.toDataURL('image/webp', q).split(',')[1];
   }, { url, it, q: it.quality || spec.quality || 0.82 });
   const buf = Buffer.from(b64, 'base64');
-  fs.writeFileSync(path.join(outDir, it.name + '.webp'), buf);
+  fs.writeFileSync(destPath, buf);
   manifest[it.name] = { file: it.name + '.webp', w: it.w, h: it.h, bytes: buf.length };
+  changed++;
   console.log(`  packed   ${it.name.padEnd(22)} ${it.w}x${it.h}  ${(buf.length / 1024).toFixed(1)} KB`);
 }
-// Drop entries whose items were removed from the spec.
-for (const k of Object.keys(manifest)) if (!spec.items.some((i) => i.name === k)) delete manifest[k];
-fs.writeFileSync(manPath, JSON.stringify(manifest, null, 1) + '\n');
-const total = Object.values(manifest).reduce((a, m) => a + m.bytes, 0);
-console.log(`  total    ${Object.keys(manifest).length} assets, ${(total / 1024 / 1024).toFixed(2)} MB`);
+if (changed > 0) {
+  // Drop entries whose items were removed from the spec.
+  for (const k of Object.keys(manifest)) if (!spec.items.some((i) => i.name === k)) delete manifest[k];
+  fs.writeFileSync(manPath, JSON.stringify(manifest, null, 1) + '\n');
+  const total = Object.values(manifest).reduce((a, m) => a + m.bytes, 0);
+  console.log(`  total    ${Object.keys(manifest).length} assets, ${(total / 1024 / 1024).toFixed(2)} MB`);
 
-// Contact sheet: every packed asset on a checkerboard, labelled.
-const names = Object.keys(manifest).sort();
-const cells = names.map((n) => ({ n, url: 'data:image/webp;base64,' + fs.readFileSync(path.join(outDir, manifest[n].file)).toString('base64') }));
-const sheet = await page.evaluate(async (cells) => {
-  const cw = 200, chh = 230, cols = Math.min(6, Math.max(1, cells.length)), rows = Math.ceil(cells.length / cols);
-  const c = document.createElement('canvas'); c.width = cols * cw; c.height = Math.max(1, rows) * chh;
-  const g = c.getContext('2d');
-  for (let y = 0; y < c.height; y += 10) for (let x = 0; x < c.width; x += 10) { g.fillStyle = ((x + y) / 10) % 2 ? '#d8d8d8' : '#f2f2f2'; g.fillRect(x, y, 10, 10); }
-  for (let i = 0; i < cells.length; i++) {
-    const img = new Image(); img.src = cells[i].url; await img.decode();
-    const x = (i % cols) * cw, y = Math.floor(i / cols) * chh, k = Math.min(190 / img.width, 200 / img.height);
-    g.drawImage(img, x + (cw - img.width * k) / 2, y + 5 + (200 - img.height * k) / 2, img.width * k, img.height * k);
-    g.fillStyle = '#111'; g.font = '13px system-ui'; g.fillText(cells[i].n, x + 6, y + 222);
+  // Contact sheet: every packed asset on a checkerboard, labelled.
+  const names = Object.keys(manifest).sort().filter((n) => fs.existsSync(path.join(outDir, manifest[n].file)));
+  const cells = names.map((n) => ({ n, url: 'data:image/webp;base64,' + fs.readFileSync(path.join(outDir, manifest[n].file)).toString('base64') }));
+  if (cells.length) {
+    const sheet = await page.evaluate(async (cells) => {
+      const cw = 200, chh = 230, cols = Math.min(6, Math.max(1, cells.length)), rows = Math.ceil(cells.length / cols);
+      const c = document.createElement('canvas'); c.width = cols * cw; c.height = Math.max(1, rows) * chh;
+      const g = c.getContext('2d');
+      for (let y = 0; y < c.height; y += 10) for (let x = 0; x < c.width; x += 10) { g.fillStyle = ((x + y) / 10) % 2 ? '#d8d8d8' : '#f2f2f2'; g.fillRect(x, y, 10, 10); }
+      for (let i = 0; i < cells.length; i++) {
+        const img = new Image(); img.src = cells[i].url; await img.decode();
+        const x = (i % cols) * cw, y = Math.floor(i / cols) * chh, k = Math.min(190 / img.width, 200 / img.height);
+        g.drawImage(img, x + (cw - img.width * k) / 2, y + 5 + (200 - img.height * k) / 2, img.width * k, img.height * k);
+        g.fillStyle = '#111'; g.font = '13px system-ui'; g.fillText(cells[i].n, x + 6, y + 222);
+      }
+      return c.toDataURL('image/png').split(',')[1];
+    }, cells);
+    fs.writeFileSync(path.join(srcDir, 'sheet.png'), Buffer.from(sheet, 'base64'));
   }
-  return c.toDataURL('image/png').split(',')[1];
-}, cells);
-fs.writeFileSync(path.join(srcDir, 'sheet.png'), Buffer.from(sheet, 'base64'));
+} else if (needsPack) {
+  console.error('  no assets were packed');
+}
 await browser.close();
 process.exit(failed ? 1 : 0);

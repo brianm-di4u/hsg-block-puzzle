@@ -11,8 +11,8 @@
 <!--
   Thermal Blocks — Hot Springs Games (MIT License).
   One self-contained file: inline CSS, inline script, procedural canvas art, WebAudio synthesis.
-  Facts come from research/ (see games/block-puzzle/research/town-content.md).
-  All hex colors are estimates copied from shared/design/tokens.* ; "derived" marks shades made here.
+  Facts come from research/ (see research/town-content.md).
+  Fixed tile glazes match art-src/tile-spec.json; UI tokens live in :root below.
 -->
 <style>
 /* Fraunces (SIL OFL 1.1), Latin subset, weights 700 and 900, from npm @fontsource/fraunces@5.3.0; see vendor/fraunces-5.3.0/ */
@@ -439,19 +439,19 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
 /*RULES-START*/
 // ===================================================================== DATA
 const ERAS = [ // ids, names and ranges: research/timeline.json; score thresholds are game design
-  { id:'ancient',    name:'Ancient Valley',    years:'before 1804', at:0,     pal:'ouachita-forest',
+  { id:'ancient',    name:'Ancient Valley',    years:'before 1804', at:0,
     cap:'Steam off the springs gave the valley its old nickname: the Valley of Vapors. Native peoples quarried novaculite from the hills around Hot Springs for many thousands of years.' },
-  { id:'frontier',   name:'Frontier Springs',  years:'1804–1874',   at:150,   pal:'frontier-valley',
+  { id:'frontier',   name:'Frontier Springs',  years:'1804–1874',   at:150,
     cap:'1804: William Dunbar writes Thomas Jefferson about "the boiling springs."' },
-  { id:'gilded-spa', name:'Gilded Spa',        years:'1875–1920',   at:400,   pal:'gilded-spa',
+  { id:'gilded-spa', name:'Gilded Spa',        years:'1875–1920',   at:400,
     cap:'Brick bathhouses rise along Bathhouse Row. The Hale (1892–93) is the oldest one still standing. 1875: the first Arlington Hotel opens as the state’s largest hotel.' },
-  { id:'roaring',    name:'Roaring Spa Town',  years:'1921–1946',   at:800,   pal:'deco-neon',
+  { id:'roaring',    name:'Roaring Spa Town',  years:'1921–1946',   at:800,
     cap:'March 4, 1921: the reservation becomes Hot Springs National Park, the nation’s 18th. Leo P. McLaughlin was mayor from 1927 to 1947 and ran an "open town," with gamblers paying regular fines.' },
-  { id:'midcentury', name:'Midcentury Vapors', years:'1947–1967',   at:1500,  pal:'motor-hotel',
+  { id:'midcentury', name:'Midcentury Vapors', years:'1947–1967',   at:1500,
     cap:'Bathing peaked in 1946, then declined. The Fordyce was the first Row bathhouse to close, in 1962. 1967: Gov. Winthrop Rockefeller orders the State Police to crack down on gambling in Hot Springs.' },
-  { id:'revival',    name:'Revival Years',     years:'1968–1999',   at:2500,  pal:'nps-rustic',
+  { id:'revival',    name:'Revival Years',     years:'1968–1999',   at:2500,
     cap:'1982: NPS creates the Thermal Water Cascade. 1989: the Fordyce reopens as the park visitor center.' },
-  { id:'modern',     name:'Modern Spa City',   years:'2000–2026',   at:4000,  pal:'lake-life',
+  { id:'modern',     name:'Modern Spa City',   years:'2000–2026',   at:4000,
     cap:'Today the Buckstaff still gives traditional baths, and the Superior pours beer as a brewery. Hot Springs Creek flows under Bathhouse Row and empties into Lake Hamilton.' },
 ];
 
@@ -2338,8 +2338,8 @@ function ensureBoard() {
   g.fillStyle = tg;
   for (const [x, y, w, h] of [[o + t0, o + t0, run, bw], [o + t0, o + s - t0 - bw, run, bw], [o + t0, o + t0, bw, run], [o + s - t0 - bw, o + t0, bw, run]]) g.fillRect(x, y, w, h);
   const n = Math.max(9, Math.round(run / bw)), q = run / n;
-  g.strokeStyle = 'rgba(110,86,50,.22)'; g.lineWidth = 1;
-  for (let k = 1; k < 0; k++) {
+  g.strokeStyle = 'rgba(110,86,50,.16)'; g.lineWidth = 1;
+  for (let k = 1; k < n; k++) {
     const p = o + t0 + k * q;
     g.beginPath(); g.moveTo(p, o + t0); g.lineTo(p, o + t0 + bw); g.moveTo(p, o + s - t0 - bw); g.lineTo(p, o + s - t0);
     g.moveTo(o + t0, p); g.lineTo(o + t0 + bw, p); g.moveTo(o + s - t0 - bw, p); g.lineTo(o + s - t0, p); g.stroke();

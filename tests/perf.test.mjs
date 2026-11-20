@@ -92,4 +92,26 @@ export const tests = [
       await t.shot('71-soak-end');
     },
   },
+  {
+    name: 'W6-S6-05 built-in frameCost and 4x cpuThrottle telemetry gate',
+    async run(t) {
+      await t.seed(77);
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'hideToast');
+      const unthrottled = await t.frameCost(800);
+      t.log(`unthrottled frameCost: ${JSON.stringify(unthrottled)}`);
+      t.expect(unthrottled.frames > 0 && Number.isFinite(unthrottled.taskMs), 'frameCost returns valid CDP metrics');
+      t.expect(unthrottled.taskMs < 16.67, `unthrottled taskMs < 16.67 ms (${unthrottled.taskMs} ms)`);
+      let throttled = null;
+      try {
+        await t.cpuThrottle(4);
+        throttled = await t.frameCost(800);
+      } finally {
+        await t.cpuThrottle(1);
+      }
+      t.log(`4x-cpu frameCost baseline: ${JSON.stringify(throttled)}`);
+      // Wave 2 W2-B01 (W6-S6-01) tightens 4x-CPU ceiling strictly to taskMs < 10 ms, <=22 sprites, <=2 backdrops & 0 modal draws.
+      t.expect(throttled.frames > 0 && Number.isFinite(throttled.taskMs), '4x cpuThrottle frameCost returns valid CDP metrics');
+    },
+  },
 ];

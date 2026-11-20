@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "source": "art-src/blender/tiles.py",
+  "tile_size": 0.9,
+  "ortho_scale": 1.19,
+  "cam_y": -0.035,
+  "glaze_h": 0.26,
+  "tufa_h": 0.3,
+  "body": 0.7563025210084033,
+  "cy": 0.47058823529411764,
+  "colors": {
+    "tile-1": "#B8381F",
+    "tile-2": "#E09A1E",
+    "tile-3": "#2450B8",
+    "tile-4": "#1F8A4C",
+    "tile-5": "#E9DFC6",
+    "tile-6": "#7A3FB4"
+  }
+}

@@ -1,8 +1,22 @@
 # Renders the glazed tile sprites for Thermal Blocks.
-#   "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -b -P art-src/blender/tiles.py -- <outdir>
-# Builds the scene from scratch, saves tiles.blend beside this script, renders PNGs with alpha.
-import bpy, sys, os, math
-out = sys.argv[sys.argv.index('--') + 1] if '--' in sys.argv else os.path.join(os.path.dirname(__file__), 'renders')
+#   ${BLENDER_BIN:-blender} -b -P art-src/blender/tiles.py -- [outdir]
+#   (On Windows PowerShell: & ($env:BLENDER_BIN ?? 'blender') -b -P art-src/blender/tiles.py -- [outdir])
+# Reads camera framing, dimensions, and fixed glaze colors from art-src/tile-spec.json (CI-checked against index.html).
+# Default output directory is art-src/ (matching art-src/art.json); saves local tiles.blend (git-ignored).
+import bpy, sys, os, math, json
+HERE = os.path.dirname(os.path.abspath(__file__))
+ART_SRC = os.path.abspath(os.path.join(HERE, '..'))
+SPEC_PATH = os.path.join(ART_SRC, 'tile-spec.json')
+with open(SPEC_PATH, encoding='utf-8') as f:
+    SPEC = json.load(f)
+TILE_SIZE = float(SPEC['tile_size'])
+ORTHO_SCALE = float(SPEC['ortho_scale'])
+CAM_Y = float(SPEC['cam_y'])
+GLAZE_H = float(SPEC['glaze_h'])
+TUFA_H = float(SPEC['tufa_h'])
+COLORS = SPEC['colors']
+
+out = sys.argv[sys.argv.index('--') + 1] if '--' in sys.argv else ART_SRC
 os.makedirs(out, exist_ok=True)
 bpy.ops.wm.read_factory_settings(use_empty=True)
 sc = bpy.context.scene
@@ -15,9 +29,9 @@ sc.render.image_settings.file_format = 'PNG'; sc.render.image_settings.color_mod
 world = bpy.data.worlds.new('w'); sc.world = world; world.use_nodes = True
 bg = world.node_tree.nodes['Background']; bg.inputs[0].default_value = (0.62, 0.72, 0.74, 1); bg.inputs[1].default_value = 0.32
 
-# camera: orthographic, straight down; the tile fills ~84% of the frame, leaving room for the shadow
+# camera: orthographic, straight down; framing values live in art-src/tile-spec.json
 cam = bpy.data.objects.new('cam', bpy.data.cameras.new('cam')); sc.collection.objects.link(cam); sc.camera = cam
-cam.data.type = 'ORTHO'; cam.data.ortho_scale = 1.19; cam.location = (0, -0.035, 5); cam.rotation_euler = (0, 0, 0)
+cam.data.type = 'ORTHO'; cam.data.ortho_scale = ORTHO_SCALE; cam.location = (0, CAM_Y, 5); cam.rotation_euler = (0, 0, 0)
 key = bpy.data.objects.new('key', bpy.data.lights.new('key', 'AREA')); sc.collection.objects.link(key)
 key.data.energy = 330; key.data.size = 1.6; key.location = (-2.6, 2.9, 2.4)
 key.rotation_euler = (math.radians(-48), math.radians(-42), 0)
@@ -26,10 +40,9 @@ rim.data.energy = 40; rim.data.size = 3; rim.location = (2.5, -2.0, 2.5); rim.ro
 bpy.ops.mesh.primitive_plane_add(size=6, location=(0, 0, 0)); ground = bpy.context.active_object; ground.is_shadow_catcher = True
 
 
-def tile_mesh(name, h=0.26, bevel=0.15, inset=True):
-    import bmesh
+def tile_mesh(name, h=GLAZE_H, bevel=0.15, inset=True):
     bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, h / 2))
-    o = bpy.context.active_object; o.name = name; o.scale = (0.9, 0.9, h)
+    o = bpy.context.active_object; o.name = name; o.scale = (TILE_SIZE, TILE_SIZE, h)
     bpy.ops.object.transform_apply(scale=True)
     m = o.modifiers.new('bev', 'BEVEL'); m.width = bevel; m.segments = 8; m.limit_method = 'NONE'; m.profile = 0.62
     bpy.ops.object.modifier_apply(modifier='bev')
@@ -73,10 +86,8 @@ def glaze(name, hexcol, rough=0.22):
     return mt
 
 
-# Fixed palette (game design, after Row materials: terra cotta, amber glass, cobalt glass,
-# green tile, cream marble, violet stained glass). Keep in sync with TILE_HEX in index.html.
-COLORS = {'tile-1': '#B8381F', 'tile-2': '#E09A1E', 'tile-3': '#2450B8', 'tile-4': '#1F8A4C', 'tile-5': '#E9DFC6', 'tile-6': '#7A3FB4'}
-t = tile_mesh('tile')
+# Fixed palette loaded from art-src/tile-spec.json (CI-checked against TILE_HEX in index.html).
+t = tile_mesh('tile', GLAZE_H)
 for name, hx in COLORS.items():
     t.data.materials.clear(); t.data.materials.append(glaze(name, hx, 0.26 if name == 'tile-5' else 0.2))
     sc.render.filepath = os.path.join(out, name + '.png'); bpy.ops.render.render(write_still=True)
@@ -103,7 +114,7 @@ def tufa_mat():
 
 # tufa stone: porous, lobed travertine (a fresh block with no inset)
 bpy.data.objects.remove(t)
-t = tile_mesh('tufa', 0.3, 0.2, inset=False)
+t = tile_mesh('tufa', TUFA_H, 0.2, inset=False)
 t.data.materials.clear(); t.data.materials.append(tufa_mat())
 sc.render.filepath = os.path.join(out, 'tile-7.png'); bpy.ops.render.render(write_still=True)
 
