@@ -3,9 +3,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadRules } from '../tools/rules-node.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SOL = JSON.parse(fs.readFileSync(path.join(HERE, '..', 'tools', 'solutions.json'), 'utf8'));
+const RULES = loadRules();
 const levelKey = L => JSON.stringify([L.board, L.pieces, L.goal]);
 
 async function play(t, L, moves) {
@@ -98,6 +100,75 @@ export const tests = [
       t.equal(s.scene, 'game', 'back in the puzzle');
       t.equal(s.over, false, 'not over');
       t.equal(s.tray.filter(Boolean).length, 1, 'last piece back in the tray');
+    },
+  },
+  {
+    name: 'W6-S3-01 W6-S3-06 24/24 zero-pre-clear invariant, #b-next 18-star Ring 2 gate, Trail HUD/queue & Goal/Record isolation',
+    async run(t) {
+      // 1. All 24 Trail levels start with zero pre-completed groups.
+      for (const L of RULES.LEVELS) {
+        t.equal(RULES.findClears(RULES.parseLevel(L)).length, 0, L.id + ': zero board-start pre-clears');
+      }
+      // 2. Trail unconditionally hides Score in #hud and Heat on canvas, rendering Up Next S.queue + 3★ stake.
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('newGame', { mode: 'trail', level: 'lamar-bathhouse' });
+      await t.game('act', 'hideToast');
+      const scoreHidden = await t.page.evaluate(() => document.querySelector('#hud .stat.score').hidden);
+      t.equal(scoreHidden, true, 'Trail hides #hud Score');
+      const ct = await t.game('act', 'canvasText');
+      t.expect(!ct.texts.some(x => /\bHEAT\b|Heat |°F|Boiling/.test(x.text)), 'Trail prints zero Heat chrome: ' + ct.texts.map(x => x.text).join(' | '));
+      t.expect(ct.texts.some(x => /UP NEXT|^Next$/.test(x.text)), 'Trail shows Up Next queue label: ' + ct.texts.map(x => x.text).join(' | '));
+      t.expect(ct.texts.some(x => /★★★/.test(x.text)), 'Trail shows 3★ Undo stake: ' + ct.texts.map(x => x.text).join(' | '));
+      t.expect(ct.texts.every(x => x.size >= 12), 'all Trail canvas text >= 12 px');
+      // 3. Trail solves never farm endless Goals (clear-spring, four-at-once, boiling, bathhouse-regular) or arcade Records.
+      const before = await t.game('act', 'save');
+      for (const id of ['display-spring', 'ozark-bathhouse', 'lamar-bathhouse']) {
+        const L = RULES.LEVELS.find(x => x.id === id);
+        t.expect(await play(t, L, SOL[id].solution), id + ': solved cleanly');
+        await t.page.waitForFunction(() => window.__game.getState().scene === 'win', null, { timeout: 4000 });
+      }
+      const after = await t.game('act', 'save');
+      t.equal(after.stats.games, before.stats.games + 3, 'Trail counts games played');
+      t.equal(after.stats.lines, before.stats.lines, 'Trail does not farm lifetime lines');
+      t.equal(after.stats.springs, before.stats.springs, 'Trail does not farm lifetime springs');
+      t.equal(after.stats.bestCombo, before.stats.bestCombo, 'Trail does not write bestCombo');
+      t.equal(after.stats.bestHeat, before.stats.bestHeat, 'Trail does not write bestHeat');
+      t.equal(after.stats.longest, before.stats.longest, 'Trail does not write longest');
+      t.expect(!after.ach['clear-spring'] && !after.ach['four-at-once'] && !after.ach['boiling'] && !after.ach['bathhouse-regular'], 'Trail does not grant endless skill Goals');
+      t.expect(!!after.ach['steady-hand'], 'Trail still grants Steady Hand');
+      // 4. #b-next enforces unlocked(idx + 1): solving Level 12 with < 18 stars hides #b-next and blocks click bypass.
+      if (t.viewport === 'desktop') {
+        const KEY = 'hs-thermal-blocks-v1';
+        const ring1 = RULES.LEVELS.slice(0, 12).map(l => l.id);
+        await t.page.evaluate(([k, ids]) => {
+          const sv = JSON.parse(localStorage.getItem(k));
+          sv.trail.done = ids.slice(0, 11);
+          sv.trail.stars = { 'display-spring': 3 };
+          localStorage.setItem(k, JSON.stringify(sv));
+        }, [KEY, ring1]);
+        await t.reload();
+        const lv12 = RULES.LEVELS[11];
+        t.expect(await play(t, lv12, SOL[lv12.id].solution), 'Level 12 solved with < 18 stars');
+        await t.page.waitForFunction(() => window.__game.getState().scene === 'win', null, { timeout: 4000 });
+        t.equal(await t.page.isVisible('#b-next'), false, '#b-next hidden when Ring 2 is locked (< 18 stars)');
+        // Even forcing a click on #b-next must not open Ring 2 Level 13.
+        await t.page.evaluate(() => document.getElementById('b-next').click());
+        const stBlocked = await t.state();
+        t.expect(stBlocked.scene === 'trail' && stBlocked.level !== RULES.LEVELS[12].id, '#b-next click cannot bypass 18-star Ring 2 gate');
+        // Now grant 18+ stars and solve Level 12 again: #b-next shows and opens Level 13.
+        await t.page.evaluate(([k, ids]) => {
+          const sv = JSON.parse(localStorage.getItem(k));
+          sv.trail.done = ids.slice();
+          sv.trail.stars = Object.fromEntries(ids.slice(0, 6).map(id => [id, 3]));
+          localStorage.setItem(k, JSON.stringify(sv));
+        }, [KEY, ring1]);
+        await t.reload();
+        t.expect(await play(t, lv12, SOL[lv12.id].solution), 'Level 12 solved with 18 stars');
+        await t.page.waitForFunction(() => window.__game.getState().scene === 'win', null, { timeout: 4000 });
+        t.equal(await t.page.isVisible('#b-next'), true, '#b-next shown once 18 stars unlock Ring 2');
+        await t.page.click('#b-next');
+        t.equal((await t.state()).level, RULES.LEVELS[12].id, '#b-next opens Ring 2 Level 13 when unlocked');
+      }
     },
   },
 ];

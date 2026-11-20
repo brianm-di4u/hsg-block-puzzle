@@ -153,7 +153,12 @@ async function sweepHud(t, w, h, scores, label) {
     await t.game('setState', mode === 'springs' ? { score, springs: 46 } : { score });
     await t.waitFrames(2);
     const ex = await hudExtents(t);
-    t.expect(ex.stats.some(x => x.texts.some(y => y.text === shown)), label + ' ' + w + 'x' + h + ': the score ' + shown + ' is showing in ' + mode);
+    if (mode === 'trail') {
+      t.expect(!ex.stats.some(x => x.texts.some(y => y.text === shown)), label + ' ' + w + 'x' + h + ': Trail hides inert score (CD-WF1-03)');
+      t.expect(ex.stats.some(x => x.texts.some(y => y.text === '9')), label + ' ' + w + 'x' + h + ': Trail goal is showing');
+    } else {
+      t.expect(ex.stats.some(x => x.texts.some(y => y.text === shown)), label + ' ' + w + 'x' + h + ': the score ' + shown + ' is showing in ' + mode);
+    }
     const far = assertClear(t, ex, label + ' ' + mode + ' ' + score + ' at ' + w + 'x' + h);
     t.expect(far <= w + 0.5, label + ' ' + mode + ' at ' + w + 'x' + h + ': nothing runs off the right edge (' + far.toFixed(0) + ')');
     const doc = await t.page.evaluate(() => document.documentElement.scrollWidth);

@@ -171,4 +171,49 @@ export const tests = [
       t.equal(s.scene, 'game', 'Escape resumes');
     },
   },
+  {
+    name: 'W6-S6-04 mid-drag doUndo() and blur/contextmenu/Escape aborts never throw',
+    viewports: ['desktop'],
+    async run(t) {
+      const L = await setup(t, [{ id: 'o1' }, { id: 'o1' }, { id: 'o1' }]);
+      await t.game('act', 'setting', 'undo', 3);
+      await t.game('newGame', { mode: 'classic', seed: 12 });
+      await t.game('setState', { board: EMPTY(), tray: [{ id: 'o1' }, { id: 'o1' }, { id: 'o1' }], undoLeft: 3 });
+      await t.game('act', 'hideToast');
+      // Place 3 pieces so Round 2 deals a fresh tray; snapshot on undoStack has slot 0 = null, slot 1 = null, slot 2 = o1.
+      t.expect((await t.game('act', 'place', 0, 0, 0)).ok, 'piece 1 placed');
+      t.expect((await t.game('act', 'place', 1, 0, 2)).ok, 'piece 2 placed');
+      t.expect((await t.game('act', 'place', 2, 0, 4)).ok, 'piece 3 placed -> Round 2 dealt');
+      // Begin dragging slot 0 of Round 2 across the board (slot 0 was null in Round 1's pre-Piece-3 snapshot!).
+      const [sx, sy] = slotCenter(L, 0);
+      const [bx, by] = cellCenter(L, 4, 4);
+      await t.page.mouse.move(sx, sy);
+      await t.page.mouse.down();
+      await t.page.mouse.move(bx, by, { steps: 6 });
+      // Trigger Undo mid-drag: must cancelDrag cleanly without TypeError on null S.tray[0].
+      const u = await t.game('act', 'undo');
+      t.equal(u.ok, true, 'mid-drag undo succeeds');
+      await t.page.mouse.move(bx + 20, by + 20, { steps: 3 });
+      await t.page.mouse.up();
+      const afterUndo = await t.page.evaluate(() => ({ drag: UI.drag, ghost: UI.ghost, slot0: S.tray[0] }));
+      t.equal(afterUndo.drag, null, 'drag cleared on mid-drag undo');
+      t.equal(afterUndo.ghost, null, 'ghost cleared on mid-drag undo');
+      t.equal(afterUndo.slot0, null, 'restored Round 1 slot 0 is null without crashing');
+      // Verify blur, contextmenu, Escape, and hidden-tab aborts cleanly cancel active drags.
+      await t.game('setState', { board: EMPTY(), tray: [{ id: 'o4' }, { id: 'o1' }, { id: 'i2h' }], undoLeft: 3 });
+      for (const abortKind of ['blur', 'contextmenu', 'Escape']) {
+        await t.page.mouse.move(sx, sy);
+        await t.page.mouse.down();
+        await t.page.mouse.move(bx, by, { steps: 5 });
+        t.expect(await t.page.evaluate(() => !!(UI.drag && UI.drag.moved)), abortKind + ': drag started');
+        if (abortKind === 'blur') await t.page.evaluate(() => window.dispatchEvent(new Event('blur')));
+        else if (abortKind === 'contextmenu') await t.page.evaluate(() => document.getElementById('cv').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })));
+        else await t.page.keyboard.press('Escape');
+        await t.page.mouse.up();
+        const cleared = await t.page.evaluate(() => ({ drag: UI.drag, ghost: UI.ghost }));
+        t.equal(cleared.drag, null, abortKind + ': drag cancelled cleanly');
+        t.equal(cleared.ghost, null, abortKind + ': ghost cleared');
+      }
+    },
+  },
 ];

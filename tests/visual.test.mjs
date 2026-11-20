@@ -147,4 +147,36 @@ export const tests = [
       await t.shot('86-new-best');
     },
   },
+  {
+    name: 'W6-S6-04 WATER.resize() mid-shake clears transform and WATER.clear() zeroes stale ripples',
+    url: 'index.html?gl=force',
+    viewports: ['desktop'],
+    async run(t) {
+      await clearBoard(t, [4, 5]);
+      await t.waitFrames(3);
+      const r = await t.game('act', 'place', 0, 4, 8);
+      t.equal(r.G, 2, 'two rows cleared');
+      const mid = await t.page.evaluate(() => {
+        // Ensure shake transform is active, then call WATER.resize() mid-shake.
+        draw(performance.now() + 20);
+        const ripplesBefore = WATER.ripples.length;
+        WATER.resize();
+        const w = document.getElementById('water');
+        const rect = w.getBoundingClientRect();
+        return { ripplesBefore, transform: w.style.transform, left: rect.left, gx: LAY.board.gx };
+      });
+      t.expect(mid.ripplesBefore > 0, 'clear spawned WebGL ripples');
+      t.equal(mid.transform, '', 'WATER.resize() clears mid-shake DOM transform');
+      t.expect(Math.abs(mid.left - mid.gx) < 1.5, 'water aligns to board.gx after mid-shake resize');
+      // Starting a new game (e.g. Daily Soak) must zero all prior-game WebGL ripples.
+      await t.game('newGame', { mode: 'daily', date: '2026-11-20' });
+      t.equal((await t.game('act', 'art')).ripples, 0, 'newGame() clears stale WebGL ripples');
+      // Undoing after a clear must also zero ripples.
+      await clearBoard(t, [4, 5]);
+      await t.game('act', 'place', 0, 4, 8);
+      t.expect((await t.game('act', 'art')).ripples > 0, 'ripples present after clear');
+      await t.game('act', 'undo');
+      t.equal((await t.game('act', 'art')).ripples, 0, 'doUndo() clears stale WebGL ripples');
+    },
+  },
 ];

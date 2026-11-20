@@ -281,4 +281,107 @@ export const tests = [
       t.equal(afterLock.run, futureRun, 'RUN_KEY stayed byte-for-byte untouched while rv>1');
     },
   },
+  {
+    name: 'W6-S3-05 monotonic S.refilledRound blocks infinite Piece-3 Undo refills while keeping deterministic seed parity',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.game('act', 'setting', 'undo', 1);
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('newGame', { mode: 'classic', seed: 42 });
+      await t.game('setState', { board: EMPTY(), tray: [{ id: 'o1' }, { id: 'o1' }, { id: 'o1' }], round: 1, refilledRound: 1, undoLeft: 1, rng: 42 });
+      // Spend Round 1's single undo.
+      t.expect((await t.game('act', 'place', 0, 0, 0)).ok, 'place p1');
+      t.expect((await t.game('act', 'undo')).ok, 'spend Round 1 undo');
+      t.equal((await t.state()).undoLeft, 0, 'Round 1 undo spent');
+      // Place all 3 pieces -> crosses into Round 2, refilling undoLeft once.
+      t.expect((await t.game('act', 'place', 0, 0, 0)).ok, 'p1');
+      t.expect((await t.game('act', 'place', 1, 0, 2)).ok, 'p2');
+      t.expect((await t.game('act', 'place', 2, 0, 4)).ok, 'p3 -> deals Round 2');
+      const r2First = await t.state();
+      t.equal(r2First.round, 2, 'at Round 2');
+      t.equal(r2First.refilledRound, 2, 'refilledRound advanced to 2');
+      t.equal(r2First.undoLeft, 1, 'undoLeft refilled once for Round 2');
+      const r2TrayFirst = r2First.tray.map(x => x.id);
+      // Undo Piece 3 back into Round 1: consumes the Round 2 undo, keeping refilledRound = 2.
+      t.expect((await t.game('act', 'undo')).ok, 'undo Piece 3 back into Round 1');
+      const backR1 = await t.state();
+      t.equal(backR1.round, 1, 'back in Round 1');
+      t.equal(backR1.undoLeft, 0, 'undoLeft is 0');
+      t.equal(backR1.refilledRound, 2, 'refilledRound stays 2 across Undo');
+      // Re-place Piece 3: returns to Round 2 with the exact deterministic tray, and MUST NOT refill undoLeft again!
+      t.expect((await t.game('act', 'place', 2, 0, 4)).ok, 're-place Piece 3');
+      const r2Again = await t.state();
+      t.equal(r2Again.round, 2, 'back at Round 2');
+      t.equal(r2Again.tray.map(x => x.id), r2TrayFirst, 'deterministic seed parity preserved on re-deal');
+      t.equal(r2Again.undoLeft, 0, 'Piece-3 repeat does NOT refill undoLeft');
+      t.equal((await t.game('act', 'undo')).ok, false, 'cannot loop Piece-3 Undo infinitely');
+      // Also verify setSetting('undo', 3) after reload with placed > 0 does not refill spent mid-round undo.
+      await t.reload();
+      await t.game('act', 'resumeSaved', 'classic');
+      await t.game('act', 'setting', 'undo', 3);
+      t.equal((await t.state()).undoLeft, 0, 'changing Undo setting mid-run after resume does not refill spent Undo');
+      // Finishing all 3 pieces of Round 2 reaches Round 3 (> refilledRound 2) and refills cleanly.
+      await t.game('setState', { board: EMPTY(), tray: [{ id: 'o1' }, { id: 'o1' }, { id: 'o1' }], round: 2, refilledRound: 2, undoLeft: 0 });
+      t.expect((await t.game('act', 'place', 0, 0, 0)).ok, 'r2 p1');
+      t.expect((await t.game('act', 'place', 1, 0, 2)).ok, 'r2 p2');
+      t.expect((await t.game('act', 'place', 2, 0, 4)).ok, 'r2 p3 -> deals Round 3');
+      const r3 = await t.state();
+      t.equal(r3.round, 3, 'reached Round 3');
+      t.equal(r3.refilledRound, 3, 'refilledRound advanced to 3');
+      t.equal(r3.undoLeft, 3, 'undoLeft refilled legitimately on Round 3');
+      await t.game('act', 'setting', 'undo', 1);
+    },
+  },
+  {
+    name: 'W6-S3-06 incremental Loss-Undo ledger credits post-rescue lines, Boiling, Water Cards & updates recent without double-counting',
+    viewports: ['desktop'],
+    async run(t) {
+      const KEY = 'hs-thermal-blocks-v1';
+      await t.game('act', 'setting', 'undo', 3);
+      await t.game('act', 'setting', 'tipsSeen', true);
+      // Seed lifetime stats at 23 groups (2 away from Water's age: 250 years at 25 groups) and 0 Boiling games.
+      await t.page.evaluate(k => {
+        const sv = JSON.parse(localStorage.getItem(k));
+        sv.stats.games = 5;
+        sv.stats.lines = 23;
+        sv.stats.bestHeat = 6;
+        sv.stats.recent.classic = [300];
+        sv.goals = { boiled: 0 };
+        localStorage.setItem(k, JSON.stringify(sv));
+      }, KEY);
+      await t.reload();
+      await t.game('newGame', { mode: 'classic', seed: 19 });
+      // Provisional loss #1: checkerboard where placing o1 at (0,1) leaves i2h and o9 unplaceable, groups=1, score=620, bestHeat=6.
+      await t.game('setState', { board: checker(), tray: [{ id: 'o1' }, { id: 'i2h' }, { id: 'o9' }], score: 620, heat: 6, bestHeat: 6, groups: 1, placed: 30, undoLeft: 3 });
+      t.expect((await t.game('act', 'place', 0, 0, 1)).ok, 'provisional loss move');
+      await t.page.waitForFunction(() => window.__game.getState().scene === 'over', null, { timeout: 4000 });
+      const mid = await t.game('act', 'save');
+      t.equal(mid.stats.games, 6, 'provisional loss counted 1 game');
+      t.equal(mid.stats.lines, 24, 'provisional loss credited initial 1 group (23 -> 24)');
+      t.equal(mid.stats.recent.classic, [300, 621], 'provisional loss appended 621 to recent');
+      t.equal(mid.goals.boiled, 0, 'not Boiling yet');
+      // Click Post-Loss Undo -> rescue the run, clear 2 rows hitting heat=12 (Boiling), then lose at a higher score.
+      await t.page.click('#b-ovundo');
+      await t.page.waitForFunction(() => window.__game.getState().scene === 'game', null, { timeout: 4000 });
+      const b2 = checker();
+      for (let c = 0; c < 8; c++) { b2[c] = 1; b2[9 + c] = 2; }
+      b2[8] = 0; b2[17] = 0;
+      await t.game('setState', { board: b2, tray: [{ id: 'i2v' }, { id: 'o9' }, { id: 'o9' }], score: 620, heat: 10, bestHeat: 10, groups: 1, placed: 30, undoLeft: 2 });
+      const clr = await t.game('act', 'place', 0, 0, 8);
+      t.expect(clr.ok && clr.G >= 2, 'rescued run clears 2+ groups and reaches Boiling');
+      const afterClear = await t.state();
+      t.equal(afterClear.heat, 12, 'reached 143F Boiling post-undo');
+      t.equal(afterClear.over, true, 'o9 pieces cannot fit on remaining checkerboard -> final loss');
+      await t.page.waitForFunction(() => window.__game.getState().scene === 'over', null, { timeout: 4000 });
+      const fin = await t.game('act', 'save');
+      t.equal(fin.stats.games, 6, 'rescued run still counts as ONE game total (zero double-counting)');
+      t.equal(fin.stats.lines, 23 + afterClear.groups, 'ALL post-undo groups credited to lifetime lines (' + fin.stats.lines + ')');
+      t.equal(fin.stats.bestHeat, 12, 'post-undo Boiling bestHeat recorded');
+      t.equal(fin.goals.boiled, 1, 'post-undo Boiling game credited to SAVE.goals.boiled');
+      t.equal(fin.stats.recent.classic, [300, afterClear.score], 'recent.classic updated in-place to final rescued score (no duplicate entry)');
+      const ovTxt = await t.page.textContent('#ov-stats');
+      t.expect(/Water’s age: 250 years/.test(ovTxt), 'Water Card earned post-undo announced on Game Over: ' + ovTxt);
+      await t.game('act', 'setting', 'undo', 1);
+    },
+  },
 ];

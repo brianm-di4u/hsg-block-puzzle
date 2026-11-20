@@ -261,9 +261,9 @@ export const tests = [
     },
   },
 
-  // ------------------------------------------------------------------ S2-17 eras are scenery
+  // ------------------------------------------------------------------ S2-17 honest Classic era & pressure copy (CD-WF1-06 / W6-S3-05)
   {
-    name: 'S2-17 the first era change says the town moved forward and that eras are scenery, once; Help says so too',
+    name: 'S2-17 the first era change honestly notes higher scores bring trickier pieces once; Help and High/Peak Flow captions match',
     async run(t) {
       const crossing = async () => {
         await t.game('newGame', { mode: 'classic' });
@@ -274,14 +274,25 @@ export const tests = [
         return text(t, '#toast');
       };
       const first = await crossing();
-      t.expect(first.startsWith('Frontier Springs · 1804–1874Your score moved the town forward; eras are scenery only. 1804: William Dunbar'), 'first crossing: ' + first);
+      t.expect(first.startsWith('Frontier Springs · 1804–1874Your score moved the town forward; higher scores also bring trickier pieces. 1804: William Dunbar'), 'first crossing: ' + first);
+      t.expect(!/scenery only|plays the same/i.test(first), 'no dishonest scenery-only claim');
       const second = await crossing();
-      t.expect(!second.includes('scenery') && second.includes('William Dunbar'), 'the next crossing is just the caption: ' + second);
+      t.expect(!second.includes('trickier pieces') && second.includes('William Dunbar'), 'the next crossing is just the caption: ' + second);
       await t.game('scene', 'help');
-      t.expect((await text(t, '#sc-help')).includes('Eras change the backdrop and its caption only'), 'Help says it');
+      const helpTxt = await text(t, '#sc-help');
+      t.expect(!/scenery only|plays the same|backdrop and its caption only/i.test(helpTxt), 'Help retires dishonest scenery-only copy');
+      t.expect(/High Flow \(5,500\)/.test(helpTxt) && /Peak Flow \(8,000\)/.test(helpTxt), 'Help names High Flow and Peak Flow');
+      // Verify calm inline High Flow (5,500) and Peak Flow (8,000) captions in Classic without extra toasts.
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('setState', { board: empty(), score: 5600, era: 6, ...setTray(['o1', 'o1', 'o1']) });
+      let ct = await t.game('act', 'canvasText');
+      t.expect(ct.texts.some(x => /High Flow/.test(x.text)), 'High Flow shown inline at 5,500+');
+      await t.game('setState', { board: empty(), score: 8100, era: 6, ...setTray(['o1', 'o1', 'o1']) });
+      ct = await t.game('act', 'canvasText');
+      t.expect(ct.texts.some(x => /Peak Flow/.test(x.text)), 'Peak Flow shown inline at 8,000+');
       const save = await t.game('act', 'save'); delete save.hints; delete save.eraMax;
       await storeAndReload(t, save);
-      t.expect(!(await crossing()).includes('scenery'), 'an older save is not told');
+      t.expect(!(await crossing()).includes('trickier pieces'), 'an older save is not told');
     },
   },
 
@@ -368,16 +379,21 @@ export const tests = [
     },
   },
   {
-    name: 'S4-14 the HUD goal fits beside the score without crowding the buttons (Best steps aside on a phone while a goal shows; council-w3-followup measures the text)',
+    name: 'S4-14 the HUD goal fits beside the score in Springs without crowding buttons, and Trail hides inert Score (CD-WF1-03)',
     async run(t) {
       await t.game('act', 'setting', 'tipsSeen', true);
-      const lv = await t.game('getLevels');
-      await t.game('newGame', { mode: 'trail', level: lv.find(l => l.name === 'Thermal Water Cascade').id });
-      await t.game('setState', { score: 12345 });
+      await t.game('newGame', { mode: 'springs' });
+      await t.game('setState', { score: 12345, springs: 46 });
       const boxes = await t.page.evaluate(() => ['b-pause', 'h-score', 'h-goal', 'b-undo', 'b-sound'].map(id => { const r = document.getElementById(id).getBoundingClientRect(); return { id, l: r.left, r: r.right, w: r.width }; }));
       const order = boxes.map(b => b.id);
       for (let i = 1; i < boxes.length; i++) t.expect(boxes[i].l >= boxes[i - 1].r - 1, order[i - 1] + ' and ' + order[i] + ' do not overlap: ' + JSON.stringify(boxes));
-      t.expect(boxes.every(b => b.w > 0) && boxes[4].r <= t.vp.width, 'every piece of the HUD is on screen');
+      t.expect(boxes.every(b => b.w > 0) && boxes[4].r <= t.vp.width, 'every piece of the Springs HUD is on screen');
+      const lv = await t.game('getLevels');
+      await t.game('newGame', { mode: 'trail', level: lv.find(l => l.name === 'Thermal Water Cascade').id });
+      t.equal(await t.page.evaluate(() => document.querySelector('#hud .stat.score').hidden), true, 'Trail hides inert Score in #hud');
+      const tBoxes = await t.page.evaluate(() => ['b-pause', 'h-goal', 'b-undo', 'b-sound'].map(id => { const r = document.getElementById(id).getBoundingClientRect(); return { id, l: r.left, r: r.right, w: r.width }; }));
+      for (let i = 1; i < tBoxes.length; i++) t.expect(tBoxes[i].l >= tBoxes[i - 1].r - 1, 'Trail HUD non-overlapping: ' + JSON.stringify(tBoxes));
+      t.expect(tBoxes.every(b => b.w > 0) && tBoxes[3].r <= t.vp.width, 'every piece of the Trail HUD is on screen');
     },
   },
 ];

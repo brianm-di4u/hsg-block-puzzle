@@ -82,6 +82,11 @@ if (isMain) {
   const out = {};
   let bad = 0;
   for (const L of R.LEVELS) {
+    const preClears = R.findClears(R.parseLevel(L));
+    if (preClears.length) {
+      console.error(`PRE-CLEAR VIOLATION  ${L.id.padEnd(26)} groups: ${preClears.map(g => g.type + g.i).join(', ')}`);
+      bad++;
+    }
     const t0 = Date.now();
     let r = solveLevel(R, L, { limit: 3e5, ordered: true });
     if (!r.solution) r = solveLevel(R, L, { limit: 3e6, ordered: false });

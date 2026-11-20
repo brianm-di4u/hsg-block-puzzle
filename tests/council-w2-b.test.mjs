@@ -152,6 +152,9 @@ tests.push(
       t.equal(RING2.length, 12, 'twelve in the second ring');
       t.equal(new Set(R.LEVELS.map(l => l.id)).size, 24, 'ids are unique');
       t.equal(R.LEVELS.slice(0, 12).map(l => l.id), RING1, 'the first twelve are unchanged and first');
+      for (const L of R.LEVELS) {
+        t.equal(R.findClears(R.parseLevel(L)).length, 0, L.id + ': starts with zero pre-cleared groups');
+      }
       for (const L of RING2) {
         const rec = SOL[L.id];
         t.expect(rec && rec.key === JSON.stringify([L.board, L.pieces, L.goal]), L.id + ': solutions.json is current (run node tools/rules-node.mjs)');

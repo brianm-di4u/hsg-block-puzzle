@@ -385,7 +385,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
     </ul>
     <h3>Modes</h3>
     <ul>
-      <li><b>Classic</b>: endless. Score carries you through the town's seven eras. Eras change the backdrop and its caption only; the game plays the same.</li>
+      <li><b>Classic</b>: endless. Score carries you through the town’s seven eras (0 to 4,000), changing the backdrop, music and ambience; higher scores also bring trickier pieces up through High Flow (5,500) and Peak Flow (8,000).</li>
       <li><b>Daily Soak</b>: today’s board is made on this device from your clock’s date, with the same tufa stones and the same pieces for anyone playing that date. A new board comes at your midnight, and one best score per day counts.</li>
       <li><b>Springs</b>: vents sit on the floor. Clear a vent's row, column or pool to open it (+40 × the heat multiplier). Open all 47 to win. Hot Springs is usually said to have 47 springs; one source says 43 still flow, and NPS says "about four dozen".</li>
       <li><b>Difficulty</b> (Settings): Relaxed serves more small pieces and keeps the rescue deal strong; Master serves more big ones and thins it. It applies to Classic and Springs, each difficulty keeps its own best, and Daily Soak and Spring Trail are the same for everyone.</li>
@@ -511,8 +511,8 @@ const LEVELS = [
     board:['..s...s..','..s...s..','..s...s..','..sssss..','ss.....ss','..sssss..','..s...s..','..s...s..','..s...s..'],
     pieces:['o1','i3h','i5h'] },
   { id:'lamar-bathhouse', name:'Lamar Bathhouse', era:3, goal:'stones', hint:'Complete the Row: every stone must go.',
-    board:['.........','.........','.........','sssss..ss','sssss..ss','sssss..ss','..sssssss','..sssssss','..sssssss'],
-    pieces:['r6v','i2v','o4','r6v','i3h','i2v'] },
+    board:['.........','.........','.........','ss.ss..ss','ss.ss..ss','sssss..ss','..ss.sss.','..ss.sss.','..s..ssss'],
+    pieces:['r6v','i2v','j4a','r6v','i2v','i3h'] },
   { id:'grand-promenade', name:'Grand Promenade', era:3, goal:'stones', hint:'A long brick walk: plan for the longest pieces.',
     board:['.........','.........','.........','ssss....s','s.....sss','sss....ss','.........','.........','.........'],
     pieces:['c3a','i4h','o1','i2v','i5h','i4h'] },
@@ -815,11 +815,12 @@ function applyMove(g, slot, r, c) {
            points, clearPts, ventPts, bonus, vents, stones, mult: heatMult(g.heat), newRound, vent };
 }
 
+function freshLedger() { return { games: 0, lines: 0, springs: 0, boiled: 0, recentIdx: -1, recentScore: null }; }
 function freshGame(mode) {
   return { v: 1, mode, board: new Array(81).fill(0), tray: [null, null, null], queue: [], score: 0, heat: 0, bestHeat: 0,
-    groups: 0, placed: 0, round: 0, undoLeft: 1, undosUsed: 0, undoStack: [], era: 0, springs: 0, level: null, goal: null,
+    groups: 0, placed: 0, round: 0, refilledRound: 1, undoLeft: 1, undosUsed: 0, undoStack: [], era: 0, springs: 0, level: null, goal: null,
     daily: null, over: false, won: false, rng: 1, diff: 'standard', dry: 0, cooled: 0, ptsPlace: 0, ptsClear: 0, ptsBonus: 0,
-    priorBest: 0, bestCommitted: false, hintRound: -1 };
+    priorBest: 0, bestCommitted: false, hintRound: -1, ledger: freshLedger() };
 }
 function setupGame(g, opts) {
   if (g.mode === 'trail') {
@@ -1071,6 +1072,13 @@ function createSaveStore(storage, defaults, revision, known = { save: 1 }) {
         while (o > 0 && !equal(a.slice(a.length - o), b.slice(0, o))) o--;
         merged.stats.recent[m] = [...merged.stats.recent[m], ...b.slice(o)].slice(-10);
       }
+      if (opts && opts.replaceRecent && Object.hasOwn(merged.stats.recent, opts.replaceRecent.mode) && number(opts.replaceRecent.to)) {
+        const list = merged.stats.recent[opts.replaceRecent.mode];
+        const idx = list.lastIndexOf(opts.replaceRecent.from);
+        if (idx >= 0) list[idx] = opts.replaceRecent.to;
+        else if (list.length) list[list.length - 1] = opts.replaceRecent.to;
+        else list.push(opts.replaceRecent.to);
+      }
     }
     let wroteResume = false, conflict = false;
     if (pending) {
@@ -1117,9 +1125,24 @@ function validResume(r, modes = ['classic', 'springs']) {
   if (r.diff !== undefined && !DIFFICULTIES.includes(r.diff)) return false;
   if (r.undosUsed !== undefined && !(Number.isInteger(r.undosUsed) && r.undosUsed >= 0)) return false;
   if (r.hintRound !== undefined && !(Number.isInteger(r.hintRound) && r.hintRound >= -1)) return false;
+  if (r.refilledRound !== undefined && !(Number.isInteger(r.refilledRound) && r.refilledRound >= 0)) return false;
   if (r.priorBest !== undefined && !count(r.priorBest)) return false;
   if (r.bestCommitted !== undefined && typeof r.bestCommitted !== 'boolean') return false;
+  if (r.ledger !== undefined && (!r.ledger || typeof r.ledger !== 'object' || Array.isArray(r.ledger))) return false;
   return r.over === false && r.won === false;
+}
+function normalizeLedger(raw) {
+  const d = freshLedger();
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return d;
+  const int0 = v => (Number.isInteger(v) && v >= 0 ? v : 0);
+  return {
+    games: int0(raw.games) ? 1 : 0,
+    lines: int0(raw.lines),
+    springs: int0(raw.springs),
+    boiled: int0(raw.boiled) ? 1 : 0,
+    recentIdx: Number.isInteger(raw.recentIdx) && raw.recentIdx >= -1 ? raw.recentIdx : -1,
+    recentScore: Number.isFinite(raw.recentScore) && raw.recentScore >= 0 ? raw.recentScore : null,
+  };
 }
 // Springs, Daily Soak and Spring Trail keep separate namespaced sub-slots under RUN_KEY ({ rv, springs, daily, trail }),
 // leaving Classic's SAVE.resume inside SAVE MERGE CORE untouched so all four modes preserve independent runs.
@@ -2057,10 +2080,16 @@ function computeLayout() {
     const bx = Math.round((W - size) / 2), by = Math.round(top + (availH - size) / 2);
     L.board = { x: bx, y: by, size };
     const th = (size - 20) / 3;
-    // The tray can sit on the left and the thermometer on the right, for left-handed play (S2-11).
+    // The tray can sit on the left and the thermometer (or Trail queue) on the right, for left-handed play (S2-11).
     const left = SAVE.settings.traySide === 'left';
     L.slots = [0, 1, 2].map(k => ({ x: left ? bx - 28 - trayW : bx + size + 28, y: by + k * (th + 10), w: trayW, h: th }));
-    L.info = { x: left ? bx + size + 18 : bx - 78, y: by, w: 60, h: size };
+    if (S && S.mode === 'trail') {
+      const iw = Math.max(76, Math.min(108, bx - 22));
+      const ix = left ? Math.min(W - iw - 6, bx + size + 14) : Math.max(6, bx - iw - 14);
+      L.info = { x: ix, y: by, w: iw, h: size };
+    } else {
+      L.info = { x: left ? bx + size + 18 : bx - 78, y: by, w: 60, h: size };
+    }
     L.cap = { x: bx, y: by + size + 8, w: size, h: capH - 8 };
   } else {
     // S2-05: the info strip has three rows (heat and era, the goal line at 14 px, the heat bar) and was 40 px; the tray was capped at
@@ -2395,16 +2424,122 @@ const HEAT_WORDS = [[0, ''], [90, 'Warm'], [105, 'Hot'], [120, 'Steaming'], [135
 function heatTier(heat) { const t = tempF(heat); let k = 0; HEAT_WORDS.forEach(([at], i) => { if (t >= at) k = i; }); return k; }
 function heatWord(heat) { const t = tempF(heat); let w = ''; for (const [at, n] of HEAT_WORDS) if (t >= at) w = n; return w; }
 function capsule(x, y, w, h, a = 0.62) { ctx.fillStyle = 'rgba(8,22,26,' + a + ')'; rr(ctx, x, y, w, h, h / 2); ctx.fill(); }
+// Calm inline Classic pressure signposts above the 0..4,000 visual era range (CD-WF1-06).
+function classicFlowLabel(score) {
+  if (score >= 8000) return 'Peak Flow';
+  if (score >= 5500) return 'High Flow';
+  return '';
+}
 // The goal line of the phone's info strip (S2-05). The HUD hides the mode name under 520 px, so the line carries it, and it
 // shrinks a little rather than run past the strip.
 function infoLine() {
   const gt = goalText(), mode = modeLabel();
-  return VW > 520 ? gt : gt.startsWith(mode.split(' · ')[0]) ? gt + diffSuffix(S) : mode + ' · ' + gt;
+  const base = VW > 520 ? gt : gt.startsWith(mode.split(' · ')[0]) ? gt + diffSuffix(S) : mode + ' · ' + gt;
+  if (S.mode === 'classic') {
+    const fl = classicFlowLabel(S.score);
+    if (fl) return base + ' · ' + fl;
+  }
+  return base;
+}
+function drawMiniPiece(id, cx, cy, maxW, maxH, maxCell = 13) {
+  const p = PIECES[id]; if (!p) return;
+  const s = Math.max(3, Math.min(maxCell, maxW / p.wd, maxH / p.h));
+  const ox = cx - (p.wd * s) / 2, oy = cy - (p.h * s) / 2;
+  const col = TILE_HEX[p.color - 1] || '#E9DFC6';
+  const gap = s >= 6 ? 1 : 0.5, rad = Math.min(3.5, s * 0.22);
+  ctx.fillStyle = col;
+  for (const [dr, dc] of p.cells) {
+    const x = ox + dc * s + gap * 0.5, y = oy + dr * s + gap * 0.5, w = Math.max(2, s - gap);
+    rr(ctx, x, y, w, w, rad); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = 0.8; ctx.stroke();
+    if (s >= 6) { ctx.fillStyle = 'rgba(255,255,255,.28)'; ctx.fillRect(x + 1, y + 1, Math.max(1, w - 2), Math.max(1, w * 0.22)); ctx.fillStyle = col; }
+  }
+}
+function drawTrailInfo(lv) {
+  const I = LAY.info, stars = trailStars(S.undosUsed || 0), undos = S.undosUsed || 0;
+  const trays = [];
+  for (let i = 0; i < S.queue.length; i += 3) trays.push(S.queue.slice(i, i + 3));
+  if (LAY.land) {
+    const cx = I.x + I.w / 2;
+    ctx.fillStyle = 'rgba(8,22,26,.82)'; rr(ctx, I.x, I.y, I.w, I.h, 14); ctx.fill();
+    ctx.strokeStyle = 'rgba(240,207,117,.45)'; ctx.lineWidth = 1.5; rr(ctx, I.x + 0.75, I.y + 0.75, I.w - 1.5, I.h - 1.5, 13.25); ctx.stroke();
+    // Brass 3-star Undo Stake plaque (CD-WF1-03)
+    const px = I.x + 6, py = I.y + 6, pw = I.w - 12, ph = Math.min(68, Math.max(50, Math.round(I.h * 0.22)));
+    ctx.fillStyle = 'rgba(46,34,15,.84)'; rr(ctx, px, py, pw, ph, 10); ctx.fill();
+    ctx.strokeStyle = '#C9A23F'; ctx.lineWidth = 1.5; rr(ctx, px + 0.75, py + 0.75, pw - 1.5, ph - 1.5, 9.25); ctx.stroke();
+    text('STAKE', cx, py + 12, 12, '#E9E2CF', 'center', 'sans', '700', false);
+    text(starText(stars), cx, py + (ph >= 60 ? ph * 0.50 : ph * 0.64), 16, '#F7CF62', 'center', 'display', '700', false);
+    if (ph >= 60) text(undos === 0 ? '0 undos' : undos + (undos === 1 ? ' undo' : ' undos'), cx, py + ph - 11, 12, '#E2DDD0', 'center', 'sans', '', false);
+    // Visible Up Next S.queue silhouette rail grouped by upcoming tray
+    const qy = py + ph + 10;
+    text('UP NEXT', cx, qy + 8, 12, '#E9E2CF', 'center', 'sans', '700', false);
+    const listY = qy + 20, listH = Math.max(36, I.y + I.h - listY - 8);
+    if (!trays.length) {
+      text('Last tray', cx, listY + Math.min(24, listH / 2), 12, '#D6D2C6', 'center', 'sans', '', false);
+    } else {
+      const gap = 8, maxGrpH = (listH - gap * (trays.length - 1)) / trays.length;
+      let curY = listY;
+      trays.forEach(tr => {
+        const grpH = Math.min(maxGrpH, Math.max(72, tr.length * 74 + 16));
+        ctx.fillStyle = 'rgba(5,16,20,.65)'; rr(ctx, px, curY, pw, grpH, 9); ctx.fill();
+        ctx.strokeStyle = 'rgba(240,207,117,.26)'; ctx.lineWidth = 1; rr(ctx, px + 0.5, curY + 0.5, pw - 1, grpH - 1, 8.5); ctx.stroke();
+        if (grpH >= 96 || tr.length === 1) {
+          const sh = (grpH - 12) / tr.length;
+          tr.forEach((id, pi) => drawMiniPiece(id, cx, curY + 6 + sh * (pi + 0.5), pw - 14, sh - 8, 22));
+        } else {
+          const sw = (pw - 8) / tr.length;
+          tr.forEach((id, pi) => drawMiniPiece(id, px + 4 + sw * (pi + 0.5), curY + grpH / 2, sw - 4, grpH - 12, 16));
+        }
+        curY += grpH + gap;
+      });
+    }
+    const C = LAY.cap;
+    const cap = lv ? lv.name + ' · Spring Trail ' + (LEVELS.indexOf(lv) + 1) + ' of ' + LEVELS.length + ' · ' + goalText() : goalText();
+    let cfs = 15;
+    for (; cfs > 12; cfs--) { ctx.font = cfs + 'px ' + FONT_SANS; if (ctx.measureText(cap).width + 28 <= Math.min(VW - 24, Math.max(C.w, VW - 32))) break; }
+    ctx.font = cfs + 'px ' + FONT_SANS;
+    const cw = Math.min(VW - 24, Math.max(Math.min(C.w, ctx.measureText(cap).width + 36), ctx.measureText(cap).width + 28));
+    capsule(C.x + (C.w - cw) / 2, C.y, cw, C.h, 0.78);
+    text(cap, C.x + C.w / 2, C.y + C.h / 2, cfs, '#FFFFFF', 'center', 'sans', '', false);
+  } else {
+    ctx.fillStyle = 'rgba(8,22,26,.78)'; rr(ctx, I.x, I.y, I.w, I.h, 14); ctx.fill();
+    ctx.strokeStyle = 'rgba(240,207,117,.45)'; ctx.lineWidth = 1.2; rr(ctx, I.x + 0.6, I.y + 0.6, I.w - 1.2, I.h - 1.2, 13.4); ctx.stroke();
+    // Top row: Brass star stake pill + Up Next queue silhouettes (zero Score/Heat per CD-WF1-03)
+    const sx = I.x + 10, sy = I.y + 5, sw = 62, sh = 22;
+    ctx.fillStyle = 'rgba(46,34,15,.85)'; rr(ctx, sx, sy, sw, sh, 11); ctx.fill();
+    ctx.strokeStyle = '#C9A23F'; ctx.lineWidth = 1.2; rr(ctx, sx + 0.6, sy + 0.6, sw - 1.2, sh - 1.2, 10.4); ctx.stroke();
+    text(starText(stars), sx + sw / 2, sy + sh / 2 + 0.5, 14, '#F7CF62', 'center', 'display', '700', false);
+    const qx = sx + sw + 8;
+    if (!trays.length) {
+      text((lv ? lv.name + ' · ' : '') + 'Last tray', I.x + I.w - 12, I.y + 16, 12, '#E9E2CF', 'right', 'sans', '700', false);
+    } else {
+      text('Next', qx, I.y + 16, 12, '#E9E2CF', 'left', 'sans', '700', false);
+      const ax = qx + 34, aw = Math.max(48, I.x + I.w - 12 - ax), divW = 8;
+      const cellW = Math.max(12, (aw - divW * (trays.length - 1)) / S.queue.length);
+      let curX = ax;
+      trays.forEach((tr, ti) => {
+        if (ti > 0) {
+          ctx.strokeStyle = 'rgba(240,207,117,.4)'; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(curX + divW / 2, I.y + 7); ctx.lineTo(curX + divW / 2, I.y + 25); ctx.stroke();
+          curX += divW;
+        }
+        for (const id of tr) {
+          drawMiniPiece(id, curX + cellW / 2, I.y + 16, cellW - 4, 21);
+          curX += cellW;
+        }
+      });
+    }
+    const line = infoLine(); let lfs = 14;
+    for (; lfs > 12; lfs--) { ctx.font = lfs + 'px ' + FONT_SANS; if (ctx.measureText(line).width <= I.w - 28) break; }
+    text(line, I.x + 14, I.y + 42, lfs, '#E2DDD0', 'left', 'sans');
+  }
 }
 function drawInfo(now) {
+  const lv = S.mode === 'trail' && LEVELS.find(l => l.id === S.level);
+  if (S.mode === 'trail') { drawTrailInfo(lv); return; }
   const I = LAY.info, frac = S.heat / 12, mult = heatMult(S.heat), boiling = S.heat >= 12, hot = heatCol(frac);
   const temp = boiling ? 'Boiling' : tempF(S.heat) + '°F', mtxt = '×' + mult.toFixed(2).replace(/0$/, '');
-  const lv = S.mode === 'trail' && LEVELS.find(l => l.id === S.level), era = ERAS[S.era];
+  const era = ERAS[S.era];
   if (LAY.land) {
     const cx = I.x + I.w / 2, ty = I.y + 64, th = I.h - 150, tw = 18, bulb = 20;
     capsule(I.x - 6, I.y - 15, I.w + 12, 67, 0.7);
@@ -2432,11 +2567,19 @@ function drawInfo(now) {
     if (w) { capsule(I.x - 10, ty + th + bulb * 1.6 + 6, I.w + 20, 24, 0.7); text(w, cx, ty + th + bulb * 1.6 + 18, 13, hot, 'center', 'sans', '700'); }
     // caption under the board
     const C = LAY.cap, nx = ERAS[S.era + 1];
-    let cap = lv ? lv.name + ' · Spring Trail ' + (LEVELS.indexOf(lv) + 1) + ' of ' + LEVELS.length + ' · ' + goalText()
-      : era.name + ' · ' + era.years + ' · ' + goalText() + (nx ? ' · next era at ' + nx.at.toLocaleString('en-US') : '');
-    ctx.font = '15px ' + FONT_SANS; const cw = Math.min(C.w, ctx.measureText(cap).width + 36);
+    let nextNote = nx ? ' · next era at ' + nx.at.toLocaleString('en-US') : '';
+    if (S.mode === 'classic' && !nx) {
+      if (S.score >= 8000) nextNote = ' · Peak Flow';
+      else if (S.score >= 5500) nextNote = ' · High Flow · Peak Flow at 8,000';
+      else nextNote = ' · High Flow at 5,500';
+    }
+    const cap = era.name + ' · ' + era.years + ' · ' + goalText() + nextNote;
+    let cfs = 15;
+    for (; cfs > 12; cfs--) { ctx.font = cfs + 'px ' + FONT_SANS; if (ctx.measureText(cap).width + 28 <= Math.min(VW - 24, Math.max(C.w, VW - 32))) break; }
+    ctx.font = cfs + 'px ' + FONT_SANS;
+    const cw = Math.min(VW - 24, Math.max(Math.min(C.w, ctx.measureText(cap).width + 36), ctx.measureText(cap).width + 28));
     capsule(C.x + (C.w - cw) / 2, C.y, cw, C.h, 0.78);
-    text(cap, C.x + C.w / 2, C.y + C.h / 2, 15, '#FFFFFF', 'center', 'sans', '', false);
+    text(cap, C.x + C.w / 2, C.y + C.h / 2, cfs, '#FFFFFF', 'center', 'sans', '', false);
   } else {
     capsule(I.x, I.y, I.w, I.h, 0.66);
     const hl = 'Heat ' + temp;   // the label rides with the reading (S2-02)
@@ -2448,7 +2591,7 @@ function drawInfo(now) {
     const lg = ctx.createLinearGradient(bx, 0, bx + bw, 0); lg.addColorStop(0, '#4FC3D9'); lg.addColorStop(0.5, '#F2A541'); lg.addColorStop(1, '#FF4A2B');
     ctx.fillStyle = lg; rr(ctx, bx, by, Math.max(7, bw * frac), 7, 3.5); ctx.fill();
     const rx = I.x + I.w - 14;
-    text(lv ? lv.name : era.name, rx, I.y + 13, 14, '#FFFFFF', 'right', 'display', '700');
+    text(era.name, rx, I.y + 13, 14, '#FFFFFF', 'right', 'display', '700');
     const line = infoLine(); let lfs = 14;
     for (; lfs > 12; lfs--) { ctx.font = lfs + 'px ' + FONT_SANS; if (ctx.measureText(line).width <= I.w - 28) break; }
     text(line, I.x + 14, I.y + 33, lfs, '#E2DDD0', 'left', 'sans');
@@ -2629,6 +2772,12 @@ function popup(textStr, x, y, col = '#FFFFFF', size = 22, opts = {}) {
 const COMBO_WORDS = ['', '', 'Soak!', 'Steam!', 'Cascade!', 'Spring Surge!'];
 function clearFeedback(res, cx, cy, prevHeat) {
   const b = LAY.board, cell = b.cell;
+  if (S.mode === 'trail') {
+    const head = COMBO_WORDS[Math.min(5, res.G)];
+    if (head) addFx({ type: 'banner', text: head, sub: res.G + ' groups', level: Math.min(5, res.G), dur: reducedMotion() ? 900 : 1200 });
+    if (res.vents) popup(res.vents + (res.vents > 1 ? ' springs' : ' spring') + ' opened', cx, cy - cell * 1.1, '#9FF2E4', Math.max(12, Math.round(cell * 0.32)));
+    return;
+  }
   const word = heatWord(S.heat), rose = word && word !== heatWord(prevHeat);
   const head = COMBO_WORDS[Math.min(5, res.G)], banner = !!(head || rose || res.bonus);
   const pts = '+' + (res.clearPts + res.ventPts), psize = Math.round(cell * 0.62 + res.G * 3);
@@ -2811,7 +2960,7 @@ function draw(now) {
   if (WATER.on) WATER.draw(now, b, sx, sy); else WATER.hide();
   ctx.save(); ctx.translate(sx, sy);
   ctx.drawImage(boardCache, b.x - 16, b.y - 16, boardCache.width / DPR, boardCache.height / DPR);
-  if (S.heat >= 6 && !reducedMotion()) { // hot water: the brass bead glows, pulsing faster as it nears boiling
+  if (S.mode !== 'trail' && S.heat >= 6 && !reducedMotion()) { // hot water: the brass bead glows, pulsing faster as it nears boiling
     const hk = (S.heat - 5) / 7, a = (0.15 + 0.3 * hk) + 0.2 * hk * Math.sin(now / (420 - 200 * hk));
     const gl = getBeadGlow(), pad = 30;
     ctx.globalAlpha = Math.max(0, Math.min(1, a * 2.2));
@@ -2826,7 +2975,7 @@ function draw(now) {
     const x = b.gx + (i % 9) * cell, y = b.gy + Math.floor(i / 9) * cell, k = land.get(i);
     if (k) drawTile(S.board[i], x - cell * (k - 1) / 2, y - cell * (k - 1) / 2, cell * k); else drawTile(S.board[i], x, y, cell);
   }
-  if (S.heat > 0) { // hot water: milky turquoise, then amber, over the basin (before tiles)
+  if (S.mode !== 'trail' && S.heat > 0) { // hot water: milky turquoise, then amber, over the basin (before tiles)
     const k = S.heat / 12, W9 = cell * 9;
     ctx.save(); ctx.globalCompositeOperation = 'screen'; ctx.fillStyle = 'rgba(110,200,185,' + (0.16 * k) + ')'; ctx.fillRect(b.gx, b.gy, W9, W9);
     ctx.globalCompositeOperation = 'source-over';
@@ -2837,7 +2986,7 @@ function draw(now) {
   const tint = ERA_LIGHT[eraId()];
   if (tint) { ctx.save(); ctx.globalCompositeOperation = tint[1]; ctx.fillStyle = tint[0]; ctx.fillRect(b.gx, b.gy, cell * 9, cell * 9); ctx.restore(); }
   drawVentWisps(now);
-  drawHeatSteam(now);
+  if (S.mode !== 'trail') drawHeatSteam(now);
   if (S.scene === 'game') { drawGhost(now); drawHint(now); }
   drawFx(now);
   ctx.restore();
@@ -2845,16 +2994,20 @@ function draw(now) {
   drawTray(now);
   const d = UI.drag;
   if (d && d.moved && S.tray[d.slot]) {
-    const b = dragBody(d, now);
-    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 26; ctx.shadowOffsetX = 6; ctx.shadowOffsetY = 18;
-    drawPiece(b.id, b.x, b.y, b.s, d.touch ? 0.97 : 0.86); ctx.restore();
+    const db = dragBody(d, now);
+    if (db) {
+      ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 26; ctx.shadowOffsetX = 6; ctx.shadowOffsetY = 18;
+      drawPiece(db.id, db.x, db.y, db.s, d.touch ? 0.97 : 0.86); ctx.restore();
+    }
   }
   drawOverlayFx(now);
 }
 // where the carried piece is painted: its top-left is the ghost's, so body and target agree (S1-06); the shadow gives the height
 function dragBody(d, now) {
-  const cell = LAY.board.cell, p = PIECES[S.tray[d.slot].id], [x, y] = dragTopLeft(d, p);
-  const gm = slotPieceGeom(d.slot) || { s: cell }, q = reducedMotion() ? 1 : easeOut(Math.min(1, (now - (d.t1 || now)) / 120));
+  const t = d && S.tray[d.slot];
+  if (!t) return null;
+  const cell = LAY.board.cell, p = PIECES[t.id], [x, y] = dragTopLeft(d, p);
+  const gm = slotPieceGeom(d.slot) || { s: cell }, q = reducedMotion() ? 1 : easeOut(Math.min(1, Math.max(0, (now - (d.t1 || now)) / 120)));
   const s = gm.s + (cell - gm.s) * q;   // was cell * 1.08, lifted 0.34 cell and shifted 0.12 cell left for the mouse
   return { id: p.id, x: x + (p.wd * (cell - s)) / 2, y: y + (p.h * (cell - s)) / 2, s };
 }
@@ -2883,7 +3036,12 @@ let frameFails = 0, errorToasted = false;
 function failSafe() {
   try { dropBadResume(); } catch (e) { SAVE.resume = null; }
   try {
-    UI.sel = -1; UI.ghost = null; UI.drag = null; UI.overAt = 0; UI.skipEnd = false; FX.length = 0;
+    cancelDrag({ animate: false });
+    WATER.clear();
+    clearGoalToasts();
+    if (UI.confirm) { UI.confirm = null; $('sc-confirm').classList.remove('on'); }
+    if (UI.tip) { clearTimeout(UI.tip.timer); UI.tip = null; tipRender(); }
+    UI.sel = -1; UI.ghost = null; UI.drag = null; UI.hint = null; UI.overAt = 0; UI.skipEnd = false; FX.length = 0;
     S = freshGame('classic'); S.scene = 'game';
     showScene('title');
   } catch (e) { /* the loop keeps running regardless */ }
@@ -2921,13 +3079,14 @@ window.addEventListener('unhandledrejection', () => {
 // when WebGL is missing, with ?gl=0, the "lite" effects setting or reduced motion, and on software WebGL (no GPU)
 // unless ?gl=force.
 const WATER = (() => {
-  const W = { on: false, inited: false, gl: null, cv: null, prog: null, u: {}, ripples: [], size: 0, t0: performance.now() };
+  const PHASE_PERIOD = 20 * Math.PI;   // exact multiple of 2π for every caustic & sway frequency (seamless, zero 1000 s jump)
+  const W = { on: false, inited: false, gl: null, cv: null, prog: null, u: {}, ripples: [], arr: new Float32Array(24), size: 0, t0: performance.now(), phase: 0, phaseT: performance.now(), shift: '' };
   const VS = 'attribute vec2 p;varying vec2 v;void main(){v=p*.5+.5;gl_Position=vec4(p,0.,1.);}';
   const FS = `precision mediump float;
 varying vec2 v; uniform float t; uniform vec4 rp[6]; uniform float heat;
 vec2 h2(vec2 p){p=vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3)));return fract(sin(p)*43758.5453);}
 float cell(vec2 p,float tt){vec2 i=floor(p),f=fract(p);float d1=8.,d2=8.;
- for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){vec2 g=vec2(float(x),float(y));vec2 o=h2(i+g);o=.5+.42*sin(tt+6.2831*o);
+ for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){vec2 g=vec2(float(x),float(y));vec2 o=h2(i+g);o=.5+.42*sin(tt+6.2831853*o);
   float d=length(g+o-f);if(d<d1){d2=d1;d1=d;}else if(d<d2)d2=d;}
  return d2-d1;}
 void main(){
@@ -2935,9 +3094,10 @@ void main(){
  for(int k=0;k<6;k++){vec4 r=rp[k]; if(r.w<=0.)continue; vec2 d=uv-r.xy; float dist=length(d); float age=r.z;
   float front=age*.55; float w=sin((dist-front)*55.)*exp(-pow((dist-front)*9.,2.))*exp(-age*2.4)*r.w;
   q+=normalize(d+1e-4)*w*.012; ring+=max(w,0.)*.45;}
- float tt=t*(.55+heat*.9);
+ float tt=t;
  vec2 w=q+vec2(sin(q.y*11.+tt*.9),cos(q.x*9.-tt*.8))*.035+vec2(sin(q.y*23.-tt*1.3),cos(q.x*19.+tt))*.012;
- float c1=cell(w*6.+vec2(tt*.13,-tt*.09),tt); float c2=cell(w*10.3+vec2(-tt*.07,tt*.11)+3.1,tt*1.3);
+ vec2 sw=vec2(sin(tt*.1)*1.3,cos(tt*.1)*-.9);
+ float c1=cell(w*6.+sw,tt); float c2=cell(w*10.3-sw*.7+3.1,tt*1.3);
  float l1=1.-smoothstep(0.,.16,c1), l2=1.-smoothstep(0.,.13,c2);
  float caus=(l1*l1*.09+l2*l2*.06)*(.55+.45*sin(q.x*9.+q.y*7.+tt));
  vec2 bi=floor(uv*3.); float alt=mod(bi.x+bi.y,2.);
@@ -2980,35 +3140,54 @@ void main(){
   // live water needs a real GPU; with software WebGL (no GPU) the board gets one still frame of the shader instead
   function wanted() { return !!W.gl && (!W.software || /[?&]gl=force/.test(location.search)) && !liteFx() && !reducedMotion(); }
   W.refresh = () => { const on = wanted(); if (on !== W.on) { W.on = on; boardKey = ''; dirty = true; if (!on) W.hide(); } };
+  W.clear = () => {
+    W.ripples.length = 0;
+    W.last = 0;
+    if (W.cv) W.cv.style.transform = '';
+    W.shift = '';
+  };
   W.resize = () => {
     if (!W.gl || !LAY) return;
     const px = Math.max(16, Math.round(Math.min(LAY.board.cell * 9 * DPR, W.software ? 300 : 560)));
     if (px !== W.size) { W.size = px; W.cv.width = W.cv.height = px; W.gl.viewport(0, 0, px, px); }
     const b = LAY.board, st = W.cv.style, sz = b.cell * 9;
-    st.left = b.gx + 'px'; st.top = b.gy + 'px'; st.width = st.height = sz + 'px'; W.shift = '';
+    st.left = b.gx + 'px'; st.top = b.gy + 'px'; st.width = st.height = sz + 'px';
+    st.transform = ''; W.shift = '';
+    W.last = 0;
   };
   W.ripple = (x, y, strength) => { W.ripples.push({ x, y, t0: performance.now(), s: strength }); if (W.ripples.length > 6) W.ripples.shift(); };
   W.draw = (now, b, sx, sy) => {
     if (!W.on) return;
     const gl = W.gl, t = fxNow(now);
     if (!W.size) W.resize();
-    if (W.cv.style.display !== 'block') W.cv.style.display = 'block';
+    if (W.cv.style.display !== 'block') { W.cv.style.display = 'block'; W.last = 0; }
     const shift = sx || sy ? 'translate(' + sx.toFixed(1) + 'px,' + sy.toFixed(1) + 'px)' : '';
     if (shift !== W.shift) { W.shift = shift; W.cv.style.transform = shift; }
     if (W.last && now - W.last < 32 && now >= W.last && UI.fxFrozen == null) return;
+    const hVal = S.mode === 'trail' ? 0 : S.heat / 12;
+    if (UI.fxFrozen == null) {
+      const dt = Math.max(0, Math.min(0.1, (t - W.phaseT) / 1000));
+      W.phaseT = t;
+      W.phase = (W.phase + dt * (0.55 + hVal * 0.9)) % PHASE_PERIOD;
+    }
     W.last = now;
-    const arr = new Float32Array(24);
-    W.ripples = W.ripples.filter(r => t - r.t0 < 1800 || UI.fxFrozen != null);
-    W.ripples.forEach((r, k) => { arr.set([r.x, r.y, Math.max(0, (t - r.t0) / 1000), r.s], k * 4); });
-    gl.uniform1f(W.u.t, ((t - W.t0) / 1000) % 1000); gl.uniform4fv(W.u.rp, arr); gl.uniform1f(W.u.heat, S.heat / 12);
+    const arr = W.arr; arr.fill(0);
+    let wIdx = 0;
+    for (let i = 0; i < W.ripples.length; i++) {
+      const r = W.ripples[i];
+      if (t - r.t0 < 1800 || UI.fxFrozen != null) W.ripples[wIdx++] = r;
+    }
+    W.ripples.length = wIdx;
+    for (let k = 0; k < W.ripples.length; k++) { const r = W.ripples[k]; arr.set([r.x, r.y, Math.max(0, (t - r.t0) / 1000), r.s], k * 4); }
+    gl.uniform1f(W.u.t, W.phase); gl.uniform4fv(W.u.rp, arr); gl.uniform1f(W.u.heat, hVal);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   };
   W.hide = () => { if (W.cv && W.cv.style.display !== 'none') W.cv.style.display = 'none'; };
   W.still = (g, x, y, size) => { // one frame, read back once into the cached board
     if (!W.gl) return false;
     try {
-      W.resize(); const gl = W.gl, arr = new Float32Array(24);
-      gl.uniform1f(W.u.t, 7.3); gl.uniform4fv(W.u.rp, arr); gl.uniform1f(W.u.heat, 0);
+      W.resize(); const gl = W.gl, arr = W.arr; arr.fill(0);
+      gl.uniform1f(W.u.t, 4.0); gl.uniform4fv(W.u.rp, arr); gl.uniform1f(W.u.heat, 0);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); g.drawImage(W.cv, x, y, size, size); return true;
     } catch (e) { return false; }
   };
@@ -3040,6 +3219,7 @@ function hideToast(force = false) {
 }
 
 function newGame(opts = {}) {
+  cancelDrag({ animate: false });
   const mode = opts.mode || 'classic';
   const rKey = runKey(mode, opts.level, opts.date || todayStr());
   const keptEntry = opts.resume && RUN_MODES.includes(mode) ? savedRunEntry(mode, rKey) : null;
@@ -3052,9 +3232,11 @@ function newGame(opts = {}) {
     if (!DIFFICULTIES.includes(g.diff)) g.diff = 'standard';
     if (!Number.isInteger(g.undosUsed) || g.undosUsed < 0) g.undosUsed = 0;
     if (!Number.isInteger(g.hintRound) || g.hintRound < -1) g.hintRound = -1;
+    if (!Number.isInteger(g.refilledRound) || g.refilledRound < 1) g.refilledRound = Math.max(1, g.round || 1);
     if (!hasPriorBest) g.priorBest = bestForState(g);
     g.bestCommitted = false;
     g.provBest = null;
+    g.ledger = normalizeLedger(kept.ledger);
     if (mode === 'trail') g.undoStack = expandTrailStack(g, rawStack);
     RUN_ACK[mode] = keptEntry.rev;
     RUN_WARNED[mode] = false;
@@ -3080,11 +3262,13 @@ function newGame(opts = {}) {
     g.bestCommitted = false;
     g.provBest = null;
     g.hintRound = -1;
+    g.ledger = freshLedger();
     UI.trailWin = null;
     setupGame(g, opts);
+    g.refilledRound = Math.max(1, g.round || 1);
   }
   S = Object.assign(g, { scene: 'game' });
-  UI.sel = -1; UI.ghost = null; UI.drag = null; UI.overAt = 0; UI.skipEnd = false; FX.length = 0; UI.hint = null; UI.hintRound = currentHintRound();
+  UI.sel = -1; UI.ghost = null; UI.drag = null; UI.overAt = 0; UI.skipEnd = false; FX.length = 0; WATER.clear(); UI.hint = null; UI.hintRound = currentHintRound();
   if (mode === 'classic') { SAVE.resume = null; persist('replace'); }
   hideToast();
   UI.earned = [];
@@ -3131,7 +3315,7 @@ function doPlace(slot, r, c) {
   S.undoStack.push(snap);
   UI.hint = null;
   if (S.undoStack.length > (S.mode === 'trail' ? 60 : 3)) S.undoStack.shift();
-  if (res.newRound && S.mode !== 'trail') S.undoLeft = SAVE.settings.undo;
+  if (res.newRound && S.mode !== 'trail' && S.round > (S.refilledRound || 1)) { S.undoLeft = SAVE.settings.undo; S.refilledRound = S.round; }
   UI.sel = -1; UI.ghost = null; UI.cur = null;
   const b = LAY.board, cell = b.cell;
   const cx = b.gx + (c + PIECES[res.id].wd / 2) * cell, cy = b.gy + (r + PIECES[res.id].h / 2) * cell;
@@ -3158,10 +3342,10 @@ function doPlace(slot, r, c) {
     S.era = Math.max(S.era, eraFor(S.score));
     if (S.era !== prevEra) {
       const e = ERAS[S.era], fresh = noteEra(S.era);
-      toast(e.name + ' · ' + e.years, (hintOnce('era') ? 'Your score moved the town forward; eras are scenery only. ' : '') + e.cap + (fresh ? ' Postcard added to Fact cards.' : ''), 6000); sfx('era'); bgKey = ''; loadArt('era-' + e.id); audioMood();
+      toast(e.name + ' · ' + e.years, (hintOnce('era') ? 'Your score moved the town forward; higher scores also bring trickier pieces. ' : '') + e.cap + (fresh ? ' Postcard added to Fact cards.' : ''), 6000); sfx('era'); bgKey = ''; loadArt('era-' + e.id); audioMood();
     }
   }
-  audioPressure(); if (AU.kit) AU.kit.amb.set('heat', Math.min(1, S.heat / 12));
+  audioPressure(); if (AU.kit) AU.kit.amb.set('heat', S.mode === 'trail' ? 0 : Math.min(1, S.heat / 12));
   const deadNow = S.tray.filter(x => x && !fitsAnywhere(S.board, x.id)).length;
   const deadBefore = res.newRound ? 0 : snap.tray.filter((x, k) => x && k !== slot && !fitsAnywhere(snap.board, x.id)).length;
   const newlyDoomed = !UI.doomed && trayDoomed();
@@ -3169,8 +3353,9 @@ function doPlace(slot, r, c) {
   if (S.mode !== 'trail' && !res.G && S.heat < snap.heat && hintOnce('cool')) toast('The water cooled', 'A piece that clears nothing cools the water, and cooler water scores less. Clear a group to heat it up.', 5000);
   goalsOnPlace(res); tipAfterPlace(res);
   let msg = 'Placed. ';
-  if (res.G) msg += 'Cleared ' + res.G + (res.G > 1 ? ' groups' : ' group') + ' for ' + (res.clearPts + res.ventPts + res.bonus) + '. ';
-  msg += 'Score ' + S.score + '. Heat ' + tempF(S.heat) + ' degrees. ';
+  if (res.G) msg += S.mode === 'trail' ? 'Cleared ' + res.G + (res.G > 1 ? ' groups. ' : ' group. ') : 'Cleared ' + res.G + (res.G > 1 ? ' groups' : ' group') + ' for ' + (res.clearPts + res.ventPts + res.bonus) + '. ';
+  if (S.mode === 'trail') msg += goalText() + '. ';
+  else msg += 'Score ' + S.score + '. Heat ' + tempF(S.heat) + ' degrees. ';
   if (S.over) msg += S.won ? 'Goal reached!' : 'No room left. Game over.';
   else msg += trayDesc();
   announce(msg);
@@ -3248,6 +3433,7 @@ function undoCount() {
 }
 function doUndo() {
   if (!canUndo()) { sfx('invalid'); return { ok: false }; }
+  cancelDrag({ animate: false });
   UI.hint = null;
   const snap = S.undoStack.pop();
   UI.skipEnd = false;
@@ -3255,9 +3441,11 @@ function doUndo() {
   const priorBest = Number.isFinite(S.priorBest) ? S.priorBest : bestFor(S.mode);
   const provBest = S.provBest || null;
   const hintRound = Math.max(currentHintRound(), Number.isInteger(snap.hintRound) ? snap.hintRound : -1);
+  const refilledRound = Math.max(Number.isInteger(S.refilledRound) ? S.refilledRound : 1, Number.isInteger(snap.refilledRound) ? snap.refilledRound : 1);
+  const ledger = normalizeLedger(S.ledger);
   const wasOver = S.scene === 'over' || $('sc-over').classList.contains('on');
   const scene = S.scene === 'over' ? 'game' : S.scene;
-  S = Object.assign(snap, { scene, undoStack: stack, counted: S.counted, priorBest, bestCommitted: false, provBest: null, hintRound });
+  S = Object.assign(snap, { scene, undoStack: stack, priorBest, bestCommitted: false, provBest: null, hintRound, refilledRound, ledger });
   UI.overAt = 0; UI.hintRound = currentHintRound();
   if (provBest) {
     rollbackBestInMemory(provBest);
@@ -3270,7 +3458,7 @@ function doUndo() {
     const was = trailStars(used), now = trailStars(used + 1);
     if (now < was) toast('Undo used', 'This puzzle is now worth ' + now + (now === 1 ? ' star.' : ' stars.'), 2500);
   }
-  UI.sel = -1; UI.ghost = null; FX.length = 0;
+  UI.sel = -1; UI.ghost = null; FX.length = 0; WATER.clear();
   bgKey = '';
   sfx('undo'); audioPressure(); announce('Undone. ' + (S.mode === 'trail' ? 'Worth ' + trailStars(S.undosUsed) + ' stars now. ' : 'Score ' + S.score + '. ') + trayDesc());
   saveResume(); updateHud(); dirty = true;
@@ -3293,14 +3481,20 @@ const GOALS = [
   ['four-thousand-years', 'Four Thousand Years', 'Clear 440 groups in all: 4,400 years of water.'],
 ];
 const GOAL_TOAST_MS = 3400;
-let goalQueue = [], goalBusy = false;
+let goalQueue = [], goalBusy = false, goalTimer = 0;
+function clearGoalToasts() {
+  clearTimeout(goalTimer); goalTimer = 0;
+  goalQueue.length = 0; goalBusy = false;
+  const el = $('achtoast'); if (el) el.classList.remove('on');
+}
 function showGoalToast() {
   const el = $('achtoast'), g = goalQueue.shift();
-  if (!g) { goalBusy = false; el.classList.remove('on'); return; }
+  if (!g) { goalBusy = false; goalTimer = 0; el.classList.remove('on'); return; }
   goalBusy = true;
   el.innerHTML = ''; const b = document.createElement('b'); b.textContent = 'Goal: ' + g[1]; const sp = document.createElement('span'); sp.textContent = g[2];
   el.append(b, sp); el.classList.add('on');
-  setTimeout(showGoalToast, GOAL_TOAST_MS);
+  clearTimeout(goalTimer);
+  goalTimer = setTimeout(showGoalToast, GOAL_TOAST_MS);
 }
 function earn(id) {
   if (SAVE.ach[id]) return false;
@@ -3314,13 +3508,16 @@ function earn(id) {
 }
 function goalsOnPlace(res) {
   if (res.G >= 1) earn('first-soak');
-  if (res.G >= 4) earn('four-at-once');
-  if (S.heat >= 12) earn('boiling');
-  if (res.bonus) earn('clear-spring');
-  if (S.mode !== 'trail') { if (S.era >= 3) earn('gilded-spa'); if (S.era >= 6) earn('modern-spa-city'); }
+  if (S.mode !== 'trail') {
+    if (res.G >= 4) earn('four-at-once');
+    if (S.heat >= 12) earn('boiling');
+    if (res.bonus) earn('clear-spring');
+    if (S.era >= 3) earn('gilded-spa');
+    if (S.era >= 6) earn('modern-spa-city');
+  }
 }
-function goalsOnEnd(fresh = true) {
-  if (fresh && S.bestHeat >= 12) { SAVE.goals.boiled++; if (SAVE.goals.boiled >= 10) earn('bathhouse-regular'); }
+function goalsOnEnd(boiledNow = false) {
+  if (boiledNow && S.mode !== 'trail') { SAVE.goals.boiled++; if (SAVE.goals.boiled >= 10) earn('bathhouse-regular'); }
   if (S.mode === 'springs' && S.won) earn('every-spring');
   if (S.mode === 'trail' && S.won && trailStars(S.undosUsed || 0) === 3) earn('steady-hand');
   if (S.mode === 'daily' && S.daily) {
@@ -3331,7 +3528,7 @@ function goalsOnEnd(fresh = true) {
     if (run >= 3) earn('three-days');
     if (run >= 7) earn('week-at-springs');
   }
-  if (SAVE.stats.lines >= 440) earn('four-thousand-years');
+  if (S.mode !== 'trail' && SAVE.stats.lines >= 440) earn('four-thousand-years');
 }
 function addDays(day, n) { const [y, m, d] = day.split('-').map(Number); return todayStr(new Date(y, m - 1, d + n)); }
 function dailyDays() { return new Set([...SAVE.daily.played, ...Object.keys(SAVE.best.daily)]); }
@@ -3408,14 +3605,32 @@ function replayTips() {
 }
 function endGame(res) {
   const linesBefore = SAVE.stats.lines, streakBefore = dailyLongest();
-  if (RUN_MODES.includes(S.mode)) clearRun(S.mode);
+  if (RUN_MODES.includes(S.mode)) clearRun(S.mode, runKey(S.mode, S.level, S.daily));
   if (S.won) S.undoStack = [];
-  const st = SAVE.stats, fresh = !S.counted;   // a Trail loss that is undone and finished again is one game, not two (S6-05)
-  S.counted = true;
-  if (fresh) {
-    st.games++; st.lines += S.groups; st.bestHeat = Math.max(st.bestHeat, S.bestHeat); st.springs += S.springs;
-    st.bestCombo = Math.max(st.bestCombo, S.bestG || 0); st.longest = Math.max(st.longest, S.placed);
-    if (st.recent[S.mode]) st.recent[S.mode] = [...st.recent[S.mode], S.score].slice(-10);
+  const st = SAVE.stats;
+  // Incremental per-run ledger preserved across Post-Loss Undo (W6-S3-06, CD-WF6-03, S6-05):
+  // games counts once per run, while post-rescue lines, springs, boiling, and final recent score still credit cleanly.
+  const L = (S.ledger = normalizeLedger(S.ledger));
+  if (!L.games) { st.games++; L.games = 1; }
+  let replaceRecent = null, boiledNow = false;
+  if (S.mode !== 'trail') {
+    const dLines = Math.max(0, S.groups - L.lines);
+    if (dLines) { st.lines += dLines; L.lines += dLines; }
+    const dSprings = Math.max(0, S.springs - L.springs);
+    if (dSprings) { st.springs += dSprings; L.springs += dSprings; }
+    st.bestHeat = Math.max(st.bestHeat, S.bestHeat);
+    st.bestCombo = Math.max(st.bestCombo, S.bestG || 0);
+    st.longest = Math.max(st.longest, S.placed);
+    if (S.bestHeat >= 12 && !L.boiled) { L.boiled = 1; boiledNow = true; }
+    if (st.recent[S.mode]) {
+      if (L.recentIdx < 0) {
+        st.recent[S.mode] = [...st.recent[S.mode], S.score].slice(-10);
+        L.recentIdx = st.recent[S.mode].length - 1;
+        L.recentScore = S.score;
+      } else {
+        replaceRecent = { mode: S.mode, from: L.recentScore, to: S.score };
+      }
+    }
   }
   const prior = Number.isFinite(S.priorBest) ? S.priorBest : bestFor(S.mode);
   UI.newBest = false;
@@ -3448,10 +3663,19 @@ function endGame(res) {
     UI.trailWin.crown = !finished && trailAllDone() ? 'all' : !titled && trailTitle() ? 'title' : '';   // the solve that finishes the first ring, or the whole Trail (S4-04)
     if (stars > prev) SAVE.trail.stars[S.level] = stars;
   }
-  goalsOnEnd(fresh);
+  goalsOnEnd(boiledNow);
   const streakNow = dailyLongest();
-  UI.newCards = WATER_CARDS.filter(c => !waterCardOpen(c, linesBefore, streakBefore) && waterCardOpen(c, st.lines, streakNow)).map(c => c.title);
-  persist(S.mode === 'classic' || hadLegacySpringsSave ? 'clear' : 'none');
+  UI.newCards = S.mode === 'trail' ? [] : WATER_CARDS.filter(c => !waterCardOpen(c, linesBefore, streakBefore) && waterCardOpen(c, st.lines, streakNow)).map(c => c.title);
+  const persistOk = persist(S.mode === 'classic' || hadLegacySpringsSave ? 'clear' : 'none', replaceRecent ? { replaceRecent } : null);
+  if (replaceRecent) {
+    if (!persistOk && SAVE.stats.recent[S.mode]) {
+      const list = SAVE.stats.recent[S.mode], idx = list.lastIndexOf(replaceRecent.from);
+      if (idx >= 0) list[idx] = replaceRecent.to;
+      else if (list.length) list[list.length - 1] = replaceRecent.to;
+    }
+    L.recentScore = S.score;
+    if (SAVE.stats.recent[S.mode]) L.recentIdx = SAVE.stats.recent[S.mode].lastIndexOf(S.score);
+  }
   if (wroteBest) {
     const prevRemote = LAST_PERSIST_PREV_BEST ? readBestFromObj(LAST_PERSIST_PREV_BEST, wroteBest.mode, wroteBest.diff, wroteBest.daily) : wroteBest.restore;
     if (prevRemote >= wroteBest.written) { wroteBest = null; S.bestCommitted = false; }
@@ -3559,11 +3783,13 @@ function showWinTrail() {
   const next = w.stars < 3 ? ' Solve it again with ' + (w.stars === 2 ? 'no undos' : 'two undos or fewer') + ' for ' + (w.stars + 1) + ' stars.' : '';
   const best = w.stars > w.prev && w.prev > 0 ? ' New best: up from ' + w.prev + '.' : '';
   const crown = w.crown === 'all' ? LEVELS[idx].name + ' was the last one: every puzzle is solved. ' : w.crown === 'title' ? LEVELS[idx].name + ' was the last of the first ring, and every first-ring puzzle is solved. ' : '';
-  $('win-sub').textContent = crown + how + best + next + ' ' + SAVE.trail.done.length + ' of ' + LEVELS.length + ' solved, ' + trailStarTotal() + ' stars.';
+  const hasNext = idx >= 0 && idx < LEVELS.length - 1 && unlocked(idx + 1);
+  const gateNote = idx >= 0 && idx < LEVELS.length - 1 && !hasNext && ring2Gate(idx + 1) ? ' Earn ' + Math.max(0, TRAIL_RING2_STARS - trailStarTotal()) + ' more stars to open the second ring.' : '';
+  $('win-sub').textContent = crown + how + best + next + ' ' + SAVE.trail.done.length + ' of ' + LEVELS.length + ' solved, ' + trailStarTotal() + ' stars.' + gateNote;
   announce(LEVELS[idx].name + ' solved with ' + w.stars + ' stars.');
   const box = $('win-card'); box.innerHTML = '';
   if (CARDS[S.level]) box.appendChild(cardEl(S.level, false)); else box.appendChild(factEl(LEVELS[idx]));
-  $('b-next').style.display = idx < LEVELS.length - 1 ? '' : 'none';
+  $('b-next').style.display = hasNext ? '' : 'none';
   showScene('win');
 }
 
@@ -3571,6 +3797,7 @@ function showWinTrail() {
 const SCREENS = { title: 'sc-title', pause: 'sc-pause', over: 'sc-over', win: 'sc-win', trail: 'sc-trail', cards: 'sc-cards', records: 'sc-records', help: 'sc-help', settings: 'sc-settings' };
 function showScene(name) {
   if (name === 'game' && !S.tray) name = 'title';
+  if (name !== 'game' && UI.drag) cancelDrag({ animate: false });
   setTimeout(tipRender, 0);
   const prev = S.scene;
   if (['help', 'settings', 'trail', 'cards', 'records'].includes(name) && prev !== name) UI.returnTo = (prev === 'game' || prev === 'pause') ? 'pause' : (prev === 'trail' && name !== 'trail' ? 'trail' : 'title');
@@ -3608,12 +3835,15 @@ function hudGoal() {
   return ['Groups', S.groups + '/' + S.goal.slice(6)];
 }
 function updateHud() {
+  const trail = S.mode === 'trail';
+  const scoreStat = document.querySelector('#hud .stat.score');
+  if (scoreStat) scoreStat.hidden = trail;
   $('h-score').textContent = S.score.toLocaleString('en-US');
-  $('h-best').textContent = S.mode === 'trail' ? (SAVE.trail.done.length + '/' + LEVELS.length) : Math.max(bestFor(S.mode), S.score).toLocaleString('en-US');
-  $('h-best-lbl').textContent = S.mode === 'trail' ? 'Solved' : 'Best';
-  $('h-mode').textContent = S.mode === 'trail' ? (LEVELS.find(l => l.id === S.level) || {}).name || '' : modeLabel();
+  $('h-best').textContent = trail ? (SAVE.trail.done.length + '/' + LEVELS.length) : Math.max(bestFor(S.mode), S.score).toLocaleString('en-US');
+  $('h-best-lbl').textContent = trail ? 'Solved' : 'Best';
+  $('h-mode').textContent = trail ? (LEVELS.find(l => l.id === S.level) || {}).name || '' : modeLabel();
   const gl = hudGoal(); $('h-goal').hidden = !gl; $('hud').classList.toggle('hasgoal', !!gl);
-  $('hud').classList.toggle('long', Math.max($('h-score').textContent.length, $('h-best').textContent.length) > 5);
+  $('hud').classList.toggle('long', Math.max(trail ? 0 : $('h-score').textContent.length, $('h-best').textContent.length) > 5);
   if (gl) { $('h-goal-lbl').textContent = gl[0]; $('h-goal-num').textContent = gl[1]; }
   $('b-pause').disabled = !!S.over;
   $('b-hint').hidden = S.mode === 'trail';
@@ -3831,7 +4061,7 @@ function applySettings() {
 }
 function setSetting(k, v) {
   SAVE.settings[k] = v; persist(); applySettings();
-  if (k === 'undo' && S.mode !== 'trail' && S.undoStack.length === 0) S.undoLeft = v;
+  if (k === 'undo' && S.mode !== 'trail' && S.placed === 0 && S.undoStack.length === 0) S.undoLeft = v;
   return SAVE.settings;
 }
 
@@ -3855,7 +4085,7 @@ function wireDom() {
   $('b-tips-help').addEventListener('click', replayTips);
   $('b-menu2').addEventListener('click', () => { sfx('click'); showScene('title'); });
   $('b-trail2').addEventListener('click', () => { sfx('click'); showScene('trail'); });
-  $('b-next').addEventListener('click', () => { sfx('click'); const i = LEVELS.findIndex(l => l.id === S.level); if (i < LEVELS.length - 1) newGame({ mode: 'trail', level: LEVELS[i + 1].id }); });
+  $('b-next').addEventListener('click', () => { sfx('click'); const i = LEVELS.findIndex(l => l.id === S.level); if (i >= 0 && i < LEVELS.length - 1 && unlocked(i + 1)) newGame({ mode: 'trail', level: LEVELS[i + 1].id }); else showScene('trail'); });
   $('b-undo').addEventListener('click', () => { audioInit(); doUndo(); cv.focus({ preventScroll: true }); });
   $('b-hint').addEventListener('click', () => { audioInit(); useHint(); cv.focus({ preventScroll: true }); });
   $('b-sound').addEventListener('click', () => { audioInit(); setSetting('sound', !SAVE.settings.sound); sfx('click'); if (S.scene === 'game') cv.focus({ preventScroll: true }); });
@@ -3926,7 +4156,7 @@ function askRestart() {
   const what = S.mode === 'trail' ? 'puzzle' : S.mode === 'daily' ? 'Daily Soak' : 'game';
   askConfirm('Restart this ' + what + '?', S.mode === 'trail' ? 'Your moves so far will be undone.' : 'You are at ' + S.score.toLocaleString('en-US') + ' points. They will be lost.', 'Restart', 'Keep playing', restart);
 }
-function pauseGame() { if (S.scene === 'game' && !S.over) { UI.drag = null; UI.ghost = null; $('pause-goal').textContent = goalSentence(); sfx('pause'); showScene('pause'); } }
+function pauseGame() { if (S.scene === 'game' && !S.over) { cancelDrag({ animate: false }); UI.sel = -1; $('pause-goal').textContent = goalSentence(); sfx('pause'); showScene('pause'); } }
 function resumeGame() { sfx('resume'); showScene('game'); }
 function restart() {
   if (S.mode === 'trail') newGame({ mode: 'trail', level: S.level });
@@ -3934,6 +4164,7 @@ function restart() {
   else newGame({ mode: S.mode });
 }
 function resumeSaved(preferredMode = null) {
+  cancelDrag({ animate: false });
   const mode = preferredMode || UI.continueMode || (bestContinueRun() && bestContinueRun().mode) || 'classic';
   let r = null;
   if (mode === 'springs') {
@@ -3954,14 +4185,16 @@ function resumeSaved(preferredMode = null) {
   if (!DIFFICULTIES.includes(S.diff)) S.diff = 'standard';
   if (!Number.isInteger(S.undosUsed) || S.undosUsed < 0) S.undosUsed = 0;
   if (!Number.isInteger(S.hintRound) || S.hintRound < -1) S.hintRound = -1;
+  if (!Number.isInteger(S.refilledRound) || S.refilledRound < 1) S.refilledRound = Math.max(1, S.round || 1);
   if (!hasPriorBest) S.priorBest = bestFor(S.mode);
   S.bestCommitted = false;
   S.provBest = null;
+  S.ledger = normalizeLedger(r.ledger);
   delete S.updatedAt;
   UI.earned = []; tipStart(true);
   UI.sel = -1; UI.ghost = null; UI.drag = null; UI.overAt = 0; UI.skipEnd = false;
   UI.hint = null; UI.hintRound = currentHintRound();
-  FX.length = 0; bgKey = ''; spriteCache.clear();
+  FX.length = 0; WATER.clear(); bgKey = ''; spriteCache.clear();
   showScene('game');
   announce('Game resumed. Score ' + S.score + '. ' + trayDesc());
 }
@@ -3985,15 +4218,33 @@ function centeredAt(slot, cell) {
   const p = PIECES[S.tray[slot].id];
   return { r: Math.max(0, Math.min(9 - p.h, cell.r - Math.floor((p.h - 1) / 2))), c: Math.max(0, Math.min(9 - p.wd, cell.c - Math.floor((p.wd - 1) / 2))) };
 }
+function cancelDrag(opts = null) {
+  const d = UI.drag;
+  const animate = !!(opts && opts.animate);
+  const release = !(opts && opts.release === false);
+  UI.drag = null;
+  UI.ghost = null;
+  if (d) {
+    if (release && d.id != null) { try { cv.releasePointerCapture(d.id); } catch (_) {} }
+    const t = S.tray && S.tray[d.slot];
+    if (animate && d.moved && t) {
+      const p = PIECES[t.id], [x, y] = dragTopLeft(d, p);
+      addFx({ type: 'return', slot: d.slot, x, y, dur: reducedMotion() ? 1 : 220 });
+    }
+    dirty = true;
+  }
+}
 function dragGhost(d) {
-  const p = PIECES[S.tray[d.slot].id], b = LAY.board;
+  const t = d && S.tray[d.slot];
+  if (!t) return null;
+  const p = PIECES[t.id], b = LAY.board;
   const [x, y] = dragTopLeft(d, p);
   let fr = (y - b.gy) / b.cell, fc = (x - b.gx) / b.cell;
   // only show a ghost when the dragged piece is mostly over the board; a small overhang is pulled back in
   if (fr < -0.6 || fc < -0.6 || fr + p.h > 9.6 || fc + p.wd > 9.6) return null;
   fr = Math.max(0, Math.min(9 - p.h, fr)); fc = Math.max(0, Math.min(9 - p.wd, fc));
   const near = ghostAt(d.slot, Math.round(fr), Math.round(fc));
-  if (near.valid) return near;
+  if (!near || near.valid) return near;
   // snap assist: the closest valid neighbouring spot within 3/4 of a cell beats a blocked one
   let best = null, bd = 0.75;
   for (const r of [Math.floor(fr), Math.ceil(fr)]) for (const c of [Math.floor(fc), Math.ceil(fc)]) {
@@ -4053,6 +4304,7 @@ cv.addEventListener('pointerdown', e => {
 cv.addEventListener('pointermove', e => {
   const p = pt(e), d = UI.drag;
   if (d && e.pointerId === d.id) {
+    if (!S.tray[d.slot]) { cancelDrag({ animate: false }); return; }
     d.x = p.x; d.y = p.y;
     if (!d.moved && Math.hypot(p.x - d.sx, p.y - d.sy) > 8) { d.moved = true; d.t1 = performance.now(); UI.sel = -1; sfx('pick', { k: d.slot }); tipPicked(); }
     if (d.moved) UI.ghost = dragGhost(d);
@@ -4066,6 +4318,9 @@ cv.addEventListener('pointermove', e => {
 function endDrag(e, cancel) {
   const d = UI.drag; if (!d || (e && e.pointerId !== d.id)) return;
   UI.drag = null;
+  if (d.id != null) { try { cv.releasePointerCapture(d.id); } catch (_) {} }
+  const t = S.tray[d.slot];
+  if (!t) { UI.ghost = null; dirty = true; return; }
   if (!d.moved) {
     if (cancel) { dirty = true; return; }
     if (d.touch && !SAVE.settings.tapPlace) dragHint(d.slot);
@@ -4078,13 +4333,16 @@ function endDrag(e, cancel) {
   UI.ghost = null;
   if (gh) sfx('invalid');
   else if (!cancel) { sfx('invalid', { soft: 0.6 }); announce('Drop the piece on the board.'); }   // let go away from the board: say the game saw it
-  const p = PIECES[S.tray[d.slot].id], [x, y] = dragTopLeft(d, p);
-  addFx({ type: 'return', slot: d.slot, x, y, dur: reducedMotion() ? 1 : 220 });
+  const cur = S.tray[d.slot];
+  if (cur) {
+    const p = PIECES[cur.id], [x, y] = dragTopLeft(d, p);
+    addFx({ type: 'return', slot: d.slot, x, y, dur: reducedMotion() ? 1 : 220 });
+  }
 }
 cv.addEventListener('pointerup', e => endDrag(e, false));
 cv.addEventListener('pointercancel', e => endDrag(e, true));
 cv.addEventListener('lostpointercapture', e => endDrag(e, true));
-cv.addEventListener('contextmenu', e => { e.preventDefault(); if (UI.drag) { UI.drag = null; UI.ghost = null; dirty = true; } });
+cv.addEventListener('contextmenu', e => { e.preventDefault(); if (UI.drag) cancelDrag({ animate: true }); });
 
 function moveCursor(dr, dc) {
   if (UI.sel < 0 || !S.tray[UI.sel]) { const k = S.tray.findIndex(Boolean); if (k < 0) return; selectSlot(k); return; }
@@ -4113,7 +4371,7 @@ window.addEventListener('keydown', e => {
   }
   if (k === 'Escape') {
     e.preventDefault();
-    if (S.scene === 'game') { if (UI.sel >= 0 || UI.drag) { UI.sel = -1; UI.ghost = null; UI.drag = null; dirty = true; } else if (!S.over) pauseGame(); }
+    if (S.scene === 'game') { if (UI.drag) { cancelDrag({ animate: true }); UI.sel = -1; } else if (UI.sel >= 0) { UI.sel = -1; UI.ghost = null; dirty = true; } else if (!S.over) pauseGame(); }
     else if (S.scene === 'pause') resumeGame();
     else if (['help', 'settings', 'trail', 'cards', 'records'].includes(S.scene)) back();
     return;
@@ -4206,8 +4464,12 @@ function pollPad(now) {
   }
 }
 window.addEventListener('resize', () => { resize(); });
+window.addEventListener('blur', () => { if (UI.drag) cancelDrag({ animate: false }); });
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden && S.scene === 'game') { saveResume(); }
+  if (document.hidden) {
+    if (UI.drag) cancelDrag({ animate: false });
+    if (S.scene === 'game') saveResume();
+  }
   // a hidden tab makes no sound; Safari may also leave the context 'interrupted' after a call or lock, so resume on return
   if (AU.ctx) { audioMood(); if (document.hidden) { if (AU.ctx.state === 'running') AU.ctx.suspend().catch(() => {}); } else if (AU.ctx.state !== 'running') AU.ctx.resume().catch(() => {}); }
 });
@@ -4225,9 +4487,11 @@ window.__game = {
     return o;
   },
   setState(s) {
+    cancelDrag({ animate: false });
     Object.assign(S, JSON.parse(JSON.stringify(s)));
     if (s.board) S.board = s.board.slice();
-    UI.sel = -1; UI.ghost = null; FX.length = 0; bgKey = '';
+    if (s.round !== undefined && s.refilledRound === undefined) S.refilledRound = Math.max(1, S.round || 1);
+    UI.sel = -1; UI.ghost = null; FX.length = 0; WATER.clear(); bgKey = '';
     if (!S.over) { checkEnd(S); if (S.over) endGame(); }
     if (s.scene) showScene(s.scene);
     updateHud(); dirty = true; return true;
@@ -4251,7 +4515,7 @@ window.__game = {
       case 'clearFx': return FX.filter(f => f.type === 'ripple' || f.type === 'beam' || f.type === 'shard').map(f => ({ type: f.type, tint: f.tint || '', flicker: !!f.flicker, plank: !!f.plank }));
       case 'shakes': return FX.filter(f => f.type === 'shake').map(f => ({ dur: f.dur, amp: f.amp }));
       case 'fxList': return FX.filter(f => f.type === 'popup' || f.type === 'banner').map(f => ({ type: f.type, text: f.text, sub: f.sub || '', x: f.x || 0, size: f.size || 0, level: f.level || 0 }));
-      case 'art': return { on: ART.on, files: ART_FILES, loaded: Object.keys(ART.img).filter(k => ART.img[k].ok), failed: ART.failed, loading: ART.loading, water: WATER.on, gl: !!WATER.gl, software: !!WATER.software, autoLite: PERF.autoLite };
+      case 'art': return { on: ART.on, files: ART_FILES, loaded: Object.keys(ART.img).filter(k => ART.img[k].ok), failed: ART.failed, loading: ART.loading, water: WATER.on, gl: !!WATER.gl, software: !!WATER.software, autoLite: PERF.autoLite, ripples: WATER.ripples.length };
       case 'loadAllArt': ART_FILES.forEach(n => loadArt(n)); return ART.loading;
       case 'canvasHash': { const d = cv.toDataURL(); let h = 0; for (let i = 0; i < d.length; i += 7) h = (h * 31 + d.charCodeAt(i)) >>> 0; return h; }
       case 'pause': pauseGame(); return S.scene;
