@@ -47,10 +47,12 @@
     --select-sheen:linear-gradient(rgba(255,255,255,.08),rgba(255,255,255,0) 55%);
     --panel:#182326; --scrim:rgba(7,15,17,.68);
   }
-  :root:not(.theme-light) .play{background-color:#DFB858;background-image:linear-gradient(#E8C76E,#DFB858 55%,#C49B3B);color:#131C1E;border-color:#8C6A22;box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 4px 0 #705214}
-  :root:not(.theme-light) .play:hover{border-color:#7ADCC9}
-  :root:not(.theme-light) .play:active:not(:disabled){box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 1px 0 #705214}
-  :root:not(.theme-light) .play svg{fill:#131C1E!important}
+  :root:not(.theme-light) .play,:root:not(.theme-light) .play-cont{background-color:#DFB858;background-image:linear-gradient(#E8C76E,#DFB858 55%,#C49B3B);color:#131C1E;border-color:#8C6A22;box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 4px 0 #705214}
+  :root:not(.theme-light) .play:hover,:root:not(.theme-light) .play-cont:hover{border-color:#7ADCC9}
+  :root:not(.theme-light) .play:active:not(:disabled),:root:not(.theme-light) .play-cont:active:not(:disabled){box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 1px 0 #705214}
+  :root:not(.theme-light) .play svg,:root:not(.theme-light) .play-cont svg{fill:#131C1E!important}
+  :root:not(.theme-light) .cta-row.returning #b-classic{background-color:var(--color-surface);background-image:none;color:var(--color-text);border-color:var(--color-border);box-shadow:none}
+  :root:not(.theme-light) .cta-row.returning #b-classic:hover{border-color:var(--color-primary);color:var(--color-primary)}
 }
 :root.theme-dark{
   --color-bg:#131C1E; --color-surface:#1B272A; --color-text:#EAE2D0; --color-muted:#A6B2AE;
@@ -62,10 +64,12 @@
   --select-sheen:linear-gradient(rgba(255,255,255,.08),rgba(255,255,255,0) 55%);
   --panel:#182326; --scrim:rgba(7,15,17,.68);
 }
-:root.theme-dark .play{background-color:#DFB858;background-image:linear-gradient(#E8C76E,#DFB858 55%,#C49B3B);color:#131C1E;border-color:#8C6A22;box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 4px 0 #705214}
-:root.theme-dark .play:hover{border-color:#7ADCC9}
-:root.theme-dark .play:active:not(:disabled){box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 1px 0 #705214}
-:root.theme-dark .play svg{fill:#131C1E!important}
+:root.theme-dark .play,:root.theme-dark .play-cont{background-color:#DFB858;background-image:linear-gradient(#E8C76E,#DFB858 55%,#C49B3B);color:#131C1E;border-color:#8C6A22;box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 4px 0 #705214}
+:root.theme-dark .play:hover,:root.theme-dark .play-cont:hover{border-color:#7ADCC9}
+:root.theme-dark .play:active:not(:disabled),:root.theme-dark .play-cont:active:not(:disabled){box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 1px 0 #705214}
+:root.theme-dark .play svg,:root.theme-dark .play-cont svg{fill:#131C1E!important}
+:root.theme-dark .cta-row.returning #b-classic{background-color:var(--color-surface);background-image:none;color:var(--color-text);border-color:var(--color-border);box-shadow:none}
+:root.theme-dark .cta-row.returning #b-classic:hover{border-color:var(--color-primary);color:var(--color-primary)}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden;background:var(--color-bg);color:var(--color-text);font-family:var(--font-sans);font-size:16px;-webkit-text-size-adjust:100%;overscroll-behavior:none}
 :root.big body{font-size:20px}
@@ -128,6 +132,7 @@ button.primary:active:not(:disabled){transform:translateY(2px);box-shadow:inset 
 #hud svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 #b-hint[hidden]{display:none}
 #b-undo .cnt{font-weight:800;font-family:var(--font-sans);font-variant-numeric:lining-nums tabular-nums}
+#b-undo.coach{border-color:#F7CF62;background:rgba(46,34,15,.86);box-shadow:0 0 0 2px rgba(247,207,98,.48),0 2px 10px rgba(0,0,0,.4)}
 #b-sound{margin-left:6px;background:rgba(8,24,28,.50);border-color:rgba(240,207,117,.45)}
 #b-sound[aria-pressed="false"]{border-color:rgba(200,210,208,.36);color:#C5CECB}
 /* Phone HUD (S4-14, S2-12, C4-04, CD-WF5-01): the four buttons leave about 140 px at 360 wide, so the figures are smaller, the labels are tighter, the buttons
@@ -200,18 +205,32 @@ button.primary:active:not(:disabled){transform:translateY(2px);box-shadow:inset 
 #sc-title .panel{display:block;overflow:auto;align-self:flex-end;margin:auto 0;width:min(400px,100%);padding:18px;text-align:left;border:2px solid #C9A23F;box-shadow:0 18px 50px rgba(0,0,0,.5),inset 0 0 0 1px rgba(255,255,255,.25)}
 #sc-title .panel>*+*{margin-top:10px}
 #sc-title button svg{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.play{width:100%;display:flex;align-items:center;gap:12px;padding:12px 16px;background-color:#8E3622;background-image:linear-gradient(#B9472D,#8E3622);color:#fff;border:2px solid #5C2416;border-radius:14px;box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 4px 0 #5C2416}
-.play:hover{border-color:#F7CF62}
-.play:active:not(:disabled){transform:translateY(3px);box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 1px 0 #5C2416}
-.play svg{width:30px!important;height:30px!important;fill:#fff!important;stroke:none!important}
-.play .t{display:flex;flex-direction:column;text-align:left;min-width:0}
+.cta-row{display:flex;gap:8px;align-items:stretch}
+.cta-row.returning{display:grid;grid-template-columns:minmax(0,72fr) minmax(72px,28fr);gap:8px;align-items:stretch}
+.play,.play-cont{width:100%;display:flex;align-items:center;gap:12px;padding:12px 16px;background-color:#8E3622;background-image:linear-gradient(#B9472D,#8E3622);color:#fff;border:2px solid #5C2416;border-radius:14px;box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 4px 0 #5C2416}
+.play:hover,.play-cont:hover{border-color:#F7CF62}
+.play:active:not(:disabled),.play-cont:active:not(:disabled){transform:translateY(3px);box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 1px 0 #5C2416}
+.play svg,.play-cont svg{width:30px!important;height:30px!important;fill:#fff!important;stroke:none!important}
+.play-cont{gap:10px;padding:10px 12px}
+.play-cont svg{width:24px!important;height:24px!important}
+.play .t,.play-cont .t{display:flex;flex-direction:column;text-align:left;min-width:0}
 .play b{font-family:var(--font-display);font-weight:900;font-size:1.45em;line-height:1.05}
+.play-cont b{font-family:var(--font-display);font-weight:900;font-size:1.08em;line-height:1.15;overflow-wrap:anywhere}
 .play .t span{font-size:.85em;opacity:1}
+.cta-row.returning #b-classic{justify-content:center;gap:0;padding:10px 8px;background-color:var(--color-surface);background-image:none;color:var(--color-text);border:2px solid var(--color-border);border-radius:14px;box-shadow:none}
+.cta-row.returning #b-classic:hover{border-color:var(--color-primary);color:var(--color-primary)}
+.cta-row.returning #b-classic:active:not(:disabled){transform:translateY(1px);box-shadow:none}
+.cta-row.returning #b-classic svg,.cta-row.returning #b-classic #classic-sub{display:none}
+.cta-row.returning #b-classic .t{align-items:center;text-align:center}
+.cta-row.returning #b-classic b{font-size:1.05em}
 button.big{width:100%;font-size:1.1em;padding:12px}
 .modes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.modes button{display:grid;grid-template-rows:auto auto 1fr;justify-items:center;text-align:center;gap:3px;padding:10px 6px;border-radius:12px;min-width:0}
+.modes button{position:relative;display:grid;grid-template-rows:auto auto 1fr;justify-items:center;text-align:center;gap:3px;padding:10px 6px;border-radius:12px;min-width:0}
 .modes b{font-size:.95em;overflow-wrap:anywhere}
 .modes span{font-size:.74em;color:var(--color-muted);line-height:1.25}
+.modes .mtag{display:none}
+.modes [data-mode="daily"].unplayed::after{content:"";position:absolute;top:7px;right:7px;width:8px;height:8px;border-radius:50%;background:#C9A23F;box-shadow:0 0 0 2px var(--panel)}
+.modes [data-mode="springs"] svg{color:var(--color-highlight)}
 .links{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .links button{font-size:.82em;padding:6px 4px;min-width:0;overflow-wrap:anywhere}
 .ticker{margin:0;font-size:.85em;color:var(--color-muted);min-height:2.6em;line-height:1.35;transition:opacity 110ms ease-out}
@@ -226,11 +245,12 @@ button.big{width:100%;font-size:1.1em;padding:12px}
 }
 @media (max-width:420px){
   .links{grid-template-columns:1fr 1fr}
-  .modes span{display:none}
+  :root:not(.lay-land) .modes .sub{display:none}
+  :root:not(.lay-land) .modes .mtag{display:block;font-size:.70em;line-height:1.2;color:var(--color-muted);max-width:100%;overflow-wrap:break-word}
   .set{flex-wrap:wrap;gap:6px 10px}
   .set>span{flex:1 1 130px;min-width:0;overflow-wrap:anywhere}
   .set select,.set button{max-width:100%}
-  .set input[type=range]{max-width:100%;width:min(160px,100%)}
+  .set input[type=range]{max-width:100%;width:min(140px,100%)}
 }
 @media (max-width:380px){
   .screen{padding:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left))}
@@ -240,6 +260,7 @@ button.big{width:100%;font-size:1.1em;padding:12px}
   :root.big .logo small{letter-spacing:.18em;padding:.4em .85em}
   :root.big .modes button{padding:8px 4px}
   :root.big .modes b{font-size:.76em}
+  :root.big .modes .mtag{font-size:.62em}
   :root.big .panel h2{font-size:1.38em}
   :root.big table.keys,:root.big table.keys tbody,:root.big table.keys tr,:root.big table.keys td{display:block;width:100%}
   :root.big table.keys tr{padding:6px 0;border-bottom:1px solid var(--color-border)}
@@ -257,8 +278,8 @@ button.big{width:100%;font-size:1.1em;padding:12px}
   :root.lay-land.big .logo{font-size:clamp(1.75em,5.4vw,2.5em)}
   :root.lay-land.big #sc-title .panel{padding:8px 10px}
   :root.lay-land.big #sc-title .panel>*+*{margin-top:4px}
-  :root.lay-land.big .play{padding:8px 12px}
-  :root.lay-land.big .play b{font-size:1.18em}
+  :root.lay-land.big .play,:root.lay-land.big .play-cont{padding:8px 12px}
+  :root.lay-land.big .play b,:root.lay-land.big .play-cont b{font-size:1.08em}
   :root.lay-land.big .play .t span,:root.lay-land.big .modes span{display:none}
   :root.lay-land.big .modes button{padding:6px 4px;font-size:.82em}
   :root.lay-land.big .links button{padding:5px 4px;font-size:.74em}
@@ -304,8 +325,12 @@ button.big{width:100%;font-size:1.1em;padding:12px}
 .card.locked{opacity:1;background:var(--color-locked-bg);border-style:dashed;border-color:var(--color-disabled-border)}
 .card.locked h4::before{content:"";display:inline-block;width:.82em;height:.82em;margin-right:.35em;vertical-align:-.08em;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M5 7V5a3 3 0 016 0v2h1a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1h1zm2-2v2h2V5a1 1 0 00-2 0z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M5 7V5a3 3 0 016 0v2h1a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1h1zm2-2v2h2V5a1 1 0 00-2 0z'/%3E%3C/svg%3E") center/contain no-repeat}
 
-/* Settings */
+/* Settings (4-section IA with Difficulty at top, bathhouse brass hardware controls & live tabular % readouts) */
+.set-head{margin:16px 0 4px}
+.set-head:first-child{margin-top:2px}
 .set{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--color-border);min-height:52px}
+.set-note{display:block;font-size:.78em;font-weight:600;color:var(--color-primary);margin-top:2px}
+.set-note[hidden]{display:none}
 /* Settings controls in the bathhouse's own materials (S4-10): selects are enamel pills with a brass rim, checkboxes are brass toggles. */
 .set select{-webkit-appearance:none;appearance:none;min-height:45px;border-radius:999px;border:2px solid #C9A23F;padding:4px 36px 4px 16px;cursor:pointer;
   background:var(--select-arrow) right 14px center/12px 8px no-repeat,var(--select-sheen),var(--color-surface);box-shadow:inset 0 -2px 0 rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.2);transition:border-color 120ms ease-out,transform var(--dur-tap) var(--ease-press)}
@@ -317,10 +342,16 @@ button.big{width:100%;font-size:1.1em;padding:12px}
   border:1px solid rgba(0,0,0,.3);box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform var(--dur-control) var(--ease-settle)}
 .set input[type=checkbox]:checked{background:linear-gradient(#F0CF75,#C9A23F 55%,#A8822B);border-color:#8C6A22}
 .set input[type=checkbox]:checked::before{transform:translateX(22px)}
-@media (forced-colors:active){.set input[type=checkbox],.set select{-webkit-appearance:auto;appearance:auto}.set input[type=checkbox]::before{display:none}}
-.set input[type=range]{width:min(160px,44vw);min-height:45px;accent-color:#B8902E}
-.set input[type=range].dim{opacity:.45}
-.set.dim span{color:var(--color-muted)}
+.range-wrap{display:inline-flex;align-items:center;gap:8px;max-width:100%;min-width:0}
+.range-val{min-width:3.1em;text-align:right;font-variant-numeric:lining-nums tabular-nums;font-size:.86em;font-weight:700;color:var(--color-muted)}
+.set input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;width:min(144px,38vw);min-width:96px;min-height:45px;cursor:pointer;accent-color:#B8902E}
+.set input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:999px;background:var(--toggle-bg);border:1.5px solid var(--toggle-border);box-shadow:inset 0 1px 3px rgba(0,0,0,.22)}
+.set input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:22px;height:22px;margin-top:-9px;border-radius:50%;background:linear-gradient(#FFFDF5,#E7C873 55%,#B8902E);border:2px solid #7A5A18;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.set input[type=range]::-moz-range-track{height:8px;border-radius:999px;background:var(--toggle-bg);border:1.5px solid var(--toggle-border);box-shadow:inset 0 1px 3px rgba(0,0,0,.22)}
+.set input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:linear-gradient(#FFFDF5,#E7C873 55%,#B8902E);border:2px solid #7A5A18;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+@media (forced-colors:active){.set input[type=checkbox],.set select,.set input[type=range]{-webkit-appearance:auto;appearance:auto}.set input[type=checkbox]::before{display:none}}
+.set input[type=range].dim,.set input[type=checkbox].dim{opacity:.52}
+.set.dim>span,.set.dim .range-val{color:var(--color-muted)}
 kbd{font-family:var(--font-mono);border:1px solid var(--color-border);border-radius:4px;padding:0 4px;background:var(--color-bg)}
 table.keys{border-collapse:collapse;width:100%}
 table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertical-align:top}
@@ -372,14 +403,14 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
   :root:not(.motion-full) #h-score.pop,:root:not(.motion-full) #h-best.gleam,:root:not(.motion-full) .winstars .star.lit,:root:not(.motion-full) .win-card-in,:root:not(.motion-full) #ov-stats>*{animation:none;opacity:1;transform:none}
   :root:not(.motion-full) .screen.overlay.on::before,:root:not(.motion-full) .screen.overlay.on .panel,:root:not(.motion-full) #sc-title.on .brand,:root:not(.motion-full) #sc-title.on .panel,:root:not(.motion-full) #toast.on,:root:not(.motion-full) #achtoast.on,:root:not(.motion-full) #tip.on,:root:not(.motion-full) #bg.bg-xfade{animation:none}
   :root:not(.motion-full) button,:root:not(.motion-full) .set select,:root:not(.motion-full) .set input[type=checkbox],:root:not(.motion-full) .set input[type=checkbox]::before,:root:not(.motion-full) .ticker{transition:none}
-  :root:not(.motion-full) button:active:not(:disabled),:root:not(.motion-full) .play:active:not(:disabled),:root:not(.motion-full) button.primary:active:not(:disabled),:root:not(.motion-full) #hud button:active:not(:disabled),:root:not(.motion-full) .set select:active{transform:none;border-color:var(--color-highlight)}
+  :root:not(.motion-full) button:active:not(:disabled),:root:not(.motion-full) .play:active:not(:disabled),:root:not(.motion-full) .play-cont:active:not(:disabled),:root:not(.motion-full) button.primary:active:not(:disabled),:root:not(.motion-full) #hud button:active:not(:disabled),:root:not(.motion-full) .set select:active{transform:none;border-color:var(--color-highlight)}
 }
 :root.motion-reduced{--dur-tap:0ms;--dur-control:0ms;--dur-panel:0ms;--dur-scrim:0ms;--dur-toast:0ms}
 :root.motion-reduced .newbest.hit{animation:none;box-shadow:0 3px 0 #8C5A12,inset 0 0 0 2px #FFF4CC,0 0 0 2px rgba(247,207,98,.75)}
 :root.motion-reduced #h-score.pop,:root.motion-reduced #h-best.gleam,:root.motion-reduced .winstars .star.lit,:root.motion-reduced .win-card-in,:root.motion-reduced #ov-stats>*{animation:none;opacity:1;transform:none}
 :root.motion-reduced .screen.overlay.on::before,:root.motion-reduced .screen.overlay.on .panel,:root.motion-reduced #sc-title.on .brand,:root.motion-reduced #sc-title.on .panel,:root.motion-reduced #toast.on,:root.motion-reduced #achtoast.on,:root.motion-reduced #tip.on,:root.motion-reduced #bg.bg-xfade{animation:none}
 :root.motion-reduced button,:root.motion-reduced .set select,:root.motion-reduced .set input[type=checkbox],:root.motion-reduced .set input[type=checkbox]::before,:root.motion-reduced .ticker{transition:none}
-:root.motion-reduced button:active:not(:disabled),:root.motion-reduced .play:active:not(:disabled),:root.motion-reduced button.primary:active:not(:disabled),:root.motion-reduced #hud button:active:not(:disabled),:root.motion-reduced .set select:active{transform:none;border-color:var(--color-highlight)}
+:root.motion-reduced button:active:not(:disabled),:root.motion-reduced .play:active:not(:disabled),:root.motion-reduced .play-cont:active:not(:disabled),:root.motion-reduced button.primary:active:not(:disabled),:root.motion-reduced #hud button:active:not(:disabled),:root.motion-reduced .set select:active{transform:none;border-color:var(--color-highlight)}
 </style>
 </head>
 <body>
@@ -394,12 +425,14 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
     <h1 class="logo">Thermal Blocks<small>Hot Springs · Arkansas</small></h1>
   </div>
   <div class="panel">
-    <button class="primary big" id="b-continue" style="display:none">Continue game</button>
-    <button class="play" data-mode="classic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg><span class="t"><b>Play Classic</b><span>Endless. Climb through seven eras.</span></span></button>
+    <div class="cta-row" id="cta-row">
+      <button class="primary play-cont" id="b-continue" style="display:none"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg><span class="t"><b id="b-continue-txt">Continue game</b></span></button>
+      <button class="play" id="b-classic" data-mode="classic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg><span class="t"><b id="b-classic-lbl">Play Classic</b><span id="classic-sub">Endless · Standard · 7 eras.</span></span></button>
+    </div>
     <div class="modes">
-      <button data-mode="daily"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg><b>Daily Soak</b><span id="daily-sub">Today’s board on this device.</span></button>
-      <button data-mode="springs"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4c-2 2 2 3 0 6M12 3c-2 2 2 3 0 6M16 4c-2 2 2 3 0 6"/><ellipse cx="12" cy="17" rx="8" ry="3.5"/></svg><b>Springs</b><span>Open 47 hot-spring vents.</span></button>
-      <button data-go="trail"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-6.2-6-11a6 6 0 0112 0c0 4.8-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/></svg><b>Spring Trail</b><span id="trail-sub">12 Bathhouse Row + 12 Spring Science puzzles.</span></button>
+      <button data-mode="daily"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg><b>Daily Soak</b><span class="sub" id="daily-sub">Today’s board on this device.</span><span class="mtag" id="daily-mtag">8 tufa · daily</span></button>
+      <button data-mode="springs"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4c-2 2 2 3 0 6M12 3c-2 2 2 3 0 6M16 4c-2 2 2 3 0 6"/><ellipse cx="12" cy="17" rx="8" ry="3.5"/></svg><b>Springs</b><span class="sub" id="springs-sub">Open 47 hot-spring vents.</span><span class="mtag" id="springs-mtag">47 vents</span></button>
+      <button data-go="trail"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-6.2-6-11a6 6 0 0112 0c0 4.8-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/></svg><b>Spring Trail</b><span class="sub" id="trail-sub">12 Bathhouse Row + 12 Spring Science puzzles.</span><span class="mtag" id="trail-mtag">24 puzzles</span></button>
     </div>
     <div class="links">
       <button data-go="cards">Fact cards</button><button data-go="records">Records</button>
@@ -575,24 +608,28 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
   <div class="panel" style="width:min(480px,100%)">
     <div class="panel-head"><h2 id="set-title">Settings</h2><button class="btn-close" data-close type="button" aria-label="Close" title="Close (Esc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div class="panel-body">
-      <label class="set"><span>Sound</span><input type="checkbox" id="s-sound"></label>
-      <label class="set"><span>Volume</span><input type="range" id="s-volume" min="0" max="100" step="5"></label>
-      <label class="set"><span>Sound effects</span><input type="checkbox" id="s-sfx"></label>
-      <label class="set"><span>Music</span><input type="checkbox" id="s-music"></label>
-      <label class="set"><span>Music volume</span><input type="range" id="s-musicvol" min="0" max="100" step="5" aria-label="Music volume"></label>
-      <label class="set"><span>Ambience (water and steam)</span><input type="checkbox" id="s-ambience"></label>
-      <label class="set"><span>Ambience volume</span><input type="range" id="s-ambvol" min="0" max="100" step="5" aria-label="Ambience volume"></label>
-      <label class="set"><span>Motion</span><select id="s-motion"><option value="system">Follow system</option><option value="full">Full</option><option value="reduced">Reduced</option></select></label>
-      <label class="set"><span>Tile patterns (colorblind aid)</span><input type="checkbox" id="s-patterns"></label>
-      <label class="set"><span>Difficulty (Classic, Springs)</span><select id="s-difficulty"><option value="relaxed">Relaxed</option><option value="standard">Standard</option><option value="master">Master</option></select></label>
+      <h3 class="set-head">Gameplay</h3>
+      <label class="set"><span>Difficulty (Classic, Springs)<small class="set-note" id="s-diff-note" hidden>Applies next game</small></span><select id="s-difficulty"><option value="relaxed">Relaxed</option><option value="standard">Standard</option><option value="master">Master</option></select></label>
       <label class="set"><span>Undos per round</span><select id="s-undo"><option value="0">0</option><option value="1">1</option><option value="3">3</option></select></label>
-      <label class="set"><span>Tap to place (touch)</span><input type="checkbox" id="s-tapplace"></label>
-      <label class="set" id="row-haptics"><span>Vibration (touch)</span><input type="checkbox" id="s-haptics"></label>
-      <label class="set"><span>Large text</span><input type="checkbox" id="s-big"></label>
-      <label class="set"><span>First-game tips</span><button id="b-tips" type="button">Show tips again</button></label>
-      <label class="set"><span>Effects</span><select id="s-effects"><option value="full">Full (live water)</option><option value="lite">Lite (faster)</option></select></label>
+      <div class="set"><span>First-game tips</span><button id="b-tips" type="button">Show tips again</button></div>
+      <h3 class="set-head">Controls &amp; Accessibility</h3>
+      <label class="set"><span>Tile patterns (colorblind aid)</span><input type="checkbox" role="switch" id="s-patterns"></label>
+      <label class="set"><span>Large text</span><input type="checkbox" role="switch" id="s-big"></label>
+      <label class="set"><span>Motion</span><select id="s-motion"><option value="system">Follow system</option><option value="full">Full</option><option value="reduced">Reduced</option></select></label>
+      <label class="set"><span>Tap to place (touch)</span><input type="checkbox" role="switch" id="s-tapplace"></label>
       <label class="set"><span>Tray side (wide screens)</span><select id="s-tray"><option value="right">Right</option><option value="left">Left</option></select></label>
+      <label class="set" id="row-haptics"><span>Vibration (touch)</span><input type="checkbox" role="switch" id="s-haptics"></label>
+      <h3 class="set-head">Audio</h3>
+      <label class="set"><span>Sound</span><input type="checkbox" role="switch" id="s-sound"></label>
+      <label class="set"><span>Volume</span><span class="range-wrap"><input type="range" id="s-volume" min="0" max="100" step="5"><output class="range-val" id="s-volume-val" for="s-volume">70%</output></span></label>
+      <label class="set"><span>Sound effects</span><input type="checkbox" role="switch" id="s-sfx"></label>
+      <label class="set"><span>Music</span><input type="checkbox" role="switch" id="s-music"></label>
+      <label class="set"><span>Music volume</span><span class="range-wrap"><input type="range" id="s-musicvol" min="0" max="100" step="5" aria-label="Music volume"><output class="range-val" id="s-musicvol-val" for="s-musicvol">50%</output></span></label>
+      <label class="set"><span>Ambience (water and steam)</span><input type="checkbox" role="switch" id="s-ambience"></label>
+      <label class="set"><span>Ambience volume</span><span class="range-wrap"><input type="range" id="s-ambvol" min="0" max="100" step="5" aria-label="Ambience volume"><output class="range-val" id="s-ambvol-val" for="s-ambvol">50%</output></span></label>
+      <h3 class="set-head">Display</h3>
       <label class="set"><span>Menu theme</span><select id="s-theme"><option value="system">Follow system</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
+      <label class="set"><span>Effects</span><select id="s-effects"><option value="full">Full (live water)</option><option value="lite">Lite (faster)</option></select></label>
     </div>
     <div class="row panel-foot"><button data-back class="primary">Done</button></div>
   </div>
@@ -1114,7 +1151,12 @@ function setupGame(g, opts) {
     g.era = 0;
     for (let k = 0; k < 4; k++) spawnVent(g, 6);
   }
-  dealTray(g);
+  if (opts && opts.starter && g.mode === 'classic') {
+    g.tray = [{ id: 'o4' }, { id: 'i3h' }, { id: 'i2h' }];
+    g.round++;
+  } else {
+    dealTray(g);
+  }
   checkEnd(g);
   return g;
 }
@@ -1603,7 +1645,7 @@ function persist(intent = 'none', opts = null) {
 let S = freshGame('classic');
 S.scene = 'title';
 let SEED_PENDING = null;
-const UI = { sel: -1, cur: null, ghost: null, ghostCleared: false, drag: null, hover: null, kbd: false, returnTo: 'title', returnFocus: { title: null, pause: null, trail: null }, overAt: 0, skipEnd: false, fxFrozen: null, pausedAt: null, countRaf: 0, countUntil: 0, uiSettleUntil: 0, auditionAudio: false, dispHeat: 0, heatAnim: null, heatPulseAt: 0, dispScore: 0, scoreAnim: null, bestGleamed: false, lastTipRoom: false, ambSteamAlpha: 1, endTimers: [], turnTimers: [], lastTap: null, lastInput: performance.now(), input: (window.matchMedia && matchMedia('(pointer:coarse)').matches) ? 'touch' : 'mouse', tip: null, earned: [] };
+const UI = { sel: -1, cur: null, ghost: null, ghostCleared: false, drag: null, hover: null, kbd: false, returnTo: 'title', returnFocus: { title: null, pause: null, trail: null }, overAt: 0, skipEnd: false, fxFrozen: null, pausedAt: null, countRaf: 0, countUntil: 0, uiSettleUntil: 0, auditionAudio: false, dispHeat: 0, heatAnim: null, heatPulseAt: 0, dispScore: 0, scoreAnim: null, bestGleamed: false, lastTipRoom: false, ambSteamAlpha: 1, inviteSlot: -1, touchTapCount: 0, endTimers: [], turnTimers: [], lastTap: null, lastInput: performance.now(), input: (window.matchMedia && matchMedia('(pointer:coarse)').matches) ? 'touch' : 'mouse', tip: null, earned: [] };
 function bumpUiSettle(ms) {
   if (reducedMotion()) return;
   const until = performance.now() + ms;
@@ -3827,9 +3869,32 @@ function drawInfo(now) {
       rShown = rShown.trimEnd() + '…';
     }
     text(rShown, rx, I.y + (big ? 15 : 13), rfs, '#FFFFFF', 'right', 'display', '700');
-    const line = infoLine(); let lfs = big ? 16 : 14;
-    for (; lfs > 12; lfs--) { if (measureW(lfs + 'px ' + FONT_SANS, line) <= I.w - 28) break; }
-    text(line, I.x + 14, I.y + (big ? 38 : 33), lfs, '#E2DDD0', 'left', 'sans');
+    const line = infoLine(), row2Y = I.y + (big ? 38 : 33);
+    let ckpt = '';
+    if (S.mode === 'classic') {
+      const nx = ERAS[S.era + 1];
+      if (nx) ckpt = 'Next: ' + nx.at.toLocaleString('en-US');
+      else if (S.score < 5500) ckpt = 'High Flow: 5,500';
+      else if (S.score < 8000) ckpt = 'Peak Flow: 8,000';
+    }
+    const maxRowW = I.w - 28;
+    let lfs = big ? 16 : 14, cfs = big ? 14 : 12;
+    if (ckpt) {
+      let cw = measureW('700 ' + cfs + 'px ' + FONT_SANS, ckpt);
+      if (measureW(lfs + 'px ' + FONT_SANS, line) + cw + 12 > maxRowW && cfs > 12) { cfs = 12; cw = measureW('700 12px ' + FONT_SANS, ckpt); }
+      for (; lfs > 12; lfs--) { if (measureW(lfs + 'px ' + FONT_SANS, line) + cw + 12 <= maxRowW) break; }
+      if (measureW(lfs + 'px ' + FONT_SANS, line) + cw + 12 > maxRowW) {
+        const tight = ckpt.replace('High Flow: ', 'High ').replace('Peak Flow: ', 'Peak ');
+        const tw = measureW('700 12px ' + FONT_SANS, tight);
+        if (measureW(lfs + 'px ' + FONT_SANS, line) + tw + 10 <= maxRowW) { ckpt = tight; cw = tw; }
+        else ckpt = '';
+      }
+      text(line, I.x + 14, row2Y, lfs, '#E2DDD0', 'left', 'sans');
+      if (ckpt) text(ckpt, rx, row2Y, cfs, '#F7CF62', 'right', 'sans', '700', false);
+    } else {
+      for (; lfs > 12; lfs--) { if (measureW(lfs + 'px ' + FONT_SANS, line) <= maxRowW) break; }
+      text(line, I.x + 14, row2Y, lfs, '#E2DDD0', 'left', 'sans');
+    }
   }
 }
 
@@ -3927,6 +3992,12 @@ function drawTray(now) {
       ctx.strokeStyle = 'rgba(255,107,91,.92)'; ctx.lineWidth = 2.2; ctx.setLineDash([6, 4]);
       rr(ctx, wx, wy, ww, wh, wr); ctx.stroke();
       ctx.setLineDash([]);
+    } else if (k === 0 && t && S.placed === 0 && !UI.drag && UI.sel < 0 && !UI.hint && (UI.inviteSlot === 0 || (UI.tip && (UI.tip.cur === 'goal' || UI.tip.cur === 'verb')))) {
+      const p = red ? 0.55 : 0.42 + 0.36 * (0.5 + 0.5 * Math.sin(tNow / 340));
+      ctx.strokeStyle = 'rgba(247,207,98,' + p.toFixed(3) + ')'; ctx.lineWidth = 2.6;
+      rr(ctx, wx, wy, ww, wh, wr); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,244,204,' + (p * 0.45).toFixed(3) + ')'; ctx.lineWidth = 1.2;
+      rr(ctx, wx - 2.5, wy - 2.5, ww + 5, wh + 5, wr + 2); ctx.stroke();
     } else {
       ctx.strokeStyle = 'rgba(240,207,117,.30)'; ctx.lineWidth = 1.2;
       rr(ctx, wx, wy, ww, wh, wr); ctx.stroke();
@@ -4003,10 +4074,19 @@ function drawTray(now) {
     if (!fits || doomed) {
       let pillFs = big ? 14 : 12;
       const maxPw = Math.max(44, sl.w - 8);
-      let label = !fits ? '! no room' : (sl.w < 100 ? '! won’t fit' : '! won’t all fit');
-      let lw = measureW('700 ' + pillFs + 'px ' + FONT_SANS, label);
-      if (lw + 14 > maxPw && pillFs > 12) { pillFs = 12; lw = measureW('700 12px ' + FONT_SANS, label); }
-      if (!(!fits) && lw + 14 > maxPw && label !== '! won’t fit') { label = '! won’t fit'; lw = measureW('700 ' + pillFs + 'px ' + FONT_SANS, label); }
+      const canCoachUndo = fits && doomed && undoAvail();
+      const opts = !fits ? ['! no room']
+        : canCoachUndo ? ['! won’t all fit · Undo', '! won’t fit · Undo', '! Undo to fit', '! won’t fit']
+        : (sl.w < 100 ? ['! won’t fit'] : ['! won’t all fit', '! won’t fit']);
+      let label = opts[opts.length - 1], lw = 0;
+      outerPill: for (let oi = 0; oi < opts.length; oi++) {
+        const cand = opts[oi];
+        for (let fs = pillFs; fs >= 12; fs--) {
+          const w = measureW('700 ' + fs + 'px ' + FONT_SANS, cand);
+          if (w + 14 <= maxPw) { label = cand; pillFs = fs; lw = w; break outerPill; }
+        }
+      }
+      if (!lw) { pillFs = 12; lw = measureW('700 12px ' + FONT_SANS, label); }
       const pw = Math.min(maxPw, Math.max(lw + 14, !fits ? 80 : (sl.w < 100 ? 80 : 92)));
       const px = cx - pw / 2, py = sl.y + sl.h - pillH - 4;
       ctx.fillStyle = 'rgba(42,14,16,.88)'; rr(ctx, px, py, pw, pillH, pillH / 2); ctx.fill();
@@ -4070,6 +4150,84 @@ function drawHint(now) {
   for (const [dr, dc] of p.cells) { rr(ctx, b.gx + (h.c + dc) * cell + 2, b.gy + (h.r + dr) * cell + 2, cell - 4, cell - 4, cell * 0.15); ctx.stroke(); }
   ctx.strokeStyle = 'rgba(232,255,249,' + (0.76 + 0.24 * pulse) + ')'; ctx.lineWidth = 2.6;
   for (const [dr, dc] of p.cells) { rr(ctx, b.gx + (h.c + dc) * cell + 2, b.gy + (h.r + dr) * cell + 2, cell - 4, cell - 4, cell * 0.15); ctx.stroke(); }
+  ctx.restore();
+}
+function drawHintSightline(now) {
+  // Brief fading ivory-aqua slot-to-target sightline arc connecting hinted tray piece to board target (CD-WF2-05, W6-S2-04)
+  const h = UI.hint;
+  if (!h || S.scene !== 'game' || S.over || UI.drag) return;
+  const t = S.tray[h.slot];
+  if (!t || t.id !== h.id || !LAY || !LAY.slots[h.slot]) return;
+  const elapsed = fxNow(now) - (h.t0 || 0);
+  const red = reducedMotion(), maxDur = red ? 950 : 1250;
+  if (elapsed < 0 || elapsed > maxDur) return;
+  const gm = slotPieceGeom(h.slot);
+  const sl = LAY.slots[h.slot], b = LAY.board, p = PIECES[h.id], cell = b.cell;
+  const sx = gm ? gm.x + (p.wd * gm.s) / 2 : sl.x + sl.w / 2;
+  const sy = gm ? gm.y + (p.h * gm.s) / 2 : sl.y + sl.h / 2;
+  const tx = b.gx + (h.c + p.wd / 2) * cell;
+  const ty = b.gy + (h.r + p.h / 2) * cell;
+  const mx = (sx + tx) / 2;
+  const my = (sy + ty) / 2 - Math.min(54, Math.hypot(tx - sx, ty - sy) * 0.18);
+  const drawQ = red ? 1 : easeOut(clamp01(elapsed / 280));
+  const fade = elapsed < 420 ? 1 : clamp01(1 - (elapsed - 420) / (maxDur - 420));
+  const alpha = 0.88 * fade;
+  if (alpha <= 0.02) return;
+  const steps = 18, endStep = Math.max(1, Math.round(steps * drawQ));
+  const ptOn = u => {
+    const inv = 1 - u;
+    return [inv * inv * sx + 2 * inv * u * mx + u * u * tx, inv * inv * sy + 2 * inv * u * my + u * u * ty];
+  };
+  const traceArc = () => {
+    ctx.beginPath();
+    const [x0, y0] = ptOn(0); ctx.moveTo(x0, y0);
+    for (let i = 1; i <= endStep; i++) { const [px, py] = ptOn(i / steps); ctx.lineTo(px, py); }
+  };
+  ctx.save();
+  ctx.lineCap = 'round';
+  if (red) ctx.setLineDash([6, 5]);
+  ctx.strokeStyle = 'rgba(8,24,28,' + (alpha * 0.65).toFixed(3) + ')'; ctx.lineWidth = 5;
+  traceArc(); ctx.stroke();
+  ctx.strokeStyle = 'rgba(232,255,249,' + alpha.toFixed(3) + ')'; ctx.lineWidth = 2.4;
+  traceArc(); ctx.stroke();
+  ctx.setLineDash([]);
+  const [ex, ey] = ptOn(endStep / steps);
+  ctx.fillStyle = 'rgba(232,255,249,' + alpha.toFixed(3) + ')';
+  ctx.beginPath(); ctx.arc(ex, ey, 4.2, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+function drawTipZonePulseBoard(now) {
+  // Subtle in-canvas board zone pulses replacing static #tip::before CSS arrows (CD-WF2-03, W6-S2-01)
+  if (!UI.tip || !UI.tip.cur || S.scene !== 'game' || S.over || UI.drag) return;
+  if (UI.tip.cur !== 'goal') return;
+  const b = LAY.board, cell = b.cell, red = reducedMotion();
+  const pulse = red ? 0.55 : 0.35 + 0.40 * (0.5 + 0.5 * Math.sin(fxNow(now) / 360));
+  ctx.save();
+  if (S.mode === 'springs') {
+    ctx.strokeStyle = 'rgba(130,250,232,' + pulse.toFixed(3) + ')';
+    ctx.lineWidth = Math.max(2, cell * 0.06);
+    for (let i = 0; i < 81; i++) {
+      if (S.board[i] !== 8) continue;
+      const gx = b.gx + (i % 9 + 0.5) * cell, gy = b.gy + (Math.floor(i / 9) + 0.5) * cell;
+      ctx.beginPath(); ctx.arc(gx, gy, cell * (red ? 0.44 : 0.42 + 0.05 * pulse), 0, Math.PI * 2); ctx.stroke();
+    }
+  } else {
+    ctx.strokeStyle = 'rgba(247,207,98,' + (pulse * 0.85).toFixed(3) + ')';
+    ctx.lineWidth = 2.4;
+    rr(ctx, b.gx + 3 * cell + 1.5, b.gy + 3 * cell + 1.5, cell * 3 - 3, cell * 3 - 3, 6);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawTipZonePulseChrome(now) {
+  if (!UI.tip || UI.tip.cur !== 'heat' || S.mode === 'trail' || S.scene !== 'game' || S.over) return;
+  const I = LAY.info, red = reducedMotion();
+  const pulse = red ? 0.62 : 0.38 + 0.42 * (0.5 + 0.5 * Math.sin(fxNow(now) / 340));
+  ctx.save();
+  ctx.strokeStyle = 'rgba(247,207,98,' + pulse.toFixed(3) + ')';
+  ctx.lineWidth = 2.6;
+  rr(ctx, I.x - 2, I.y - 2, I.w + 4, I.h + 4, 16);
+  ctx.stroke();
   ctx.restore();
 }
 function drawKbdRimIndices() {
@@ -4576,15 +4734,17 @@ function drawFx(now) {
         rr(ctx, b.gx + c * cell + 2, b.gy + r * cell + 2, cell - 4, cell - 4, cell * 0.16); ctx.stroke();
       }
       ctx.restore();
-    } else if (f.type === 'vent-pop' && !red) {
+    } else if (f.type === 'vent-pop') {
       const vc = f.i % 9, vr = Math.floor(f.i / 9);
       const vx = b.gx + (vc + 0.5) * cell, vy = b.gy + (vr + 0.5) * cell;
-      const a = 0.68 * (1 - Q);
+      const a = (f.staticOnly ? 0.78 : 0.68) * (1 - Q);
       if (a > 0.01) {
-        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        ctx.save();
+        if (!f.staticOnly) ctx.globalCompositeOperation = 'lighter';
         ctx.strokeStyle = 'rgba(130,250,232,' + a + ')';
-        ctx.lineWidth = Math.max(1.8, cell * 0.07 * (1 - Q));
-        ctx.beginPath(); ctx.arc(vx, vy, cell * (0.28 + 0.44 * easeOut(Q)), 0, Math.PI * 2); ctx.stroke();
+        ctx.lineWidth = f.staticOnly ? Math.max(2.2, cell * 0.065) : Math.max(1.8, cell * 0.07 * (1 - Q));
+        const rad = f.staticOnly ? cell * 0.44 : cell * (0.28 + 0.44 * easeOut(Q));
+        ctx.beginPath(); ctx.arc(vx, vy, rad, 0, Math.PI * 2); ctx.stroke();
         ctx.restore();
       }
     }
@@ -4830,11 +4990,13 @@ function draw(now) {
   ctx.restore();
   drawVentWisps(now);
   if (S.mode !== 'trail') drawHeatSteam(now);
-  if (S.scene === 'game') { drawKbdRimIndices(); drawGhost(now); drawHint(now); }
+  if (S.scene === 'game') { drawKbdRimIndices(); drawGhost(now); drawHint(now); drawTipZonePulseBoard(now); }
   drawFx(now);
   ctx.restore();
   drawInfo(now);
+  drawTipZonePulseChrome(now);
   drawTray(now);
+  drawHintSightline(now);
   const d = UI.drag;
   if (d && d.moved && S.tray[d.slot]) {
     const db = dragBody(d, now);
@@ -4888,7 +5050,7 @@ function needsAnim(now = performance.now()) {
   if (FX.length > 0 || (UI.drag && UI.drag.moved) || UI.heatAnim || UI.scoreAnim || UI.heatPulseAt) return true;
   if (reducedMotion()) return false;
   if (now - UI.lastInput >= 30000) return false; // uniform 30s idle sleep across Springs vents, Boiling, and live water (W3-P-N02)
-  return S.board.includes(8) || S.heat >= 4 || WATER.on || !!UI.ghost || !!UI.hint;
+  return S.board.includes(8) || S.heat >= 4 || WATER.on || !!UI.ghost || !!UI.hint || UI.inviteSlot >= 0 || !!(UI.tip && UI.tip.cur);
 }
 let lastDraw = 0, lastFrame = 0;
 // Low-end safety net: require 2 consecutive slow 60-frame windows (>38 ms) to latch PERF.autoLite, resetting cleanly on Effects: Full (W6-S6-01).
@@ -5295,6 +5457,7 @@ function newGame(opts = {}) {
         RUN_WARNED[mode] = false;
       }
     }
+    const seeded = opts.seed != null || SEED_PENDING != null;
     if (mode === 'daily') { g.daily = opts.date || todayStr(); g.rng = dateSeed(g.daily); }
     else if (opts.seed != null) g.rng = opts.seed >>> 0;
     else if (SEED_PENDING != null) g.rng = SEED_PENDING >>> 0;
@@ -5307,11 +5470,12 @@ function newGame(opts = {}) {
     g.hintRound = -1;
     g.ledger = freshLedger();
     UI.trailWin = null;
-    setupGame(g, opts);
+    const useStarter = opts.starter !== undefined ? !!opts.starter : (!seeded && mode === 'classic' && SAVE.stats.games === 0);
+    setupGame(g, useStarter ? Object.assign({}, opts, { starter: true }) : opts);
     g.refilledRound = Math.max(1, g.round || 1);
   }
   S = Object.assign(g, { scene: 'game' });
-  UI.sel = -1; UI.ghost = null; UI.drag = null; UI.overAt = 0; UI.skipEnd = false; UI.pausedAt = null; UI.bestGleamed = false; UI.lastInput = performance.now(); FX.length = 0; WATER.clear(); UI.hint = null; UI.hintRound = currentHintRound();
+  UI.sel = -1; UI.ghost = null; UI.drag = null; UI.overAt = 0; UI.skipEnd = false; UI.pausedAt = null; UI.bestGleamed = false; UI.inviteSlot = (!kept && mode === 'classic' && SAVE.stats.games === 0) ? 0 : -1; UI.touchTapCount = 0; UI.lastInput = performance.now(); FX.length = 0; WATER.clear(); UI.hint = null; UI.hintRound = currentHintRound();
   syncGauges(true);
   if (mode === 'classic') { SAVE.resume = null; persist('replace'); }
   clearSuspendedNotices();
@@ -5337,7 +5501,8 @@ function modeLabel() {
 // finished. The tray says so while the player can still undo or think. Mutation-memoized via trayFitState().
 function trayDoomed() { return trayFitState().doomed; }
 function trayDesc() {
-  return (trayDoomed() ? 'Not all of these pieces will fit. ' : '') + 'Tray: ' + S.tray.map((t, k) => (t ? (k + 1) + ' ' + PIECES[t.id].n + '-tile piece' + (fitsAnywhere(S.board, t.id) ? '' : ' (no room)') : (k + 1) + ' empty')).join(', ') + '.';
+  const doomMsg = trayDoomed() ? (undoAvail() ? 'Not all of these pieces will fit — undo to rethink. ' : 'Not all of these pieces will fit. ') : '';
+  return doomMsg + 'Tray: ' + S.tray.map((t, k) => (t ? (k + 1) + ' ' + PIECES[t.id].n + '-tile piece' + (fitsAnywhere(S.board, t.id) ? '' : ' (no room)') : (k + 1) + ' empty')).join(', ') + '.';
 }
 function snapshot() {
   const { scene, undoStack, provBest, ...rest } = S;
@@ -5357,7 +5522,7 @@ function doPlace(slot, r, c) {
   UI.hint = null;
   if (S.undoStack.length > (S.mode === 'trail' ? 60 : 3)) S.undoStack.shift();
   if (res.newRound && S.mode !== 'trail' && S.round > (S.refilledRound || 1)) { S.undoLeft = S.mode === 'daily' ? 1 : SAVE.settings.undo; S.refilledRound = S.round; }
-  UI.sel = -1; UI.ghost = null; UI.ghostCleared = false; UI.cur = null;
+  UI.sel = -1; UI.ghost = null; UI.ghostCleared = false; UI.cur = null; UI.inviteSlot = -1; UI.touchTapCount = 0;
   const b = LAY.board, cell = b.cell;
   const cx = b.gx + (c + PIECES[res.id].wd / 2) * cell, cy = b.gy + (r + PIECES[res.id].h / 2) * cell;
   res.at = [r + (PIECES[res.id].h - 1) / 2, c + (PIECES[res.id].wd - 1) / 2];
@@ -5393,8 +5558,8 @@ function doPlace(slot, r, c) {
     const red = reducedMotion();
     for (let idx = 0; idx < res.ventsSpawned.length; idx++) {
       const vi = res.ventsSpawned[idx], vc = vi % 9, vr = Math.floor(vi / 9);
-      if (!red) addFx({ type: 'vent-pop', i: vi, dur: 240 });
-      if (WATER.on) WATER.ripple((vc + 0.5) / 9, (vr + 0.5) / 9, red ? 0.35 : 0.75);
+      addFx({ type: 'vent-pop', i: vi, dur: red ? 280 : 240, staticOnly: red });
+      if (WATER.on && !red) WATER.ripple((vc + 0.5) / 9, (vr + 0.5) / 9, 0.75);
       if (!red && !liteFx()) addFx({ type: 'steam', x: b.gx + (vc + 0.5) * cell, y: b.gy + (vr + 0.5) * cell, dur: 820, h: cell * 1.15, ph: vi * 0.7, w: cell * 0.55, delay: 40 });
       if (!S.over) sfx('ventSpawn', { pan: (vc - 4) / 4.5 * 0.6, at: 0.14 + idx * 0.07 });
     }
@@ -5434,6 +5599,7 @@ function doPlace(slot, r, c) {
   if (res.G) msg += S.mode === 'trail' ? 'Cleared ' + res.G + (res.G > 1 ? ' groups. ' : ' group. ') : 'Cleared ' + res.G + (res.G > 1 ? ' groups' : ' group') + ' for ' + (res.clearPts + res.ventPts + (res.stonePts || 0) + res.bonus + (res.tufaSweep || 0)) + '. ';
   if (S.mode === 'trail') msg += goalText() + '. ';
   else msg += 'Score ' + S.score + '. Heat ' + tempF(S.heat) + ' degrees. ';
+  if (res.ventsSpawned && res.ventsSpawned.length) msg += res.ventsSpawned.length > 1 ? res.ventsSpawned.length + ' new vents surfaced. ' : 'New vent surfaced. ';
   if (S.over) msg += S.won ? 'Goal reached!' : 'No room left. Game over.';
   else msg += trayDesc();
   announce(msg);
@@ -5492,9 +5658,17 @@ function useHint() {
   if (S.mode === 'trail' || S.scene !== 'game' || S.over) return { ok: false };
   cancelDrag({ animate: false });
   if (!hintAvail()) { sfx('invalid', { src: 'hint' }); announce(currentHintRound() >= S.round ? 'You have used the hint for this tray.' : 'No piece has room for a hint.'); return { ok: false }; }
+  if (trayDoomed() && undoAvail()) {
+    sfx('warn');
+    toast('Try Undo', 'These pieces won’t all fit — undo your last move to rethink.', 4200);
+    announce('Not all of these pieces will fit. Use Undo to rethink your last move.');
+    updateHud(); dirty = true;
+    return { ok: false, adviseUndo: true };
+  }
   const h = findHint(S);
   if (!h) { sfx('invalid', { src: 'hint' }); return { ok: false }; }
-  UI.hint = h; S.hintRound = Math.max(currentHintRound(), S.round); S.hintsUsed = (S.hintsUsed | 0) + 1; UI.hintRound = S.hintRound; UI.sel = -1; UI.ghost = null; UI.ghostCleared = false; UI.lastInput = performance.now();
+  h.t0 = performance.now();
+  UI.hint = h; UI.inviteSlot = -1; S.hintRound = Math.max(currentHintRound(), S.round); S.hintsUsed = (S.hintsUsed | 0) + 1; UI.hintRound = S.hintRound; UI.sel = -1; UI.ghost = null; UI.ghostCleared = false; UI.lastInput = h.t0;
   if (S.placed > 0) saveResume();
   sfx('hint'); announce('Hint: piece ' + (h.slot + 1) + ' goes at row ' + (h.r + 1) + ', column ' + (h.c + 1) + '.');
   updateHud(); dirty = true;
@@ -5677,7 +5851,17 @@ function dailyLongest() {
 // Shown once (settings.tipsSeen) in Classic, Daily Soak and Springs. A save from before tips existed counts as seen.
 const TIP_MS = { goal: 6500, verb: 14000, heat: 7000, rule: 7000 };
 const TIP_END_PLACEMENTS = 14;   // tips end by themselves after this many placements
-function tipGoal() { return S.mode === 'springs' ? 'Clear a row, column or pool that holds a vent.' : 'Fill a row, column or 3×3 pool to clear it.'; }
+function tipInputCue() {
+  if (UI.input === 'key') return '1–3, arrows, Enter.';
+  if (UI.input === 'touch' && SAVE.settings.tapPlace) return 'tap to place.';
+  return 'drag to place.';
+}
+function tipGoal() {
+  const act = tipInputCue();
+  if (S.mode === 'springs') return 'Clear a vent’s row, column or pool: ' + act;
+  if (S.mode === 'daily') return 'Dissolve 8 tufa in rows, columns or pools: ' + act;
+  return 'Fill a row, column or 3×3 pool: ' + act;
+}
 function tipText(k) {
   if (k === 'goal') return tipGoal();
   if (k === 'verb') {
@@ -5705,21 +5889,31 @@ function tipRender() {
 }
 function tipShow(k) {
   const t = UI.tip; if (!t) return;
-  clearTimeout(t.timer); t.cur = k; t.shown.add(k); t.pausedRem = 0;
+  clearTimeout(t.timer); t.cur = k; t.shown.add(k); t.pausedRem = 0; t.timer = 0; t.endsAt = 0;
+  if (S.scene !== 'game' || S.over || UI.confirm || document.hidden) {
+    t.pausedRem = TIP_MS[k];
+    tipRender();
+    return;
+  }
   t.endsAt = performance.now() + TIP_MS[k];
   t.timer = setTimeout(() => tipExpire(k), TIP_MS[k]);
   tipRender(); announce(tipText(k));
 }
 function tipExpire(k) {
   const t = UI.tip; if (!t || t.cur !== k) return;
-  t.timer = 0; t.endsAt = 0; t.pausedRem = 0;
+  t.timer = 0; t.endsAt = 0;
+  if (S.scene !== 'game' || S.over || UI.confirm || document.hidden) {
+    t.pausedRem = Math.max(t.pausedRem || 0, 800);
+    return;
+  }
+  t.pausedRem = 0;
   if (k === 'goal' && !t.shown.has('verb')) return tipShow('verb');
   t.cur = null; tipRender();
   if (t.shown.size >= 4 || t.placed >= TIP_END_PLACEMENTS) tipEnd();
 }
 function tipEnd() {
   const t = UI.tip; if (!t) return;
-  clearTimeout(t.timer); UI.tip = null; tipRender();
+  clearTimeout(t.timer); UI.tip = null; UI.inviteSlot = -1; tipRender();
   if (!SAVE.settings.tipsSeen) { SAVE.settings.tipsSeen = true; persist(); }
 }
 function tipStart(off) {
@@ -5931,11 +6125,23 @@ function fillOver() {
   });
   bumpUiSettle(450);
 }
-// One line on what to try next, picked from how this game went (S3-12). Only the game's own rules are quoted.
+// One line on what to try next, picked from how this game went (S3-12, W6-S2-04). Only the game's own rules are quoted.
 function overTip() {
   const cooled = S.cooled | 0;
+  if (S.mode === 'springs') {
+    const activeVents = count(S.board, 8), left = Math.max(0, 47 - (S.springs || 0));
+    if (S.placed < 8) return 'Early Springs losses come from crowded edges. Keep the center open to route lines through vents.';
+    if (S.springs === 0) return 'Open vents by filling their whole row, column, or 3×3 pool — each opened vent adds +1 heat.';
+    if (activeVents >= 4) return 'Too many vents piled up (' + activeVents + ' on board). Build lines straight across active vents to clear space and open them.';
+    if (left <= 10) return 'You reached the Final 10 surge (' + left + ' vent' + (left === 1 ? '' : 's') + ' left). Pair vents into one clear so the basin stays open.';
+    return 'Aim rows, columns, and 3×3 pools across active vents (' + left + ' left to 47) while keeping room for large pieces.';
+  }
+  if (S.mode === 'daily') {
+    const tufaLeft = count(S.board, 7);
+    if (S.placed < 8) return 'Early losses come from scattered pieces. Keep the board open and work toward today’s 8 tufa.';
+    if (tufaLeft > 0 && S.groups > 0) return tufaLeft + ' opening tufa remained. Sweeping all 8 earns +150 bonus and +1 heat while opening board space.';
+  }
   if (S.placed < 8) return 'Early losses come from scattered pieces. Keep the board open and build toward a full row.';
-  if (S.mode === 'springs' && S.springs < 47 && count(S.board, 8) >= 4) return 'Build lines straight across active vents — each opened vent clears space and adds +1 heat.';
   if (S.groups > 0 && (S.bestG || 0) <= 1) return 'Try setting up two groups for one piece: 2 at once scores 72, against 18 for a single.';
   if (cooled >= 6 && S.bestHeat < 6) return 'The water cooled ' + cooled + ' times. Clearing on back-to-back pieces keeps it hot and multiplies your points.';
   if (S.groups === 0) return 'Nothing cleared this game. Fill a whole row, column or 3×3 pool to clear it.';
@@ -6112,10 +6318,17 @@ function showScene(name, restoreEl = null) {
   const hudOn = inGame() || GAME_SCENES.has(name);
   $('hud').classList.toggle('on', hudOn);
   if (name !== 'game') {
-    if (pauseChain) suspendNotices(true);
-    else { clearSuspendedNotices(); clearGoalToasts(); hideToast(); }
+    if (pauseChain || subScenes.includes(name)) suspendNotices(true);
+    else {
+      if (UI.tip && UI.tip.timer) { clearTimeout(UI.tip.timer); UI.tip.timer = 0; UI.tip.endsAt = 0; }
+      clearSuspendedNotices(); clearGoalToasts(); hideToast();
+    }
   } else {
     resumeNotices();
+  }
+  if (name === 'pause') {
+    $('pause-goal').textContent = goalSentence();
+    $('b-quit').textContent = (!S.over && S.placed > 0) ? 'Save & Menu' : 'Quit to menu';
   }
   if (name === 'title') fillTitle();
   if (name === 'trail') fillTrail();
@@ -6202,6 +6415,7 @@ function updateHud() {
   $('b-hint').title = currentHintRound() >= S.round && S.mode !== 'trail' ? 'Hint used for this tray' : 'Hint (H): show one good move, once for each tray';
   $('h-undo').textContent = undoCount();
   $('b-undo').disabled = !canUndo();
+  $('b-undo').classList.toggle('coach', S.scene === 'game' && !S.over && trayDoomed() && undoAvail());
   $('b-undo').setAttribute('aria-label', S.mode === 'trail' ? 'Undo (this puzzle is worth ' + trailStars(S.undosUsed || 0) + ' stars; each undo may cost one)' : 'Undo (' + undoCount() + ' left this round)');
   $('b-undo').title = S.mode === 'trail' ? '' : 'Undo (' + undoCount() + ' left this round; it refills with each new tray)';
   const on = SAVE.settings.sound;
@@ -6231,15 +6445,36 @@ function bestContinueRun() {
   if (sp) return { mode: 'springs', state: sp.state, source: sp.source, rev: sp.rev };
   return null;
 }
+const DIFF_LABEL = { relaxed: 'Relaxed', standard: 'Standard', master: 'Master' };
 function fillTitle() {
   const cont = bestContinueRun(), r = cont ? cont.state : null;
   UI.continueMode = cont ? cont.mode : null;
-  $('b-continue').style.display = r && !r.over ? '' : 'none';
-  if (r && !r.over) $('b-continue').textContent = 'Continue ' + ({ classic: 'Classic', springs: 'Springs' }[r.mode] || '') + diffSuffix(r) + ' · ' + r.score.toLocaleString('en-US');
-  const d = SAVE.best.daily[todayStr()];
+  const returning = !!(r && !r.over);
+  const ctaRow = $('cta-row');
+  if (ctaRow) ctaRow.classList.toggle('returning', returning);
+  $('b-continue').style.display = returning ? '' : 'none';
+  if (returning) {
+    $('b-continue-txt').textContent = 'Continue ' + ({ classic: 'Classic', springs: 'Springs' }[r.mode] || '') + diffSuffix(r) + ' · ' + r.score.toLocaleString('en-US');
+  }
+  const diffKey = DIFFICULTIES.includes(SAVE.settings.difficulty) ? SAVE.settings.difficulty : 'standard';
+  const diffName = DIFF_LABEL[diffKey];
+  const isClassicSaved = returning && cont.mode === 'classic';
+  $('b-classic-lbl').textContent = returning ? (isClassicSaved ? 'New' : 'Classic') : 'Play Classic';
+  if (returning) $('b-classic').setAttribute('aria-label', isClassicSaved ? 'Start new Classic game' : 'Play Classic');
+  else $('b-classic').removeAttribute('aria-label');
+  $('classic-sub').textContent = 'Endless · ' + diffName + ' · 7 eras.';
+  const todayKey = todayStr(), todayShort = dayLabel(todayKey).replace(' ', '\u00a0');
+  const d = SAVE.best.daily[todayKey], dailySaved = !!savedRun('daily', todayKey);
   const run = dailyStreak(), streak = run ? run + '-day streak · ' : '';
-  $('daily-sub').textContent = savedRun('daily', todayStr()) ? 'Run in progress · tap to continue' : d ? streak + 'Today’s best: ' + d.toLocaleString('en-US') : run ? streak + 'play today to keep it' : 'Today’s board on this device · ' + dayLabel(todayStr()).replace(' ', ' ');   // the date stays on one line
+  $('daily-sub').textContent = dailySaved ? 'Run in progress · tap to continue' : d ? streak + 'Today’s best: ' + d.toLocaleString('en-US') : run ? streak + 'play today to keep it' : 'Today’s board on this device · ' + todayShort;   // the date stays on one line
+  $('daily-mtag').textContent = dailySaved ? 'In progress' : d ? (run ? run + 'd · ' + d.toLocaleString('en-US') : 'Best ' + d.toLocaleString('en-US')) : run ? run + 'd streak · ' + todayShort : '8 tufa · ' + todayShort;
+  const dailyBtn = document.querySelector('#sc-title [data-mode="daily"]');
+  if (dailyBtn) dailyBtn.classList.toggle('unplayed', !d && !dailySaved);
+  const spSaved = savedSpringsRun();
+  $('springs-sub').textContent = diffKey === 'standard' ? 'Open 47 hot-spring vents.' : 'Open 47 hot-spring vents · ' + diffName + '.';
+  $('springs-mtag').textContent = spSaved && spSaved.state.placed > 0 ? 'Saved · ' + (spSaved.state.springs | 0) + '/47' : diffKey === 'standard' ? '47 vents' : '47 vents · ' + diffName;
   $('trail-sub').textContent = (trailTitle() ? trailTitle() + ' · ' : '') + SAVE.trail.done.length + ' of ' + LEVELS.length + ' solved · ' + trailStarTotal() + ' stars.';
+  $('trail-mtag').textContent = SAVE.trail.done.length > 0 ? SAVE.trail.done.length + '/24 · ' + trailStarTotal() + '★' : '24 puzzles';
   $('ticker').classList.remove('swap');
   $('ticker').textContent = TICKER[tickerI % TICKER.length];
 }
@@ -6410,16 +6645,38 @@ function fillGoals() {
 }
 function syncAudioControlDim() {
   const s = SAVE.settings;
-  const dimVol = !s.sound, dimMusic = !s.sound || !s.music, dimAmb = !s.sound || !s.ambience;
-  for (const [id, dim] of [['s-volume', dimVol], ['s-musicvol', dimMusic], ['s-ambvol', dimAmb]]) {
+  const dimSound = !s.sound, dimMusic = !s.sound || !s.music, dimAmb = !s.sound || !s.ambience;
+  const pairs = [
+    ['s-volume', dimSound, Math.round(s.volume * 100), 's-volume-val'],
+    ['s-sfx', dimSound],
+    ['s-music', dimSound],
+    ['s-musicvol', dimMusic, Math.round(s.musicVol * 100), 's-musicvol-val'],
+    ['s-ambience', dimSound],
+    ['s-ambvol', dimAmb, Math.round(s.ambVol * 100), 's-ambvol-val'],
+  ];
+  for (const [id, dim, pct, valId] of pairs) {
     const el = $(id);
     if (!el) continue;
     el.classList.toggle('dim', dim);
-    if (el.parentElement) el.parentElement.classList.toggle('dim', dim);
+    if (dim) el.setAttribute('aria-disabled', 'true'); else el.removeAttribute('aria-disabled');
+    const row = el.closest('.set');
+    if (row) row.classList.toggle('dim', dim);
+    if (valId && pct !== undefined) {
+      el.setAttribute('aria-valuetext', pct + '%');
+      const out = $(valId);
+      if (out) out.textContent = pct + '%';
+    }
   }
 }
+function syncDiffNote() {
+  const note = $('s-diff-note');
+  if (!note) return;
+  const activeRun = UI.returnTo === 'pause' && (S.mode === 'classic' || S.mode === 'springs') && !S.over;
+  note.hidden = !(activeRun && SAVE.settings.difficulty !== S.diff);
+}
 function fillSettings() {
-  for (const id of ['b-tips', 'b-tips-help']) $(id).textContent = 'Show tips again';
+  const tipsLbl = SAVE.settings.tipsSeen ? 'Show tips again' : 'Tips on for your next game';
+  for (const id of ['b-tips', 'b-tips-help']) $(id).textContent = tipsLbl;
   const s = SAVE.settings;
   $('s-sound').checked = s.sound; $('s-volume').value = Math.round(s.volume * 100); $('s-motion').value = s.motion;
   $('s-patterns').checked = s.patterns; $('s-undo').value = String(s.undo); $('s-difficulty').value = DIFFICULTIES.includes(s.difficulty) ? s.difficulty : 'standard'; $('s-big').checked = s.bigText; $('s-theme').value = s.theme; $('s-effects').value = s.effects; $('s-tray').value = s.traySide === 'left' ? 'left' : 'right';
@@ -6427,6 +6684,7 @@ function fillSettings() {
   $('s-sfx').checked = s.sfx; $('s-music').checked = s.music; $('s-musicvol').value = Math.round(s.musicVol * 100);
   $('s-ambience').checked = s.ambience; $('s-ambvol').value = Math.round(s.ambVol * 100);
   syncAudioControlDim();
+  syncDiffNote();
 }
 const AUDIO_SETTINGS = new Set(['sound', 'volume', 'sfx', 'music', 'musicVol', 'ambience', 'ambVol']);
 const CONTROL_SETTINGS = new Set(['undo', 'difficulty', 'tapPlace', 'haptics', 'tipsSeen']);
@@ -6440,6 +6698,7 @@ function applySettings(changedKey = null) {
   }
   if (changedKey && CONTROL_SETTINGS.has(changedKey)) {
     if (changedKey === 'undo') updateHud();
+    if (changedKey === 'difficulty') { syncDiffNote(); if (S.scene === 'title') fillTitle(); }
     if (changedKey === 'tapPlace' && UI.tip) tipRender();
     return;
   }
@@ -6760,14 +7019,20 @@ function dragGhost(d) {
   return resolveSnapTarget(d.slot, (y - b.gy) / b.cell, (x - b.gx) / b.cell);
 }
 function dragHint(k) {
+  UI.inviteSlot = -1;
+  UI.touchTapCount = (UI.touchTapCount || 0) + 1;
   addFx({ type: 'nudge', slot: k, dur: reducedMotion() ? 1 : 340 }); sfx('pick', { k }); tipPicked();
   announce('Drag the piece onto the board.');
-  if (!UI.dragHinted && !UI.tip) { UI.dragHinted = true; toast('Drag to place', 'Hold a piece and slide it onto the board. Prefer taps? Turn on Tap to place in Settings.', 3500); }
+  if (!UI.dragHinted && (!UI.tip || UI.touchTapCount >= 2)) {
+    UI.dragHinted = true;
+    toast('Drag to place', 'Hold a piece and slide it onto the board. Prefer taps? Turn on Tap to place in Settings.', 4200);
+  }
 }
 function selectSlot(k, withCursor = true) {
   if (!S.tray[k]) { sfx('invalid', { src: 'kbd' }); return; }
   cancelDrag({ animate: false });
   UI.hint = null;
+  UI.inviteSlot = -1;
   UI.ghostCleared = false;
   UI.sel = k; sfx('pick', { k, pan: (k - 1) * 0.25 }); tipPicked();
   const p = PIECES[S.tray[k].id];
@@ -6792,6 +7057,7 @@ cv.addEventListener('pointerdown', e => {
   const p = pt(e), k = slotAt(p);
   if (e.button === 2) return;
   if (k >= 0 && S.tray[k]) {
+    UI.inviteSlot = -1;
     clearSlotFx(k); // Frame-1 pickup interrupts any active deal/return/nudge on this slot (CD-WF4-01 / W6-S5-01)
     const gm0 = slotPieceGeom(k), pc0 = PIECES[S.tray[k].id];
     const grabOx = gm0 ? p.x - (gm0.x + pc0.wd * gm0.s / 2) : 0;
@@ -6833,7 +7099,7 @@ cv.addEventListener('pointermove', e => {
   if (d && e.pointerId === d.id) {
     if (!S.tray[d.slot]) { cancelDrag({ animate: false }); return; }
     d.x = p.x; d.y = p.y;
-    if (!d.moved && Math.hypot(p.x - d.sx, p.y - d.sy) > 8) { d.moved = true; d.t1 = performance.now(); UI.sel = -1; UI.kbd = false; UI.ghostCleared = false; sfx('pick', { k: d.slot, pan: (d.slot - 1) * 0.25 }); tipPicked(); }
+    if (!d.moved && Math.hypot(p.x - d.sx, p.y - d.sy) > 8) { d.moved = true; d.t1 = performance.now(); UI.sel = -1; UI.kbd = false; UI.inviteSlot = -1; UI.touchTapCount = 0; UI.ghostCleared = false; sfx('pick', { k: d.slot, pan: (d.slot - 1) * 0.25 }); if (UI.tip && UI.tip.cur === 'goal') UI.tip.shown.add('verb'); }
     if (d.moved) {
       UI.ghost = dragGhost(d);
       const tCur = UI.ghost && S.tray[UI.ghost.slot], pCur = tCur && PIECES[tCur.id];

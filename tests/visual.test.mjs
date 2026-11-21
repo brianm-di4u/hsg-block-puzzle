@@ -193,6 +193,14 @@ export const tests = [
         await t.game('scene', 'title');
         const titleRep = await t.contrastReport({ fail: true, selector: '#sc-title .panel *', fallbackBg: [10, 24, 28] });
         t.expect(titleRep.checked > 0, `${theme} title panel checked (${titleRep.checked})`);
+        // Returning single-row Title CTA (#b-continue + outlined #b-classic) contrast check in Light & Dark (W6-S2-05)
+        await t.page.evaluate(() => {
+          SAVE.resume = Object.assign(snapshot(), { mode: 'classic', score: 320, placed: 5, over: false, undoStack: [] });
+          fillTitle();
+        });
+        const retRep = await t.contrastReport({ fail: true, selector: '#sc-title .panel *', fallbackBg: [10, 24, 28] });
+        t.expect(retRep.checked > 0, `${theme} returning title panel checked (${retRep.checked})`);
+        await t.page.evaluate(() => { SAVE.resume = null; fillTitle(); });
         for (const sc of ['settings', 'help', 'cards', 'records', 'trail', 'pause', 'over']) {
           await t.game('scene', sc);
           const rep = await t.contrastReport({ fail: true, selector: `#sc-${sc} *`, fallbackBg: [10, 24, 28] });
