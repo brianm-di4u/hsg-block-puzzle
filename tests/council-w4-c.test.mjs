@@ -1,4 +1,9 @@
 // Council wave 4, batch C: sound; layout and accessibility; world, words and ceremony.
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const GAME_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BOTH = ['desktop', 'mobile'];
 
 // Plays one cue on a throwaway offline graph and returns every tone it asked for as { f, vol, type }.
@@ -239,6 +244,263 @@ export const tests = [
       t.expect(r.text.includes('Leo P. McLaughlin was mayor from 1927 to 1947'), 'the card carries the Roaring caption: ' + r.text.slice(0, 60));
       t.expect(r.inside && r.sw <= r.vw, 'the caption sits inside the card');
       await t.shot('C4-03-results-era');
+    },
+  },
+
+  {
+    name: 'W6-S2-02 swipeable >=44px SVG Bathhouse Row skyline, mini 9x9 previews, persistent Trail hints, Pause/Over Trail shortcuts & Replay for 3★',
+    viewports: BOTH,
+    async run(t) {
+      await t.game('act', 'setting', 'tipsSeen', true);
+      const levels = await t.game('getLevels');
+      await t.page.evaluate(([k, ids]) => {
+        const v = JSON.parse(localStorage.getItem(k) || '{}');
+        v.trail = { done: ids.slice(0, 3), stars: Object.fromEntries(ids.slice(0, 3).map(id => [id, 3])) };
+        localStorage.setItem(k, JSON.stringify(v));
+      }, ['hs-thermal-blocks-v1', levels.map(l => l.id)]);
+      await t.reload();
+      await t.game('scene', 'trail');
+      const trailCheck = await t.page.evaluate(() => {
+        const strip = document.getElementById('row-strip');
+        const stStyle = getComputedStyle(strip);
+        const rowBtns = [...strip.querySelectorAll('button')];
+        const rowGeom = rowBtns.map(b => {
+          const r = b.getBoundingClientRect();
+          return { w: r.width, h: r.height, left: r.left, right: r.right, hasSvg: !!b.querySelector('svg.row-svg'), label: b.textContent.trim() };
+        });
+        const minis = document.querySelectorAll('#levels svg.lv-mini').length;
+        return {
+          display: stStyle.display,
+          nowrap: stStyle.flexWrap === 'nowrap',
+          scrollX: stStyle.overflowX === 'auto' || stStyle.overflowX === 'scroll',
+          rowGeom,
+          minis,
+          sw: document.documentElement.scrollWidth,
+          vw: innerWidth,
+        };
+      });
+      if (t.viewport === 'desktop') t.expect(trailCheck.nowrap && trailCheck.scrollX, 'Desktop Bathhouse Row skyline is a single-row scrollable strip');
+      else t.equal(trailCheck.display, 'grid', 'Mobile Bathhouse Row skyline reflows into a >=44px 4-column grid');
+      t.equal(trailCheck.rowGeom.length, 8, '8 Bathhouse Row skyline emblems');
+      t.expect(trailCheck.rowGeom.every(g => g.hasSvg && g.w >= 44 && g.h >= 44 && g.left >= 0 && g.right <= trailCheck.vw + 1), 'every Bathhouse Row emblem has inline SVG, >=44x44px target, and stays on-screen');
+      t.equal(trailCheck.minis, 24, 'all 24 Trail cards render mini 9x9 board SVG previews');
+      t.expect(trailCheck.sw <= trailCheck.vw, 'no page-level horizontal overflow on Trail');
+
+      // Persistent Trail hint on Pause + desktop #h-mode re-read + Pause Trail shortcut
+      await t.game('newGame', { mode: 'trail', level: 'fordyce-bathhouse' });
+      const fordyce = levels.find(l => l.id === 'fordyce-bathhouse');
+      await t.game('act', 'hideToast');
+      if (t.viewport === 'desktop') {
+        await t.page.click('#h-mode');
+        t.expect((await t.page.textContent('#toast')).includes(fordyce.hint), 'tapping #h-mode in Trail calmly re-shows L.hint');
+      }
+      await t.game('act', 'pause');
+      const pauseTxt = await t.page.textContent('#pause-goal');
+      t.expect(pauseTxt.includes('Hint: ' + fordyce.hint), 'Pause persistently shows Trail L.hint: ' + pauseTxt);
+      t.equal(await t.page.locator('#b-pause-trail').isVisible(), true, 'Pause shows Spring Trail shortcut in Trail');
+      await t.page.click('#b-pause-trail');
+      t.equal((await t.state()).scene, 'trail', 'Pause Spring Trail shortcut returns straight to #sc-trail');
+
+      // Classic Pause must keep #b-pause-trail hidden
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'pause');
+      t.equal(await t.page.locator('#b-pause-trail').isVisible(), false, 'Pause hides Spring Trail shortcut in Classic');
+
+      // Trail loss shows L.hint in #ov-tip & #b-ov-trail shortcut
+      await t.game('newGame', { mode: 'trail', level: 'hale-bathhouse' });
+      const hale = levels.find(l => l.id === 'hale-bathhouse');
+      await t.game('setState', { tray: [null, null, null], queue: [], over: true, won: false, scene: 'over' });
+      t.expect((await t.page.textContent('#ov-tip')).includes('Hint: ' + hale.hint), 'Trail loss shows L.hint in #ov-tip');
+      t.equal(await t.page.locator('#b-ov-trail').isVisible(), true, 'Trail loss shows Spring Trail shortcut');
+      await t.page.click('#b-ov-trail');
+      t.equal((await t.state()).scene, 'trail', 'Trail loss shortcut jumps back to #sc-trail');
+
+      // 2-star Trail win offers 1-click "Replay for 3★" and immediately restarts same puzzle
+      await t.game('newGame', { mode: 'trail', level: 'display-spring' });
+      await t.game('setState', { undosUsed: 1 });
+      await t.page.evaluate(() => { UI.trailWin = { stars: 2, prev: 2, undos: 1, first: false }; S.won = true; S.over = true; showWinTrail(); });
+      t.equal(await t.page.locator('#b-replay3').isVisible(), true, '2-star Trail win shows Replay for 3★');
+      await t.page.click('#b-replay3');
+      const replayed = await t.state();
+      t.equal([replayed.scene, replayed.mode, replayed.level, replayed.undosUsed], ['game', 'trail', 'display-spring', 0], 'Replay for 3★ immediately restarts the same puzzle with 0 undos');
+    },
+  },
+
+  {
+    name: 'W6-S2-03 0-KB focus-trapped Era Postcard Lightbox, All (27) sticky filter bar, SVG Place crests, Title tallies/unread pips & Game Over card links',
+    viewports: BOTH,
+    async run(t) {
+      await t.game('act', 'setting', 'tipsSeen', true);
+      const levels = await t.game('getLevels');
+      await t.page.evaluate(([k, ids]) => {
+        const v = JSON.parse(localStorage.getItem(k) || '{}');
+        v.trail = { done: ids.slice(0, 2), stars: { [ids[0]]: 3, [ids[1]]: 3 } };
+        v.eraMax = 3; // 4 eras unlocked
+        v.stats = { ...(v.stats || {}), lines: 30 }; // w250 unlocked
+        v.ach = { 'first-soak': '2026-11-20' };
+        localStorage.setItem(k, JSON.stringify(v));
+      }, ['hs-thermal-blocks-v1', levels.map(l => l.id)]);
+      await t.reload();
+
+      // Title zero-height inline counts (N/27 & N/12) + unread pip appears on new unlock and clears on visit + landscape 844x390 fits (CD-WF1-08)
+      t.equal(await t.page.textContent('#cards-cnt'), '7/27', 'Title shows 7/27 Fact cards tally (2 places + 4 eras + 1 water)');
+      t.equal(await t.page.textContent('#records-cnt'), '1/12', 'Title shows 1/12 Goals tally');
+      await t.page.evaluate(() => { UI.freshCards.add('water:w250'); fillTitle(); });
+      t.equal(await t.page.$eval('#b-cards', e => e.classList.contains('unread')), true, 'Title Fact cards shows antique-brass unread pip when a card was newly earned');
+      if (t.viewport === 'mobile') {
+        await t.page.setViewportSize({ width: 844, height: 390 });
+        await t.waitFrames(2);
+        const landFit = await t.page.evaluate(() => {
+          const p = document.querySelector('#sc-title .panel').getBoundingClientRect();
+          return { bottom: p.bottom, vh: innerHeight, sw: document.documentElement.scrollWidth, vw: innerWidth, linkH: document.getElementById('b-cards').getBoundingClientRect().height };
+        });
+        t.expect(landFit.bottom <= landFit.vh + 1 && landFit.sw <= landFit.vw, 'Landscape 844x390 Title fits with zero vertical overflow');
+        t.expect(landFit.linkH <= 50, 'Title utility link keeps zero vertical growth on mobile landscape (' + landFit.linkH.toFixed(1) + 'px)');
+        await t.page.setViewportSize({ width: 390, height: 844 });
+        await t.waitFrames(2);
+      }
+
+      // Fact cards default to All (27) with #cards-era immediately visible (PREC-03 / CD-WF5-05)
+      await t.page.click('#b-cards');
+      const hasNewBadge = await t.page.locator('#cards-water .card-new').count();
+      t.equal(hasNewBadge, 1, 'Freshly unlocked Water card shows New badge on first visit');
+      const cardsInit = await t.page.evaluate(() => {
+        const tabs = [...document.querySelectorAll('#cards-tabs button')];
+        const rects = tabs.map(b => b.getBoundingClientRect());
+        return {
+          allPressed: document.getElementById('ctab-all').getAttribute('aria-pressed'),
+          allText: document.getElementById('ctab-all').textContent,
+          erasVisible: !document.getElementById('sec-eras').hidden,
+          minTabH: Math.min(...rects.map(r => r.height)),
+          placeCrests: document.querySelectorAll('#cards svg.card-crest').length,
+          lockedPostcards: document.querySelectorAll('#cards-era .pic.locked-pic svg').length,
+          openPostcardBtns: document.querySelectorAll('#cards-era button.pic-btn').length,
+        };
+      });
+      t.equal(cardsInit.allPressed, 'true', 'All (27) filter active by default');
+      t.equal(cardsInit.allText, 'All (27)', 'Album stays lean at 27 cards');
+      t.equal(cardsInit.erasVisible, true, '#cards-era is immediately visible on open');
+      t.expect(cardsInit.minTabH >= 44, 'every filter pill >= 44px');
+      t.equal(cardsInit.placeCrests, 2, 'unlocked Place Cards show inline-SVG landmark crests');
+      t.equal(cardsInit.lockedPostcards, 3, 'locked Era Postcards show frosted sepia SVG teasers');
+      t.equal(cardsInit.openPostcardBtns, 4, 'unlocked Era Postcards are clickable buttons');
+
+      // Filter pills switch categories cleanly and return to All (27)
+      await t.page.click('#ctab-eras');
+      t.equal(await t.page.$eval('#sec-places', e => e.hidden), true, 'Era filter hides Bathhouse Row section');
+      t.equal(await t.page.$eval('#sec-eras', e => e.hidden), false, 'Era filter keeps Era Postcards visible');
+      t.equal(await t.page.$eval('#sec-water', e => e.hidden), true, 'Era filter hides Water Cards section');
+      await t.page.click('#ctab-all');
+      t.equal(await t.page.$eval('#sec-places', e => e.hidden), false, 'All filter restores Bathhouse Row');
+
+      // Open 0-KB Era Postcard Lightbox from #cards-era, verify decode, VRAM <=2 LRU, Arrow cycling, Tab trap, Escape restore
+      await t.page.click('#cards-era button.pic-btn');
+      await t.page.waitForFunction(() => document.getElementById('sc-lightbox').classList.contains('on'));
+      await t.page.waitForFunction(() => { const im = document.getElementById('lb-img'); return im.complete && im.naturalWidth > 0; }, null, { timeout: 10000 });
+      const lbOpen = await t.page.evaluate(() => ({
+        title: document.getElementById('lb-title').textContent,
+        pos: document.getElementById('lb-pos').textContent,
+        cardsInert: document.getElementById('sc-cards').inert,
+        activeId: document.activeElement && document.activeElement.id,
+        lru: window.__game.act('art').residentBackdropCount,
+      }));
+      t.equal(lbOpen.title, 'Ancient Valley', 'Lightbox opens clicked Era Postcard');
+      t.equal(lbOpen.pos, '1 of 4 unlocked', 'Lightbox shows unlocked count');
+      t.equal(lbOpen.cardsInert, true, 'Underlying Cards modal is inert while Lightbox is open');
+      t.equal(lbOpen.activeId, 'lb-close', 'Initial Lightbox focus lands on Close');
+      t.expect(lbOpen.lru <= 2, 'Lightbox preserves <=2 resident decoded backdrops (got ' + lbOpen.lru + ')');
+
+      // ArrowRight cycles to Frontier Springs, Tab stays trapped inside #sc-lightbox
+      await t.page.keyboard.press('ArrowRight');
+      t.equal(await t.page.textContent('#lb-title'), 'Frontier Springs', 'ArrowRight advances to next unlocked era');
+      for (let i = 0; i < 6; i++) {
+        await t.page.keyboard.press('Tab');
+        t.equal(await t.page.evaluate(() => document.getElementById('sc-lightbox').contains(document.activeElement)), true, 'Tab stays strictly trapped inside #sc-lightbox');
+      }
+      await t.page.keyboard.press('Escape');
+      t.equal(await t.page.$eval('#sc-lightbox', e => e.classList.contains('on')), false, 'Escape closes Lightbox');
+      t.equal(await t.page.evaluate(() => document.activeElement && document.activeElement.classList.contains('pic-btn')), true, 'Focus returns to triggering postcard button');
+
+      // Game Over clickable #ov-hero opens Lightbox & stat-link jumps straight to Cards (and Back returns to Over)
+      await t.game('newGame', { mode: 'classic' });
+      await t.page.evaluate(() => { UI.newEras = ['Roaring Spa Town']; UI.newCards = ['Water’s age: 250 years']; });
+      await t.game('setState', { score: 900, era: 3, placed: 20, groups: 8, over: true, won: false, scene: 'over' });
+      await t.page.click('#ov-hero');
+      await t.page.waitForFunction(() => document.getElementById('sc-lightbox').classList.contains('on'));
+      t.equal(await t.page.textContent('#lb-title'), 'Roaring Spa Town', 'Game Over hero banner opens Lightbox on the reached era');
+      await t.page.keyboard.press('Escape');
+      const linkBtn = t.page.locator('#ov-stats button.stat-link').first();
+      const box = await linkBtn.boundingBox();
+      t.expect(box && box.height >= 44 && box.width >= 44, 'Game Over card stat-link meets >=44px touch target');
+      await linkBtn.click();
+      t.equal((await t.state()).scene, 'cards', 'Game Over card link jumps straight to Fact cards');
+      await t.page.keyboard.press('Escape');
+      t.equal((await t.state()).scene, 'over', 'Backing out of Cards opened from Game Over returns cleanly to Game Over');
+    },
+  },
+
+  {
+    name: 'W6-S1-04 zero verbatim lore duplication, WCAG 2.2.2 interactive ticker, and synced PRD/MECHANICS/backdrop-notes docs',
+    viewports: ['desktop'],
+    async run(t) {
+      const data = await t.page.evaluate(() => {
+        const w = window.__game.act('words');
+        const lv = window.__game.getLevels();
+        const r2 = lv.slice(12).map(l => ({ id: l.id, fact: l.fact }));
+        const eras = ERAS.map(e => ({ id: e.id, cap: e.cap }));
+        return { ticker: w.ticker, water: w.waterCards, r2, eras };
+      });
+      const norm = s => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      const citeRe = /\((NPS|USGS|Wikipedia|HSNP|EOA)|Wikipedia|Encyclopedia|NPS:|corpus/;
+      // Every Ring 2 fact & ticker line stays <=120 chars and free of face citations
+      for (const l of data.r2) {
+        t.expect(l.fact.length <= 120, l.id + ' fact <= 120 chars (' + l.fact.length + ')');
+        t.expect(!citeRe.test(l.fact), l.id + ' fact has no face citation');
+      }
+      for (const line of data.ticker) {
+        t.expect(line.length <= 120, 'ticker line <= 120 chars: ' + line.slice(0, 40));
+        t.expect(!citeRe.test(line), 'ticker line has no face citation: ' + line.slice(0, 40));
+      }
+      // Zero verbatim overlap across TICKER, WATER_CARDS, Ring 2 facts, and Era captions
+      const pools = [
+        ...data.ticker.map((s, i) => ['ticker[' + i + ']', norm(s)]),
+        ...data.water.map(c => ['water:' + c.id, norm(c.text)]),
+        ...data.r2.map(l => ['r2:' + l.id, norm(l.fact)]),
+        ...data.eras.map(e => ['era:' + e.id, norm(e.cap)]),
+      ];
+      const dupes = [];
+      for (let i = 0; i < pools.length; i++) {
+        for (let j = i + 1; j < pools.length; j++) {
+          const [aName, a] = pools[i], [bName, b] = pools[j];
+          if (a === b || (a.length >= 35 && b.includes(a)) || (b.length >= 35 && a.includes(b))) {
+            dupes.push(aName + ' <-> ' + bName);
+          }
+        }
+      }
+      t.equal(dupes, [], 'zero verbatim lore overlap across ticker, water cards, Ring 2 facts, and era captions');
+
+      // WCAG 2.2.2 interactive ticker: button >=44px, click/Enter cycles even under reduced motion
+      await t.game('act', 'setting', 'motion', 'reduced');
+      await t.game('scene', 'title');
+      const tkTag = await t.page.$eval('#ticker', e => ({ tag: e.tagName, h: e.getBoundingClientRect().height, text: e.textContent }));
+      t.equal(tkTag.tag, 'BUTTON', '#ticker is an interactive button');
+      t.expect(tkTag.h >= 44, '#ticker meets >=44px target height');
+      await t.page.click('#ticker');
+      const afterClick = await t.page.textContent('#ticker');
+      t.expect(afterClick !== tkTag.text, 'clicking #ticker cycles to the next sourced fact');
+      await t.page.keyboard.press('Enter');
+      const afterEnter = await t.page.textContent('#ticker');
+      t.expect(afterEnter !== afterClick, 'pressing Enter on focused #ticker cycles to the next fact');
+      await t.game('act', 'setting', 'motion', 'system');
+
+      // Synced PRD.md, MECHANICS.md & research/backdrop-notes.md (CD-WF1-07, CD-WF3-06, W6-S1-04)
+      const prd = fs.readFileSync(path.join(GAME_DIR, 'PRD.md'), 'utf8');
+      const mech = fs.readFileSync(path.join(GAME_DIR, 'MECHANICS.md'), 'utf8');
+      const notes = fs.readFileSync(path.join(GAME_DIR, 'research', 'backdrop-notes.md'), 'utf8');
+      t.expect(!/more than 12 trail levels/i.test(prd) && !/only sound effects/i.test(prd), 'PRD.md Out of Scope removes legacy music/12-level exclusions (CD-WF1-07)');
+      t.expect(/24 hand-designed/i.test(prd) && /generative WebAudio music/i.test(prd), 'PRD.md adopts 24 Trail levels and generative music');
+      t.expect(/Boil-Hold/.test(mech) && /stones\+vents/.test(mech) && /ConvolverNode/.test(mech), 'MECHANICS.md matches shipped rules, Boil-Hold, Trail stones+vents & audio architecture');
+      t.expect(/warm lit evening windows/i.test(notes) && /rooftop chillers/i.test(notes) && /1924 Arlington/i.test(notes), 'research/backdrop-notes.md honestly documents shipped painted WebPs (CD-WF3-06)');
     },
   },
 ];

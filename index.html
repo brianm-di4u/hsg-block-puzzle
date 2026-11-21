@@ -125,6 +125,8 @@ button.primary:active:not(:disabled){transform:translateY(2px);box-shadow:inset 
 #hud .stat[hidden]{display:none}
 #hud .stat.best .num{color:#F7CF62;font-size:1.4em}
 #hud .mode{font-family:var(--font-display);font-size:.9em;color:#E9E2CF;padding:3px 10px;border:1px solid rgba(240,207,117,.45);border-radius:999px;background:rgba(8,24,28,.45);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px rgba(0,0,0,.8);max-width:22vw}
+#hud .mode.hintable{pointer-events:auto;cursor:pointer}
+#hud .mode.hintable:hover{border-color:#F7CF62;background:rgba(8,24,28,.78)}
 #hud button{display:flex;align-items:center;justify-content:center;gap:4px;padding:6px 10px;border-radius:999px;background:rgba(8,24,28,.62);border:1.5px solid rgba(240,207,117,.65);color:#F4F2EC;box-shadow:0 2px 8px rgba(0,0,0,.35);transition:transform var(--dur-tap) var(--ease-press),border-color 120ms ease-out,background-color 120ms ease-out}
 #hud button:hover{border-color:#F7CF62;background:rgba(8,24,28,.8)}
 #hud button:active:not(:disabled){transform:scale(.94)}
@@ -232,8 +234,12 @@ button.big{width:100%;font-size:1.1em;padding:12px}
 .modes [data-mode="daily"].unplayed::after{content:"";position:absolute;top:7px;right:7px;width:8px;height:8px;border-radius:50%;background:#C9A23F;box-shadow:0 0 0 2px var(--panel)}
 .modes [data-mode="springs"] svg{color:var(--color-highlight)}
 .links{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-.links button{font-size:.82em;padding:6px 4px;min-width:0;overflow-wrap:anywhere}
-.ticker{margin:0;font-size:.85em;color:var(--color-muted);min-height:2.6em;line-height:1.35;transition:opacity 110ms ease-out}
+.links button{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:.82em;padding:5px 4px;min-width:0;overflow-wrap:anywhere}
+.links .lcnt{display:block;font-size:.78em;font-weight:700;color:var(--color-muted);font-variant-numeric:lining-nums tabular-nums;line-height:1.05}
+.links button.unread::after{content:"";position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;background:#C9A23F;box-shadow:0 0 0 2px var(--panel)}
+.ticker{display:block;width:100%;margin:0;padding:4px 6px;border:1px solid transparent;border-radius:var(--radius-sm);background:transparent;text-align:left;font-size:.85em;font-weight:400;color:var(--color-muted);min-height:44px;line-height:1.35;transition:opacity 110ms ease-out,border-color 120ms ease-out,background-color 120ms ease-out}
+.ticker:hover{border-color:var(--color-border);background:rgba(120,100,60,.08)}
+.ticker:active:not(:disabled){transform:none}
 .ticker.swap{opacity:0}
 :root:not(.lay-land) #sc-title .brand{margin-left:0;margin-top:2vh}
 :root:not(.lay-land) #sc-title .panel{align-self:stretch;width:100%;margin:auto 0 0}
@@ -266,8 +272,8 @@ button.big{width:100%;font-size:1.1em;padding:12px}
   :root.big table.keys tr{padding:6px 0;border-bottom:1px solid var(--color-border)}
   :root.big table.keys td{border-bottom:none;padding:2px 0}
   :root.big table.keys td:first-child{font-weight:700;color:var(--color-primary)}
-  :root.big .cal{gap:2px}
-  :root.big .cal i{font-size:.62em;padding:4px 0;min-width:0}
+  :root.big .cal{gap:3px}
+  :root.big .cal button{font-size:.62em;padding:4px 2px}
 }
 @media (max-height:430px){
   :root.lay-land #sc-title{padding:max(10px,env(safe-area-inset-top)) max(clamp(16px,4vw,48px),env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(clamp(16px,4vw,48px),env(safe-area-inset-left))}
@@ -280,14 +286,20 @@ button.big{width:100%;font-size:1.1em;padding:12px}
   :root.lay-land.big #sc-title .panel>*+*{margin-top:4px}
   :root.lay-land.big .play,:root.lay-land.big .play-cont{padding:8px 12px}
   :root.lay-land.big .play b,:root.lay-land.big .play-cont b{font-size:1.08em}
-  :root.lay-land.big .play .t span,:root.lay-land.big .modes span{display:none}
+  :root.lay-land.big .play .t span,:root.lay-land.big .modes span,:root.lay-land.big .links .lcnt{display:none}
   :root.lay-land.big .modes button{padding:6px 4px;font-size:.82em}
   :root.lay-land.big .links button{padding:5px 4px;font-size:.74em}
 }
 
 /* Summary */
-.ov-hero{height:118px;margin:0 0 12px;border-radius:10px;border:1.5px solid rgba(201,162,63,.55);background:#1F5F6B center 72%/cover no-repeat;box-shadow:inset 0 -36px 36px -18px rgba(0,0,0,.45);display:none}
+.ov-hero{position:relative;width:100%;height:118px;margin:0 0 12px;padding:0;border-radius:10px;border:1.5px solid rgba(201,162,63,.65);background:#1F5F6B center 72%/cover no-repeat;box-shadow:inset 0 -36px 36px -18px rgba(0,0,0,.45);display:none;overflow:hidden;cursor:pointer}
 .ov-hero.on{display:block}
+.ov-hero:hover{border-color:#F7CF62}
+.ov-hero:active:not(:disabled){transform:none}
+.ov-hero-tag{position:absolute;right:8px;bottom:8px;display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;background:rgba(8,24,28,.9);color:#F4F2EC;border:1px solid rgba(240,207,117,.6);font-size:.75em;font-weight:700;letter-spacing:.02em;pointer-events:none}
+.ov-hero-tag svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+#b-ovundo{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-color:#C9A23F;font-weight:700}
+#b-ovundo svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .big-score{font-family:var(--font-display);font-size:3.6em;font-weight:900;text-align:center;margin:2px 0;line-height:1.05;font-variant-numeric:lining-nums tabular-nums}
 .newbest{text-align:center;color:var(--color-muted);font-weight:700;min-height:1.4em}
 .newbest.hit{display:block;width:max-content;max-width:100%;box-sizing:border-box;margin:4px auto 6px;padding:6px 26px;color:#3A1A06;font-family:var(--font-display);font-weight:900;font-size:1.25em;letter-spacing:.02em;
@@ -295,35 +307,86 @@ button.big{width:100%;font-size:1.1em;padding:12px}
   border:2px solid #8C5A12;border-radius:6px;box-shadow:0 3px 0 #8C5A12,0 0 24px rgba(255,200,90,.65);animation:shine 1.6s .3s ease-out 2}
 @keyframes shine{to{background-position:300% 0,0 0}}
 .grid2{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 16px;margin:12px 0}
-.grid2 dt{color:var(--color-muted);overflow-wrap:anywhere}
-.grid2 dd{margin:0;font-weight:700;text-align:right;font-variant-numeric:lining-nums tabular-nums;overflow-wrap:anywhere}
+.grid2 dt{color:var(--color-muted);overflow-wrap:anywhere;align-self:center}
+.grid2 dd{margin:0;font-weight:700;text-align:right;font-variant-numeric:lining-nums tabular-nums;overflow-wrap:anywhere;align-self:center}
 #ov-stats>dt,#ov-stats>dd{animation:rowIn var(--dur-panel) var(--ease-settle) both}
+.stat-link{display:inline-flex;align-items:center;justify-content:flex-end;gap:4px;min-height:44px;min-width:44px;padding:4px 10px;border:1.5px solid var(--color-primary);border-radius:var(--radius-sm);background:var(--color-bg);color:var(--color-primary);font-weight:700;text-align:right;max-width:100%}
+.stat-link:hover{background:var(--color-surface)}
 
 /* Trail + cards */
-.levels{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(150px,100%),1fr));gap:10px}
-.levels button{display:flex;flex-direction:column;align-items:flex-start;text-align:left;min-height:64px;min-width:0}
-.levels .st{font-size:.8em;color:var(--color-muted)}
+.levels{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(185px,100%),1fr));gap:10px}
+.levels button{display:flex;flex-direction:column;align-items:stretch;text-align:left;gap:6px;min-height:76px;min-width:0;padding:10px}
+.levels .lv-top{display:flex;align-items:flex-start;gap:9px;min-width:0}
+.levels .lv-mini{flex:none;width:40px;height:40px;border-radius:6px;background:rgba(14,42,48,.88);border:1.5px solid rgba(201,162,63,.55);padding:2px;box-sizing:border-box}
+.levels button:disabled .lv-mini{border-color:var(--color-disabled-border);opacity:.78}
+.levels .lv-meta{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto}
+.levels .lv-meta b{overflow-wrap:anywhere;line-height:1.2}
+.levels .st{font-size:.8em;color:var(--color-muted);line-height:1.25}
 .levels .done .st{color:var(--color-success)}
 .levels button:disabled .st,.rowstrip button:disabled{color:var(--color-disabled-text)}
-.rowstrip{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 12px;padding:8px;border-radius:var(--radius-lg);background:rgba(120,100,60,.12)}
-.rowstrip .end{font-weight:800;color:var(--color-primary);padding:0 4px}
-.rowstrip button{min-height:45px;padding:6px 10px}
-.rowstrip .done{border-color:var(--color-success);color:var(--color-success);font-weight:700}
-.levels h3.ring{grid-column:1/-1;margin:12px 0 2px;font-size:1.2em;color:var(--color-primary)}
+/* Inline-SVG Bathhouse Row skyline: single-row scrollable strip on wide screens, 4-col >=44px grid on phones (CD-WF5-05, S4-06, W6-S2-02) */
+.rowstrip{display:flex;flex-wrap:nowrap;align-items:stretch;gap:5px;max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;margin:0 0 12px;padding:8px;border-radius:var(--radius-lg);background:rgba(120,100,60,.12)}
+.rowstrip .end{flex:none;display:flex;align-items:center;font-family:var(--font-display);font-weight:900;color:var(--color-primary);padding:0 4px}
+.rowstrip button{position:relative;flex:1 0 68px;min-width:68px;min-height:62px;scroll-snap-align:start;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;padding:15px 5px 6px;font-size:.78em;text-align:center;line-height:1.15;overflow-wrap:break-word}
+.rowstrip button::before{content:attr(data-num);position:absolute;top:3px;left:5px;font-size:.78em;font-weight:700;color:var(--color-muted);font-variant-numeric:tabular-nums}
+.rowstrip button:disabled::before{color:var(--color-disabled-text)}
+.rowstrip .row-svg{width:44px;height:22px;flex:none;display:block;color:var(--color-primary)}
+.rowstrip button:disabled .row-svg{color:var(--color-disabled-text)}
+.rowstrip .done{border-color:#C9A23F;color:var(--color-success);font-weight:700;background:var(--color-bg);box-shadow:inset 0 0 0 1px rgba(201,162,63,.45)}
+.rowstrip .done .row-svg{color:#C9A23F}
+@media (max-width:739px){
+  .rowstrip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;overflow-x:visible;padding:6px}
+  .rowstrip .end{grid-column:1/-1;justify-content:flex-start;font-size:.8em;padding:0 2px;line-height:1.1}
+  .rowstrip .end:last-child{justify-content:flex-end}
+  .rowstrip button{min-width:0;width:100%;min-height:60px;padding:14px 3px 5px;font-size:.72em}
+  .rowstrip .row-svg{width:40px;height:20px}
+}
+@keyframes brassLit{0%{transform:scale(.94);box-shadow:0 0 0 0 rgba(201,162,63,.7)}60%{transform:scale(1.04);box-shadow:0 0 16px rgba(201,162,63,.75)}100%{transform:none;box-shadow:inset 0 0 0 1px rgba(201,162,63,.45)}}
+.rowstrip .done.just-lit{animation:brassLit 260ms var(--ease-settle) both}
+.levels h3.ring{grid-column:1/-1;margin:14px 0 4px;padding-bottom:6px;font-size:1.18em;color:var(--color-primary);display:flex;flex-direction:column;gap:6px}
+.ring-bar{display:block;width:100%;height:7px;border-radius:999px;background:var(--toggle-bg);border:1px solid var(--toggle-border);overflow:hidden}
+.ring-fill{display:block;height:100%;background:linear-gradient(90deg,#2A9D8F,#C9A23F);transform-origin:left center;transition:transform 260ms var(--ease-settle)}
 .stars{letter-spacing:.12em;color:var(--color-primary);font-size:.95em}
 .winstars{text-align:center;font-size:2em;margin:0 0 4px}
 @keyframes starpop{0%{opacity:0;transform:scale(.55)}70%{opacity:1;transform:scale(1.12)}100%{opacity:1;transform:scale(1)}}
 .winstars .star{display:inline-block}
 .winstars .star.lit{opacity:0;animation:starpop 260ms var(--ease-settle) both}
 .win-card-in{animation:rowIn 220ms var(--ease-settle) both}
+/* Lean 27-card Album: All (27) default sticky filter bar + frosted locked teasers + SVG crests (CD-WF1-07, CD-WF5-05, PREC-03) */
+.cards-tabs{flex:none;display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px;padding-bottom:8px;border-bottom:1px solid var(--color-border)}
+.cards-tabs button{flex:1 1 auto;min-height:45px;min-width:45px;padding:6px 10px;font-size:.82em;font-weight:700;border-radius:999px;background:var(--color-bg);color:var(--color-text);border:2px solid var(--color-border)}
+.cards-tabs button[aria-pressed="true"]{background:var(--color-primary);color:var(--color-on-primary);border-color:var(--color-primary)}
+.cards-sec[hidden]{display:none}
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(220px,100%),1fr));gap:12px}
 .card{overflow:hidden;border:2px solid var(--color-border);border-radius:var(--radius-md);padding:12px;background:var(--color-bg)}
-.card h4{margin:0 0 4px;font-family:var(--font-display);font-weight:700;font-size:1.05em;color:var(--color-primary)}
+.card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin:0 0 4px}
+.card h4{margin:0 0 4px;font-family:var(--font-display);font-weight:700;font-size:1.05em;color:var(--color-primary);min-width:0;overflow-wrap:break-word}
+.card-head h4{margin:0;flex:1 1 auto}
+.card p,.card li{overflow-wrap:break-word}
+.card-crest{width:38px;height:22px;flex:none;color:var(--color-primary);opacity:.9}
+.card-new{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:var(--color-primary);color:var(--color-on-primary);font-family:var(--font-sans);font-size:.72em;font-weight:700;vertical-align:middle;letter-spacing:.03em}
 .card .yr{font-family:"Palatino Linotype","Book Antiqua",Palatino,Georgia,serif;font-weight:400;font-style:italic;font-size:.84em;letter-spacing:.06em;color:var(--color-muted)}
 .card ul{margin:6px 0;padding-left:18px}
-.card .pic{height:70px;margin:-12px -12px 8px;border-radius:4px 4px 0 0;background:#1F5F6B center 60%/cover no-repeat}
+.card .pic{position:relative;height:82px;margin:-12px -12px 8px;border-radius:4px 4px 0 0;background:#1F5F6B center 60%/cover no-repeat;overflow:hidden}
+.card .pic-btn{display:block;width:calc(100% + 24px);height:88px;min-height:88px;margin:-12px -12px 8px;padding:0;border:none;border-bottom:1.5px solid rgba(201,162,63,.55);border-radius:4px 4px 0 0;background:#1F5F6B;position:relative;overflow:hidden;cursor:pointer}
+.card .pic-btn:hover{border-bottom-color:var(--color-primary)}
+.card .pic-btn:active:not(:disabled){transform:none}
+.card .pic-img{width:100%;height:100%;object-fit:cover;display:block;transition:transform 220ms var(--ease-settle)}
+.card .pic-btn:hover .pic-img{transform:scale(1.03)}
+.card .pic-badge{position:absolute;right:6px;bottom:6px;padding:2px 8px;border-radius:999px;background:rgba(8,24,28,.9);color:#F4F2EC;border:1px solid rgba(240,207,117,.55);font-size:.72em;font-weight:700;pointer-events:none}
+.card .pic.locked-pic{display:flex;align-items:center;justify-content:center;background:linear-gradient(155deg,#6E5E48,#4D4132 55%,#342B22);border-bottom:1px dashed var(--color-disabled-border)}
+.card .pic.locked-pic svg{width:100%;height:100%;opacity:.45;color:#E6D7B5}
 .card.locked{opacity:1;background:var(--color-locked-bg);border-style:dashed;border-color:var(--color-disabled-border)}
 .card.locked h4::before{content:"";display:inline-block;width:.82em;height:.82em;margin-right:.35em;vertical-align:-.08em;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M5 7V5a3 3 0 016 0v2h1a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1h1zm2-2v2h2V5a1 1 0 00-2 0z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M5 7V5a3 3 0 016 0v2h1a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1h1zm2-2v2h2V5a1 1 0 00-2 0z'/%3E%3C/svg%3E") center/contain no-repeat}
+/* 0-KB full-bleed Era Postcard Lightbox (CD-WF2-01, W6-S2-03) */
+#sc-lightbox{z-index:25}
+#sc-lightbox .panel{width:min(860px,100%)}
+.lb-frame{background:#0B1A1E;border:1.5px solid #C9A23F;border-radius:10px;overflow:hidden;margin:0 0 10px;display:flex;align-items:center;justify-content:center;min-height:180px}
+.lb-frame img{display:block;width:100%;max-height:56vh;object-fit:contain}
+.lb-meta{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 4px}
+.lb-years{font-family:"Palatino Linotype","Book Antiqua",Palatino,Georgia,serif;font-style:italic;font-size:.92em;letter-spacing:.06em;color:var(--color-muted)}
+.lb-pos{font-size:.82em;font-weight:700;color:var(--color-muted);font-variant-numeric:tabular-nums}
+.lb-cap{margin:4px 0 0;line-height:1.45}
 
 /* Settings (4-section IA with Difficulty at top, bathhouse brass hardware controls & live tabular % readouts) */
 .set-head{margin:16px 0 4px}
@@ -377,14 +440,31 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
 :root.lay-land.tray-left #tip.on{animation:railRightIn var(--dur-toast) var(--ease-settle) both}
 :root.lay-land #tip span{flex:1 1 100%}
 :root.lay-land #tip button{flex:1 1 100%}
-.cal{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;margin:0 0 6px}
-.cal i{font-style:normal;text-align:center;font-size:.72em;padding:6px 0;border-radius:4px;border:1px solid var(--color-border);color:var(--color-muted);font-variant-numeric:tabular-nums}
-.cal i.on{background:#C9A23F;border-color:#C9A23F;color:#1F2A24;font-weight:800}
-.cal i.today{outline:2px solid var(--color-primary);outline-offset:1px}
+/* Elevated 4,400-year groundwater aquifer bar & interactive 5-col (<500px) / 6-col (>=500px) >=44px Daily calendar (CD-WF5-05, W6-S2-03) */
+.aquifer{margin:0 0 12px;padding:10px 12px;border-radius:var(--radius-lg);background:var(--color-surface);border:1.5px solid #C9A23F;display:grid;gap:6px}
+.aq-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.aq-head b{font-family:var(--font-display);font-weight:700;color:var(--color-primary);font-size:1.05em}
+.aq-yrs{font-size:.86em;font-weight:700;color:var(--color-text);font-variant-numeric:lining-nums tabular-nums}
+.aq-track{height:10px;border-radius:999px;background:var(--color-bg);border:1.5px solid var(--toggle-border);overflow:hidden}
+.aq-fill{height:100%;width:100%;background:linear-gradient(90deg,#2A9D8F,#C9A23F 65%,#DFB858);transform-origin:left center;transform:scaleX(0);transition:transform 260ms var(--ease-settle)}
+#rec-age{margin:0;font-size:.86em}
+.inline-cta{width:100%;margin:0 0 10px;min-height:45px;background:var(--color-bg);color:var(--color-primary);border:2px solid var(--color-primary);font-weight:700}
+.inline-cta:hover{background:var(--color-surface)}
+.inline-cta[hidden]{display:none}
+.cal{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px;margin:0 0 6px;padding:2px}
+@media (max-width:499px){.cal{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}}
+.cal button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-width:44px;min-height:45px;padding:4px 2px;border-radius:6px;border:1.5px solid var(--color-border);background:var(--color-bg);color:var(--color-text);font-size:.78em;font-weight:700;line-height:1.05;font-variant-numeric:tabular-nums}
+.cal button .cal-mark{font-size:.82em;line-height:1;color:var(--color-muted)}
+.cal button.on{background:#C9A23F;border-color:#8C6A22;color:#1F2A24;font-weight:800}
+.cal button.on .cal-mark{color:#1F2A24}
+.cal button.today{box-shadow:inset 0 0 0 2px var(--color-primary)}
+.cal button[aria-pressed="true"]{border-color:var(--color-highlight);box-shadow:0 0 0 2px var(--color-highlight)}
+.cal-detail{margin:4px 0 6px;font-size:.88em;min-height:1.4em;color:var(--color-text);font-variant-numeric:tabular-nums}
 .goals{list-style:none;margin:0;padding:0;display:grid;gap:6px}
-.goals li{border:2px solid var(--color-border);border-radius:var(--radius-md);padding:6px 10px;display:grid;gap:1px}
+.goals li{border:2px solid var(--color-border);border-radius:var(--radius-md);padding:6px 10px;display:grid;gap:2px}
 .goals li b{font-family:var(--font-display);color:var(--color-muted)}
 .goals li span{font-size:.85em;color:var(--color-muted)}
+.goals li .gprog{font-size:.8em;font-weight:700;color:var(--color-text);font-variant-numeric:lining-nums tabular-nums}
 .goals li.got{border-color:#C9A23F}
 .goals li.got b{color:var(--color-primary)}
 .goals li.got b::before{content:"\2713  "}
@@ -400,16 +480,16 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
 @media (prefers-reduced-motion:reduce){
   :root:not(.motion-full){--dur-tap:0ms;--dur-control:0ms;--dur-panel:0ms;--dur-scrim:0ms;--dur-toast:0ms}
   :root:not(.motion-full) .newbest.hit{animation:none;box-shadow:0 3px 0 #8C5A12,inset 0 0 0 2px #FFF4CC,0 0 0 2px rgba(247,207,98,.75)}
-  :root:not(.motion-full) #h-score.pop,:root:not(.motion-full) #h-best.gleam,:root:not(.motion-full) .winstars .star.lit,:root:not(.motion-full) .win-card-in,:root:not(.motion-full) #ov-stats>*{animation:none;opacity:1;transform:none}
+  :root:not(.motion-full) #h-score.pop,:root:not(.motion-full) #h-best.gleam,:root:not(.motion-full) .winstars .star.lit,:root:not(.motion-full) .win-card-in,:root:not(.motion-full) #ov-stats>*,:root:not(.motion-full) .rowstrip .done.just-lit{animation:none;opacity:1;transform:none}
   :root:not(.motion-full) .screen.overlay.on::before,:root:not(.motion-full) .screen.overlay.on .panel,:root:not(.motion-full) #sc-title.on .brand,:root:not(.motion-full) #sc-title.on .panel,:root:not(.motion-full) #toast.on,:root:not(.motion-full) #achtoast.on,:root:not(.motion-full) #tip.on,:root:not(.motion-full) #bg.bg-xfade{animation:none}
-  :root:not(.motion-full) button,:root:not(.motion-full) .set select,:root:not(.motion-full) .set input[type=checkbox],:root:not(.motion-full) .set input[type=checkbox]::before,:root:not(.motion-full) .ticker{transition:none}
+  :root:not(.motion-full) button,:root:not(.motion-full) .set select,:root:not(.motion-full) .set input[type=checkbox],:root:not(.motion-full) .set input[type=checkbox]::before,:root:not(.motion-full) .ticker,:root:not(.motion-full) .aq-fill,:root:not(.motion-full) .ring-fill,:root:not(.motion-full) .card .pic-img{transition:none}
   :root:not(.motion-full) button:active:not(:disabled),:root:not(.motion-full) .play:active:not(:disabled),:root:not(.motion-full) .play-cont:active:not(:disabled),:root:not(.motion-full) button.primary:active:not(:disabled),:root:not(.motion-full) #hud button:active:not(:disabled),:root:not(.motion-full) .set select:active{transform:none;border-color:var(--color-highlight)}
 }
 :root.motion-reduced{--dur-tap:0ms;--dur-control:0ms;--dur-panel:0ms;--dur-scrim:0ms;--dur-toast:0ms}
 :root.motion-reduced .newbest.hit{animation:none;box-shadow:0 3px 0 #8C5A12,inset 0 0 0 2px #FFF4CC,0 0 0 2px rgba(247,207,98,.75)}
-:root.motion-reduced #h-score.pop,:root.motion-reduced #h-best.gleam,:root.motion-reduced .winstars .star.lit,:root.motion-reduced .win-card-in,:root.motion-reduced #ov-stats>*{animation:none;opacity:1;transform:none}
+:root.motion-reduced #h-score.pop,:root.motion-reduced #h-best.gleam,:root.motion-reduced .winstars .star.lit,:root.motion-reduced .win-card-in,:root.motion-reduced #ov-stats>*,:root.motion-reduced .rowstrip .done.just-lit{animation:none;opacity:1;transform:none}
 :root.motion-reduced .screen.overlay.on::before,:root.motion-reduced .screen.overlay.on .panel,:root.motion-reduced #sc-title.on .brand,:root.motion-reduced #sc-title.on .panel,:root.motion-reduced #toast.on,:root.motion-reduced #achtoast.on,:root.motion-reduced #tip.on,:root.motion-reduced #bg.bg-xfade{animation:none}
-:root.motion-reduced button,:root.motion-reduced .set select,:root.motion-reduced .set input[type=checkbox],:root.motion-reduced .set input[type=checkbox]::before,:root.motion-reduced .ticker{transition:none}
+:root.motion-reduced button,:root.motion-reduced .set select,:root.motion-reduced .set input[type=checkbox],:root.motion-reduced .set input[type=checkbox]::before,:root.motion-reduced .ticker,:root.motion-reduced .aq-fill,:root.motion-reduced .ring-fill,:root.motion-reduced .card .pic-img{transition:none}
 :root.motion-reduced button:active:not(:disabled),:root.motion-reduced .play:active:not(:disabled),:root.motion-reduced .play-cont:active:not(:disabled),:root.motion-reduced button.primary:active:not(:disabled),:root.motion-reduced #hud button:active:not(:disabled),:root.motion-reduced .set select:active{transform:none;border-color:var(--color-highlight)}
 </style>
 </head>
@@ -435,10 +515,10 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
       <button data-go="trail"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-6.2-6-11a6 6 0 0112 0c0 4.8-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/></svg><b>Spring Trail</b><span class="sub" id="trail-sub">12 Bathhouse Row + 12 Spring Science puzzles.</span><span class="mtag" id="trail-mtag">24 puzzles</span></button>
     </div>
     <div class="links">
-      <button data-go="cards">Fact cards</button><button data-go="records">Records</button>
+      <button data-go="cards" id="b-cards">Fact cards<span class="lcnt" id="cards-cnt"></span></button><button data-go="records" id="b-records">Records<span class="lcnt" id="records-cnt"></span></button>
       <button data-go="help">How to play</button><button data-go="settings">Settings</button>
     </div>
-    <p class="ticker" id="ticker"></p>
+    <button type="button" class="ticker" id="ticker" title="Click or press Enter for another Hot Springs fact"></button>
   </div>
 </section>
 </main>
@@ -469,6 +549,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
       <div class="row col">
         <button class="primary" id="b-resume">Resume</button>
         <button id="b-restart">Restart</button>
+        <button id="b-pause-trail" style="display:none">Spring Trail</button>
         <button data-go="help">How to play</button>
         <button data-go="settings">Settings</button>
         <button id="b-quit">Quit to menu</button>
@@ -492,7 +573,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
 <section class="screen overlay" id="sc-over" role="dialog" aria-modal="true" aria-labelledby="ov-title" aria-describedby="ov-score ov-new">
   <div class="panel" style="width:min(420px,100%)">
     <div class="panel-body">
-      <div class="ov-hero" id="ov-hero" aria-hidden="true"></div>
+      <button type="button" class="ov-hero" id="ov-hero" aria-label="View era painting full size"><span class="ov-hero-tag" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>View postcard</span></button>
       <h2 id="ov-title">No room left</h2>
       <p class="muted" id="ov-sub" style="margin:0"></p>
       <p class="muted" id="ov-era" style="margin:6px 0 0"></p>
@@ -501,7 +582,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
       <p class="muted" id="ov-tip" style="margin:8px 0 0"></p>
       <dl class="grid2" id="ov-stats"></dl>
     </div>
-    <div class="row panel-foot"><button class="primary" id="b-again">Play again</button><button id="b-ovundo" style="display:none">Undo last move</button><button id="b-menu1">Menu</button></div>
+    <div class="row panel-foot"><button class="primary" id="b-again">Play again</button><button id="b-ovundo" style="display:none"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg>Undo last move</button><button id="b-ov-trail" style="display:none">Spring Trail</button><button id="b-menu1">Menu</button></div>
   </div>
 </section>
 
@@ -513,12 +594,12 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
       <p class="muted" id="win-sub" style="margin:0 0 8px"></p>
       <div id="win-card"></div>
     </div>
-    <div class="row panel-foot"><button class="primary" id="b-next">Next puzzle</button><button id="b-trail2">Spring Trail</button><button id="b-menu2">Menu</button></div>
+    <div class="row panel-foot"><button class="primary" id="b-next">Next puzzle</button><button id="b-replay3" style="display:none">Replay for 3★</button><button id="b-trail2">Spring Trail</button><button id="b-menu2">Menu</button></div>
   </div>
 </section>
 
 <section class="screen overlay" id="sc-trail" role="dialog" aria-modal="true" aria-labelledby="trail-title">
-  <div class="panel" style="width:min(720px,100%)">
+  <div class="panel" style="width:min(760px,100%)">
     <div class="panel-head"><h2 id="trail-title">Spring Trail</h2><button class="btn-close" data-close type="button" aria-label="Close" title="Close (Esc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div class="panel-body">
       <p class="muted" style="margin-top:0" id="trail-intro"></p>
@@ -532,15 +613,27 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
 <section class="screen overlay" id="sc-cards" role="dialog" aria-modal="true" aria-labelledby="cards-title">
   <div class="panel" style="width:min(820px,100%)">
     <div class="panel-head"><h2 id="cards-title">Fact cards</h2><button class="btn-close" data-close type="button" aria-label="Close" title="Close (Esc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="cards-tabs" id="cards-tabs" role="group" aria-label="Filter fact cards">
+      <button type="button" data-cat="all" aria-pressed="true" id="ctab-all">All (27)</button>
+      <button type="button" data-cat="places" aria-pressed="false" id="ctab-places">Bathhouse Row</button>
+      <button type="button" data-cat="eras" aria-pressed="false" id="ctab-eras">Era Postcards</button>
+      <button type="button" data-cat="water" aria-pressed="false" id="ctab-water">Water Cards</button>
+    </div>
     <div class="panel-body">
-      <p class="muted" style="margin-top:0" id="cards-sub"></p>
-      <div class="cards" id="cards"></div>
-      <h3>Era postcards</h3>
-      <p class="muted" style="margin-top:0" id="cards-era-sub"></p>
-      <div class="cards" id="cards-era"></div>
-      <h3>Water cards</h3>
-      <p class="muted" style="margin-top:0" id="cards-water-sub"></p>
-      <div class="cards" id="cards-water"></div>
+      <div class="cards-sec" id="sec-places">
+        <p class="muted" style="margin-top:0" id="cards-sub"></p>
+        <div class="cards" id="cards"></div>
+      </div>
+      <div class="cards-sec" id="sec-eras">
+        <h3>Era postcards</h3>
+        <p class="muted" style="margin-top:0" id="cards-era-sub"></p>
+        <div class="cards" id="cards-era"></div>
+      </div>
+      <div class="cards-sec" id="sec-water">
+        <h3>Water cards</h3>
+        <p class="muted" style="margin-top:0" id="cards-water-sub"></p>
+        <div class="cards" id="cards-water"></div>
+      </div>
     </div>
     <div class="row panel-foot"><button data-back>Back</button></div>
   </div>
@@ -550,17 +643,35 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
   <div class="panel" style="width:min(520px,100%)">
     <div class="panel-head"><h2 id="rec-title">Records</h2><button class="btn-close" data-close type="button" aria-label="Close" title="Close (Esc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div class="panel-body">
+      <div class="aquifer" id="rec-aquifer">
+        <div class="aq-head"><b>Thermal aquifer age</b><span class="aq-yrs" id="rec-aq-yrs">0 / 4,400 years</span></div>
+        <div class="aq-track" id="rec-aq-bar" role="progressbar" aria-label="Water’s age toward 4,400 years" aria-valuemin="0" aria-valuemax="4400" aria-valuenow="0"><div class="aq-fill" id="rec-aq-fill"></div></div>
+        <p class="muted" id="rec-age"></p>
+      </div>
       <dl class="grid2" id="rec-stats"></dl>
       <h3>Recent games</h3>
       <ul class="recent-list" id="rec-recent"></ul>
       <h3>Daily Soak</h3>
       <p id="rec-streak" style="margin:0 0 8px"></p>
-      <div class="cal" id="rec-cal" role="img"></div>
+      <button type="button" class="inline-cta" id="b-rec-daily" hidden>Play today’s Daily Soak</button>
+      <div class="cal" id="rec-cal" role="group"></div>
+      <p class="cal-detail" id="rec-cal-detail" aria-live="polite"></p>
       <h3 id="rec-goals-h">Goals</h3>
       <ul class="goals" id="rec-goals"></ul>
-      <p id="rec-age"></p>
     </div>
     <div class="row panel-foot"><button data-back>Back</button></div>
+  </div>
+</section>
+
+<section class="screen overlay" id="sc-lightbox" role="dialog" aria-modal="true" aria-labelledby="lb-title">
+  <div class="panel">
+    <div class="panel-head"><h2 id="lb-title">Era Postcard</h2><button class="btn-close" id="lb-close" type="button" aria-label="Close postcard" title="Close (Esc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="panel-body">
+      <div class="lb-frame"><img id="lb-img" alt=""></div>
+      <div class="lb-meta"><span class="lb-years" id="lb-years"></span><span class="lb-pos" id="lb-pos"></span></div>
+      <p class="lb-cap" id="lb-cap"></p>
+    </div>
+    <div class="row panel-foot"><button type="button" id="lb-prev">Previous era</button><button type="button" id="lb-next">Next era</button><button type="button" class="primary" id="lb-done">Close</button></div>
   </div>
 </section>
 
@@ -730,54 +841,54 @@ const LEVELS = [
   { id:'thermal-water-cascade', name:'Thermal Water Cascade', era:5, goal:'vents', hint:'Let the water run: open every vent down the cascade, pool by pool.',
     board:['v........','.v.......','..v......','...vs....','....v....','...s.v...','......v..','.......v.','........v'],
     pieces:['c3b','o1','c3c','o1','i2h','o1','c3b','o1','c3c'] },
-  // Second ring (S3-03 / W6-S4-05): twelve crisp 1-2 glaze geometric/geological Spring Science Mastery puzzles,
-  // combining stones+vents so every "Springs" title holds real vents; all 24 proven solvable in tools/solutions.json.
+  // Second ring (S3-03 / W6-S4-05 / W6-S1-04): twelve crisp 1-2 glaze geometric/geological Spring Science Mastery puzzles,
+  // combining stones+vents so every "Springs" title holds real vents, with distinct sourced win facts (0 ticker copying).
   { id:'valley-of-vapors', name:'Valley of Vapors', era:0, ring:2, goal:'stones+vents', hint:'Clear the valley basin first to open space for the deeper spring below.',
-    fact:'Steam off the springs gave the valley its old nickname: the Valley of Vapors.',
+    fact:'Rising plumes along the steaming creek earned this Ouachita mountain hollow its early Valley of Vapors name.',
     board:['.........','4.......4','44.....44','..4...4..','..4s.s4..','..4vsv4..','...s.s...','....v....','.........'],
     pieces:['c3b','u5a','l4a','o1','i2v','c3a'] },
   { id:'boiling-springs', name:'Boiling Springs', era:1, ring:2, goal:'stones+vents', hint:'Three boiling pools hold both tufa and vents. Clear the center plume and twin basins.',
-    fact:'1804: William Dunbar writes Thomas Jefferson about "the boiling springs."',
+    fact:'In August 1804 William Dunbar wrote Thomas Jefferson calling these creekside vents "the boiling springs."',
     board:['.........','.........','.........','.........','...2.2...','...svs...','.........','sv..s..vs','2s.2s2.s2'],
     pieces:['i3h','t4a','i3h','i2v','u5b','i2v'] },
   { id:'four-principal-springs', name:'Four Principal Springs', era:1, ring:2, goal:'vents', hint:'Four corner springs: match each pool’s open corner with the shapes in your queue.',
-    fact:'Dunbar and Hunter counted four principal springs and two lesser ones in 1804.',
+    fact:'During their 1804 expedition, William Dunbar and George Hunter recorded four main hot springs and two smaller outlets.',
     board:['v3.....3v','35.....53','.........','.........','....5....','.........','.........','35.....53','v3.....3v'],
     pieces:['v5d','i3h','i2v','v5b','i3h','i2v'] },
   { id:'hot-springs-creek', name:'Hot Springs Creek', era:2, ring:2, goal:'stones+vents', hint:'Three creekside pools step down the diagonal; pair two pieces inside each pool.',
-    fact:'Hot Springs water averages about 143°F, the hottest springs east of the Rockies.',
+    fact:'Averaging around 143°F, these are the hottest natural springs east of the Rockies, feeding Hot Springs Creek below.',
     board:['......35v','.........','......s..','...35v...','.........','...s.....','35v......','.........','s........'],
     pieces:['c3b','c3b','i2v','i2v','c3b','i2v'] },
   { id:'noble-fountain', name:'Noble Fountain', era:2, ring:2, goal:'lines:4', hint:'Start in the fountain’s center cross to clear three groups before finishing a rim.',
-    fact:'The Noble Fountain was moved to the Reserve Avenue end of the Grand Promenade in 1957.',
+    fact:'Built on Bathhouse Row in 1903, the Noble Fountain moved to the Promenade’s Reserve Avenue end in 1957.',
     board:['....5....','44..5..44','....5....','...4.4...','555...555','...4.4...','....5....','44..5..44','....5....'],
     pieces:['i2h','i2h','x5','i2h','i2h','c3a'] },
   { id:'thrust-faults', name:'Thrust Faults', era:3, ring:2, goal:'stones', hint:'Each stone clears with its pool, row or column. Fill what is left around it.',
-    fact:'Two thrust faults, "alpha" and "beta", carry the heated water up like pipes.',
+    fact:'Paired thrust faults called "alpha" and "beta" guide water heated a mile underground straight up to the Row.',
     board:['.........','.........','.........','.....s...','...sss...','...ss....','sss......','.s.......','.s.......'],
     pieces:['c3c','u5a','c3b','i2v','x5'] },
   { id:'bigfork-chert', name:'Bigfork Chert', era:3, ring:2, goal:'stones+vents', hint:'Folded strata hide four vents and four tufa ledges across four pools.',
-    fact:'Rain soaks into Bigfork Chert and Arkansas Novaculite, then heats to about 160°F a mile down.',
+    fact:'Permeable Bigfork Chert and fractured Arkansas Novaculite collect ridge rainfall and carry it a mile deep to heat.',
     board:['6.......6','6v.....v6','6s.....s6','.........','....vs...','...666...','.........','....v....','...6s6...'],
     pieces:['i2h','c3a','j4c','i2v','u5b','o1'] },
   { id:'bicarbonate-water', name:'Bicarbonate Water', era:4, ring:2, goal:'lines:3', hint:'Three mineral bands cross the floor. Fit the notched pieces cleanly along each terrace.',
-    fact:'The main mineral in the water is bicarbonate, about 130 ppm.',
+    fact:'Measured near 130 parts per million, dissolved bicarbonate makes up the primary mineral trace in each clear spring.',
     board:['.........','35.....53','..535....','.........','53.....35','....353..','.........','35.....53','..535....'],
     pieces:['l4d','c3a','j4b','c3b','i3h','i2h'] },
   { id:'tufa-stone', name:'Tufa Stone', era:4, ring:2, goal:'stones', hint:'A stone clears with its pool, row or column. Save small pieces for tight gaps.',
-    fact:'Tufa is the white-to-tan rock left where spring water evaporates.',
+    fact:'Minerals left behind as thermal water cools and evaporates harden into pale travertine tufa terraces along the bluff.',
     board:['sss......','sss......','.s.......','......sss','......s.s','.........','........s','......sss','......sss'],
     pieces:['i3h','o1','o1','r6h','s4v','j4b','x5'] },
   { id:'boltwoods-waters', name:'Boltwood’s Waters', era:5, ring:2, goal:'stones+vents', hint:'Four tufa-rimmed corner springs surround the core. Match the right corner shapes to clear both tufa and vents.',
-    fact:'In 1904 Bertram Boltwood found the waters slightly radioactive, mostly from dissolved radon.',
+    fact:'In 1904 scientist Bertram Boltwood documented slight natural radioactivity in the springs, traced mainly to radon.',
     board:['s2.....2s','2v.....v2','s.......s','...4.4...','....2....','...4.4...','s.......s','2v.....v2','s2.....2s'],
     pieces:['j4a','i2v','l4c','c3a','i2h','o1'] },
   { id:'gallons-a-day', name:'Gallons a Day', era:5, ring:2, goal:'lines:5', hint:'Five groups to clear: channel the center cross and outer corner aqueducts.',
-    fact:'The springs give over 700,000 gallons a day; other sources say up to about a million.',
+    fact:'Combined flow from the hillside springs tops 700,000 gallons each day, with higher figures approaching one million.',
     board:['35..3..53','53..5..35','....3....','...3.3...','353...353','...3.3...','....3....','53..5..35','35..3..53'],
     pieces:['i3h','i2v','v5c','x5','i3h','i2v'] },
   { id:'forty-seven-springs', name:'Forty-Seven Springs', era:6, ring:2, goal:'stones+vents', hint:'Seven vents crown the tufa ridge. Clear summit, mid-slope, and base pools cleanly.',
-    fact:'Hot Springs is usually counted as 47 springs; one source says 43 still flow.',
+    fact:'Tradition counts 47 hillside springs — about four dozen — though one later count notes 43 still flowing.',
     board:['1v2...2v1','...svs...','...121...','...2.2...','12s...s21','...svs...','1v.....v1','2s.svs.s2','12.121.21'],
     pieces:['i2h','t4b','i3v','o1','i3v','i3h'] },
 ];
@@ -1163,34 +1274,35 @@ function setupGame(g, opts) {
 /*RULES-END*/
 
 // ===================================================================== CONTENT (sourced; see research/town-content.md)
+// Short Title curiosity teasers (W6-S1-04 / W6-S2-03); the final 3 lines are C4-03 locked verbatim.
 const TICKER = [
   // The words are the game's; where each fact comes from is on the Help screen (Sources) and in the CARDS src fields.
-  'The water averages about 143°F, the hottest springs east of the Rockies.',
-  'Most of the water steaming here fell as rain about 4,400 years ago.',
-  'Rain soaks into Bigfork Chert and Arkansas Novaculite, then heats to about 160°F a mile down.',
-  'Two thrust faults, "alpha" and "beta", carry the heated water up like pipes.',
-  'Every day the springs give over 700,000 gallons; other sources say up to about a million.',
-  'Hot Springs is usually counted as 47 springs, though one source says only 43 still flow.',
-  'The main mineral in the water is bicarbonate, about 130 ppm.',
-  'Tufa is the white-to-tan rock left where spring water evaporates.',
-  'In 1904 Bertram Boltwood found the waters slightly radioactive, mostly from dissolved radon.',
-  'Dunbar and Hunter counted four principal springs and two lesser ones in 1804.',
-  'In 1920 a prescribed bath "course" meant 21 baths.',
+  'Water surfaces in Hot Springs around 143°F — hot enough to turn crisp air into drifting valley steam.',
+  'Rain that fell on the Ouachita hills around 4,400 years ago is still emerging on Bathhouse Row today.',
+  'Down a mile below the ridge, deep rock warms infiltrating rain to roughly 160°F before it rises.',
+  'Hidden thrust faults beneath Hot Springs Mountain act like natural stone pipes lifting thermal water.',
+  'Over 700,000 gallons of hot mineral water pour from the hillside each day — some count near a million.',
+  'How many springs feed the valley? Most counts name 47, though one count lists 43 still flowing.',
+  'Dissolved bicarbonate gives the clear spring water its signature mineral makeup, near 130 parts per million.',
+  'Where steaming spring water evaporates in the open air, pale mineral tufa stone slowly builds up.',
+  'Chemists testing the springs in 1904 detected trace natural radon rising with the warm mineral flow.',
+  'When Dunbar and Hunter explored the creek in 1804, they mapped four main hot springs and two smaller ones.',
+  'Visitors in 1920 often booked a full bathing course — 21 consecutive thermal baths prescribed in sequence.',
   'The park’s traditional bath routine: full tub 98 to 100 degrees, head-out vapor cabinet five minutes.',
   'In 1920 an attendant’s fee at Hot Springs was capped at 20 cents a bath, or $4 a course.',
   'The park provides spring water free of charge at all of its jug fountains.',
 ];
-// Water cards (S3-15): collected by play in any mode, not only Spring Trail. Each shows one of the ticker's sourced lines above
-// (its source is on the Help screen). `lines` is lifetime groups cleared (10 years of water's age each); `streak` is the longest run of Daily Soak days.
+// Water cards (S3-15 / W6-S1-04 / W6-S2-03): distinct sourced Hot Springs prose earned in any mode (zero verbatim ticker copying).
+// `lines` is lifetime groups cleared (10 years of water's age each); `streak` is the longest run of Daily Soak days.
 const WATER_CARDS = [
-  { id: 'w250', lines: 25, title: 'Water’s age: 250 years', text: TICKER[7] },
-  { id: 'w500', lines: 50, title: 'Water’s age: 500 years', text: TICKER[6] },
-  { id: 'w1000', lines: 100, title: 'Water’s age: 1,000 years', text: TICKER[2] },
-  { id: 'w2000', lines: 200, title: 'Water’s age: 2,000 years', text: TICKER[3] },
-  { id: 'w3000', lines: 300, title: 'Water’s age: 3,000 years', text: TICKER[4] },
-  { id: 'w4400', lines: 440, title: 'Water’s age: 4,400 years', text: TICKER[1] },
-  { id: 'd3', streak: 3, title: 'Daily Soak: 3 days running', text: TICKER[10] },
-  { id: 'd7', streak: 7, title: 'Daily Soak: 7 days running', text: TICKER[8] },
+  { id: 'w250', lines: 25, title: 'Water’s age: 250 years', text: 'Tufa is the white-to-tan rock left where evaporating spring water drops dissolved minerals along the bluff.' },
+  { id: 'w500', lines: 50, title: 'Water’s age: 500 years', text: 'At roughly 130 parts per million, bicarbonate leads the dissolved minerals carried upward from deep stone.' },
+  { id: 'w1000', lines: 100, title: 'Water’s age: 1,000 years', text: 'Rainwater filters through fractured Bigfork Chert and Arkansas Novaculite until deep heat warms it to about 160°F.' },
+  { id: 'w2000', lines: 200, title: 'Water’s age: 2,000 years', text: 'Two deep thrust faults — nicknamed "alpha" and "beta" — channel superheated groundwater rapidly back to the surface.' },
+  { id: 'w3000', lines: 300, title: 'Water’s age: 3,000 years', text: 'Daily spring discharge exceeds 700,000 gallons, with some estimates reaching nearly one million gallons.' },
+  { id: 'w4400', lines: 440, title: 'Water’s age: 4,400 years', text: 'Tritium and carbon-14 dating place the average underground journey of Hot Springs rainfall at roughly 4,400 years.' },
+  { id: 'd3', streak: 3, title: 'Daily Soak: 3 days running', text: 'A full 1920 bathing course spanned 21 thermal baths — a steady daily habit much like returning to the soak.' },
+  { id: 'd7', streak: 7, title: 'Daily Soak: 7 days running', text: 'Chemist Bertram Boltwood measured faint natural radon in the spring waters during his 1904 park survey.' },
 ];
 const waterCardOpen = (c, lines = SAVE.stats.lines, streak = dailyLongest()) => c.lines ? lines >= c.lines : streak >= c.streak;
 const CARDS = {
@@ -1645,7 +1757,7 @@ function persist(intent = 'none', opts = null) {
 let S = freshGame('classic');
 S.scene = 'title';
 let SEED_PENDING = null;
-const UI = { sel: -1, cur: null, ghost: null, ghostCleared: false, drag: null, hover: null, kbd: false, returnTo: 'title', returnFocus: { title: null, pause: null, trail: null }, overAt: 0, skipEnd: false, fxFrozen: null, pausedAt: null, countRaf: 0, countUntil: 0, uiSettleUntil: 0, auditionAudio: false, dispHeat: 0, heatAnim: null, heatPulseAt: 0, dispScore: 0, scoreAnim: null, bestGleamed: false, lastTipRoom: false, ambSteamAlpha: 1, inviteSlot: -1, touchTapCount: 0, endTimers: [], turnTimers: [], lastTap: null, lastInput: performance.now(), input: (window.matchMedia && matchMedia('(pointer:coarse)').matches) ? 'touch' : 'mouse', tip: null, earned: [] };
+const UI = { sel: -1, cur: null, ghost: null, ghostCleared: false, drag: null, hover: null, kbd: false, returnTo: 'title', returnFocus: { title: null, pause: null, trail: null }, overAt: 0, skipEnd: false, fxFrozen: null, pausedAt: null, countRaf: 0, countUntil: 0, uiSettleUntil: 0, auditionAudio: false, dispHeat: 0, heatAnim: null, heatPulseAt: 0, dispScore: 0, scoreAnim: null, bestGleamed: false, lastTipRoom: false, ambSteamAlpha: 1, inviteSlot: -1, touchTapCount: 0, endTimers: [], turnTimers: [], lastTap: null, lastInput: performance.now(), input: (window.matchMedia && matchMedia('(pointer:coarse)').matches) ? 'touch' : 'mouse', tip: null, earned: [], newEras: [], lightbox: null, cardsCat: 'all', freshCards: new Set(), seenCards: -1, seenGoals: -1, justLitLevel: '', calSelected: '', tickerPaused: false };
 function bumpUiSettle(ms) {
   if (reducedMotion()) return;
   const until = performance.now() + ms;
@@ -5482,6 +5594,7 @@ function newGame(opts = {}) {
   hideToast();
   clearGoalToasts();
   UI.earned = [];
+  UI.newEras = [];
   if (!kept && (mode === 'classic' || mode === 'springs' || mode === 'daily')) tipStart(); else tipStart(true);
   showScene('game');
   if (mode === 'trail') {
@@ -5573,6 +5686,10 @@ function doPlace(slot, r, c) {
     S.era = Math.max(S.era, eraFor(S.score));
     if (S.era !== prevEra) {
       const e = ERAS[S.era], fresh = noteEra(S.era);
+      if (fresh) {
+        if (!UI.newEras.includes(e.name)) UI.newEras.push(e.name);
+        UI.freshCards.add('era:' + e.id);
+      }
       toast(e.name + ' · ' + e.years, (hintOnce('era') ? 'Your score moved the town forward; higher scores also bring trickier pieces. ' : '') + (e.cue || e.cap) + (fresh ? ' Postcard added to Fact cards.' : ''), 5500);
       sfx('era', { score: SCORES[e.id], at: 0.48 }); bgKey = ''; loadArt('era-' + e.id); audioMood();
     }
@@ -5994,13 +6111,19 @@ function endGame(res) {
     const stars = trailStars(S.undosUsed || 0), prev = SAVE.trail.stars[S.level] || 0;
     const titled = !!trailTitle(), finished = trailAllDone();
     UI.trailWin = { stars, prev, undos: S.undosUsed || 0, first: !SAVE.trail.done.includes(S.level) };
-    if (UI.trailWin.first) SAVE.trail.done.push(S.level);
+    if (UI.trailWin.first) {
+      SAVE.trail.done.push(S.level);
+      UI.justLitLevel = S.level;
+      if (CARDS[S.level]) UI.freshCards.add('place:' + S.level);
+    }
     UI.trailWin.crown = !finished && trailAllDone() ? 'all' : !titled && trailTitle() ? 'title' : '';   // the solve that finishes the first ring, or the whole Trail (S4-04)
     if (stars > prev) SAVE.trail.stars[S.level] = stars;
   }
   goalsOnEnd(boiledNow);
   const streakNow = dailyLongest();
-  UI.newCards = S.mode === 'trail' ? [] : WATER_CARDS.filter(c => !waterCardOpen(c, linesBefore, streakBefore) && waterCardOpen(c, st.lines, streakNow)).map(c => c.title);
+  const newlyEarnedWater = S.mode === 'trail' ? [] : WATER_CARDS.filter(c => !waterCardOpen(c, linesBefore, streakBefore) && waterCardOpen(c, st.lines, streakNow));
+  newlyEarnedWater.forEach(c => UI.freshCards.add('water:' + c.id));
+  UI.newCards = newlyEarnedWater.map(c => c.title);
   const persistOk = persist(S.mode === 'classic' || hadLegacySpringsSave ? 'clear' : 'none', replaceRecent ? { replaceRecent } : null);
   if (replaceRecent) {
     if (!persistOk && SAVE.stats.recent[S.mode]) {
@@ -6056,8 +6179,9 @@ function fillOver() {
   const trail = S.mode === 'trail', outOf = trail && !S.tray.some(Boolean);
   const spAct = S.mode === 'springs' ? springsAct(S.springs || 0) : 1;
   const spCount = Math.min(47, S.springs || 0);
+  const trailLv = trail ? LEVELS.find(l => l.id === S.level) : null;
   $('ov-title').textContent = won ? 'All 47 springs flowing!' : outOf ? 'Out of pieces' : 'No room left';
-  $('ov-sub').textContent = trail ? (LEVELS.find(l => l.id === S.level).name + ' · goal not reached. Undo a move or try again.')
+  $('ov-sub').textContent = trail ? ((trailLv ? trailLv.name : 'Spring Trail') + ' · goal not reached. Undo a move or try again.')
     : modeLabel() + (S.mode === 'daily' ? ' · ' + dayLabel(S.daily) : '') + (won ? ' · you opened every spring' : ' · none of your pieces fits');
   const era = ERAS[S.era];
   if (trail) {
@@ -6072,14 +6196,20 @@ function fillOver() {
     $('ov-era').textContent = 'You reached ' + era.name + ' (' + era.years + '). ' + era.cap;
   }
   $('b-ovundo').style.display = undoAvail() ? '' : 'none';
+  const ovTrailBtn = $('b-ov-trail');
+  if (ovTrailBtn) ovTrailBtn.style.display = trail ? '' : 'none';
   $('b-again').textContent = trail ? 'Try again' : 'Play again';
   $('ov-score').textContent = S.score.toLocaleString('en-US');
-  const hero = $('ov-hero'), eraName = 'era-' + eraId();
+  const hero = $('ov-hero'), curEraId = eraId(), eraName = 'era-' + curEraId;
   const heroOk = ART.on && !ART.failed.includes(eraName);
   hero.classList.toggle('on', heroOk);
   if (heroOk) {
+    if (!artReady(eraName)) loadArt(eraName, false);
     hero.style.backgroundImage = 'url("assets/' + eraName + '.webp")';
-    hero.style.backgroundPosition = (ERA_CROP[eraId()] || ERA_CROP.ancient).hero;
+    hero.style.backgroundPosition = (ERA_CROP[curEraId] || ERA_CROP.ancient).hero;
+    const heroEra = ERAS.find(e => e.id === curEraId) || ERAS[0];
+    hero.dataset.era = String(ERAS.indexOf(heroEra));
+    hero.setAttribute('aria-label', 'View ' + heroEra.name + ' postcard full size');
   }
   const countDur = countUp($('ov-count'), S.score);
   $('ov-new').textContent = UI.newBest ? 'New best!' : 'Best: ' + bestFor(S.mode).toLocaleString('en-US');
@@ -6112,13 +6242,36 @@ function fillOver() {
     rows.push(['Daily streak', dailyStreak(S.daily) + (dailyStreak(S.daily) === 1 ? ' day' : ' days')]);
   }
   if (UI.earned && UI.earned.length) rows.push(['Goals earned', UI.earned.join(', ')]);
-  if (UI.newCards && UI.newCards.length) rows.push(['Fact card collected', UI.newCards.join(', ')]);
-  $('ov-tip').textContent = won || trail ? '' : overTip();
+  if (UI.newEras && UI.newEras.length) rows.push(['Era postcard collected', UI.newEras.join(', '), { jump: 'cards-era' }]);
+  if (UI.newCards && UI.newCards.length) rows.push(['Fact card collected', UI.newCards.join(', '), { jump: 'cards-water' }]);
+  if (S.mode === 'classic' && !SAVE.best.daily[todayStr()] && !savedRun('daily', todayStr())) {
+    rows.push(['Daily Soak', 'Play today’s board →', { daily: true }]);
+  }
+  $('ov-tip').textContent = won ? '' : trail ? (trailLv && trailLv.hint ? 'Hint: ' + trailLv.hint : '') : overTip();
   const dl = $('ov-stats'); dl.innerHTML = '';
   const redRow = reducedMotion();
-  rows.forEach(([k, v], idx) => {
+  rows.forEach(([k, v, meta], idx) => {
     const dt = document.createElement('dt'); dt.textContent = k;
-    const dd = document.createElement('dd'); dd.textContent = v;
+    const dd = document.createElement('dd');
+    if (meta && meta.jump) {
+      const btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'stat-link'; btn.textContent = v;
+      btn.setAttribute('aria-label', k + ': ' + v + '. Open Fact cards');
+      btn.addEventListener('click', () => {
+        audioInit(); sfx('click', { dir: 1 });
+        showScene('cards');
+        const target = $(meta.jump);
+        if (target) target.scrollIntoView({ block: 'start', behavior: reducedMotion() ? 'auto' : 'smooth' });
+      });
+      dd.appendChild(btn);
+    } else if (meta && meta.daily) {
+      const btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'stat-link'; btn.textContent = v;
+      btn.addEventListener('click', () => { audioInit(); sfx('click', { dir: 1 }); startMode('daily'); });
+      dd.appendChild(btn);
+    } else {
+      dd.textContent = v;
+    }
     const dly = redRow ? '0ms' : Math.min(245, idx * 35) + 'ms';
     dt.style.animationDelay = dly; dd.style.animationDelay = dly;
     dl.append(dt, dd);
@@ -6171,12 +6324,79 @@ function factEl(L) {
   const p = document.createElement('p'); p.style.margin = '6px 0 0'; p.textContent = L.fact; el.appendChild(p);
   return el;
 }
+// Reusable inline-SVG Bathhouse Row skyline & park landmark emblem kit (~2 KB, 0 external assets, W6-S2-02 / W6-S2-03).
+const ROW_SVG = {
+  'superior-bathhouse':      '<path d="M5 22V8h38v14M3 8h42M5 12h38" stroke="currentColor" stroke-width="1.7" fill="none"/><circle cx="14" cy="10" r="1.4" fill="currentColor"/><circle cx="24" cy="10" r="1.4" fill="currentColor"/><circle cx="34" cy="10" r="1.4" fill="currentColor"/><path d="M12 22v-6h6v6M21 22v-6h6v6M30 22v-6h6v6" stroke="currentColor" stroke-width="1.3" fill="none"/>',
+  'hale-bathhouse':          '<path d="M4 11L11 6h26l7 5z" fill="currentColor" fill-opacity=".22" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M7 11v11h34V11M13 22v-5a3 3 0 016 0v5M21 22v-5a3 3 0 016 0v5M29 22v-5a3 3 0 016 0v5" stroke="currentColor" stroke-width="1.5" fill="none"/>',
+  'maurice-spring-fountain': '<path d="M16 8l8-4 8 4z" fill="currentColor" fill-opacity=".24" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6 22V8h36v14M4 8h40M19 22v-7a5 5 0 0110 0v7M24 14v5" stroke="currentColor" stroke-width="1.5" fill="none"/>',
+  'fordyce-bathhouse':       '<path d="M5 10l5-4h28l5 4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linejoin="round"/><path d="M6 22V10h36v12M13 15h22l2 2H11z" fill="currentColor" fill-opacity=".18" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 13v-2M24 13v-2M36 13v-2M18 22v-5h12v5" stroke="currentColor" stroke-width="1.4" fill="none"/>',
+  'quapaw-bathhouse':        '<path d="M24 2v3M21 5h6M14 13a10 8 0 0120 0" fill="currentColor" fill-opacity=".24" stroke="currentColor" stroke-width="1.6"/><path d="M18 11l3-2 3 2 3-2 3 2" stroke="currentColor" stroke-width="1.1" fill="none"/><path d="M6 22v-9h36v9M20 22v-5a4 4 0 018 0v5" stroke="currentColor" stroke-width="1.6" fill="none"/>',
+  'ozark-bathhouse':         '<path d="M7 22V10h7v12M8.5 10V7h4v3M7.5 7l3-3 3 3M34 22V10h7v12M35.5 10V7h4v3M34.5 7l3-3 3 3" fill="currentColor" fill-opacity=".2" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M14 13h20v9H14M20 22v-5a4 4 0 018 0v5" stroke="currentColor" stroke-width="1.5" fill="none"/>',
+  'buckstaff-bathhouse':     '<path d="M4 8h40v3H4z" fill="currentColor" fill-opacity=".22" stroke="currentColor" stroke-width="1.5"/><path d="M6 11v11M11 11v11M16 11v11M21 11v11M27 11v11M32 11v11M37 11v11M42 11v11M4 22h40" stroke="currentColor" stroke-width="1.5" fill="none"/>',
+  'lamar-bathhouse':         '<path d="M5 22V9h38v13M3 9h42M11 9v13M19 9v13M29 9v13M37 9v13M14 14h2M23 14h2M32 14h2" stroke="currentColor" stroke-width="1.5" fill="none"/>',
+  'display-spring':          '<path d="M10 19a14 5 0 0028 0" stroke="currentColor" stroke-width="1.7" fill="none"/><ellipse cx="24" cy="18" rx="14" ry="3.5" fill="currentColor" fill-opacity=".22" stroke="currentColor" stroke-width="1.4"/><path d="M18 13c-1.5-2.5 1.5-4 0-7M24 12c-1.5-2.5 1.5-4 0-7M30 13c-1.5-2.5 1.5-4 0-7" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>',
+  'grand-promenade':         '<path d="M4 20h40M8 14h32M12 14v6M20 14v6M28 14v6M36 14v6M10 10h28" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M16 10l8-5 8 5" fill="currentColor" fill-opacity=".2" stroke="currentColor" stroke-width="1.4"/>',
+  'tufa-terrace-trail':      '<path d="M4 21h40v-4H30v-4H18V9H4z" fill="currentColor" fill-opacity=".2" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M10 15h12M22 19h14" stroke="currentColor" stroke-width="1.2" fill="none"/>',
+  'thermal-water-cascade':   '<path d="M6 7h12v4h10v4h14v6H6z" fill="currentColor" fill-opacity=".18" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M16 7c2 3 2 6 0 14M26 11c2 3 2 5 0 10M35 15c1.5 2 1.5 4 0 6" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>',
+};
+function svgCrestEl(id, cls) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 48 24');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('class', cls);
+  svg.innerHTML = ROW_SVG[id] || ROW_SVG['display-spring'];
+  return svg;
+}
+function lockedPostcardSvg() {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 160 64');
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.innerHTML = '<path d="M0 44L26 30L56 38L94 22L128 32L160 24V64H0Z" fill="currentColor" fill-opacity=".35"/><path d="M14 54V38h18v16M38 54V34l10-6 10 6v20M64 54V37a10 7 0 0120 0v17M90 54V35h6v-5h4v5h12v-5h4v5h6v19M128 54V38h20v16" stroke="currentColor" stroke-width="1.5" fill="none" stroke-opacity=".75"/>';
+  return svg;
+}
+function miniBoardSvg(L, locked) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 36 36');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('class', 'lv-mini');
+  const b = parseLevel(L);
+  let out = '<rect x="0" y="0" width="36" height="36" rx="3" fill="#0E2A30"/>';
+  out += '<path d="M12 0v36M24 0v36M0 12h36M0 24h36" stroke="rgba(201,162,63,.35)" stroke-width="0.6"/>';
+  for (let i = 0; i < 81; i++) {
+    const v = b[i]; if (!v) continue;
+    const r = Math.floor(i / 9), c = i % 9, x = c * 4 + 0.45, y = r * 4 + 0.45;
+    if (v === 8) {
+      out += '<rect x="' + x + '" y="' + y + '" width="3.1" height="3.1" rx="0.8" fill="' + (locked ? '#6E8488' : '#2A9D8F') + '" stroke="' + (locked ? '#9BA9A5' : '#F7CF62') + '" stroke-width="0.55"/>';
+    } else if (v === 7) {
+      out += '<rect x="' + x + '" y="' + y + '" width="3.1" height="3.1" rx="0.7" fill="' + (locked ? '#7B776E' : '#C8C3B6') + '" stroke="#5A554B" stroke-width="0.4"/>';
+    } else {
+      const col = locked ? '#6A838A' : (TILE_HEX[v - 1] || '#E09A1E');
+      out += '<rect x="' + x + '" y="' + y + '" width="3.1" height="3.1" rx="0.7" fill="' + col + '"/>';
+    }
+  }
+  svg.innerHTML = out;
+  return svg;
+}
 function cardEl(id, locked) {
   const c = CARDS[id], L = LEVELS.find(l => l.id === id);
   const el = document.createElement('article'); el.className = 'card' + (locked ? ' locked' : '');
-  const h = document.createElement('h4'); h.textContent = locked ? L.name : c.place; el.appendChild(h);
+  const isNew = !locked && UI.freshCards && UI.freshCards.has('place:' + id);
+  if (!locked && ROW_SVG[id]) {
+    const hd = document.createElement('div'); hd.className = 'card-head';
+    const h = document.createElement('h4'); h.textContent = c.place;
+    hd.append(h, svgCrestEl(id, 'card-crest'));
+    el.appendChild(hd);
+  } else {
+    const h = document.createElement('h4'); h.textContent = locked ? L.name : c.place; el.appendChild(h);
+  }
   if (locked) { const p = document.createElement('p'); p.className = 'muted'; p.style.margin = '0'; p.textContent = 'Solve this Spring Trail puzzle to collect the card.'; el.appendChild(p); return el; }
-  const y = document.createElement('div'); y.className = 'yr'; y.textContent = c.year; el.appendChild(y);
+  const y = document.createElement('div'); y.className = 'yr'; y.textContent = c.year;
+  if (isNew) { const nb = document.createElement('span'); nb.className = 'card-new'; nb.textContent = 'New'; y.appendChild(nb); }
+  el.appendChild(y);
   const ul = document.createElement('ul'); for (const f of c.facts) { const li = document.createElement('li'); li.textContent = f; ul.appendChild(li); } el.appendChild(ul);
   return el;
 }
@@ -6203,7 +6423,14 @@ function showWinTrail() {
   const best = w.stars > w.prev && w.prev > 0 ? ' New best: up from ' + w.prev + '.' : '';
   const crown = w.crown === 'all' ? LEVELS[idx].name + ' was the last one: every puzzle is solved. You earned the ' + TRAIL_MASTER_TITLE + ' title. ' : w.crown === 'title' ? LEVELS[idx].name + ' was the last of the first ring, and every first-ring puzzle is solved. ' : '';
   const hasNext = idx >= 0 && idx < LEVELS.length - 1 && unlocked(idx + 1);
-  const gateNote = idx >= 0 && idx < LEVELS.length - 1 && !hasNext && ring2Gate(idx + 1) ? ' Earn ' + Math.max(0, TRAIL_RING2_STARS - trailStarTotal()) + ' more stars to open the second ring.' : '';
+  let gateNote = '';
+  if (idx >= 0 && idx < LEVELS.length - 1 && !hasNext && ring2Gate(idx + 1)) {
+    const needStars = Math.max(0, TRAIL_RING2_STARS - trailStarTotal());
+    const r1Done = ring1Complete();
+    if (!r1Done && needStars > 0) gateNote = ' Finish Ring 1 and earn ' + needStars + ' more stars to open the second ring.';
+    else if (!r1Done) gateNote = ' Finish the rest of Ring 1 to open the second ring.';
+    else gateNote = ' Earn ' + needStars + ' more stars to open the second ring.';
+  }
   $('win-sub').textContent = crown + how + best + next + ' ' + SAVE.trail.done.length + ' of ' + LEVELS.length + ' solved, ' + trailStarTotal() + ' stars.' + gateNote;
   announce(LEVELS[idx].name + ' solved with ' + w.stars + ' stars.');
   const box = $('win-card'); box.innerHTML = '';
@@ -6211,8 +6438,71 @@ function showWinTrail() {
   if (!redSt) cardNode.classList.add('win-card-in');
   box.appendChild(cardNode);
   $('b-next').style.display = hasNext ? '' : 'none';
+  const rep3 = $('b-replay3');
+  if (rep3) rep3.style.display = w.stars < 3 ? '' : 'none';
   showScene('win');
   bumpUiSettle(540);
+}
+
+// 0-KB focus-trapped full-bleed Era Postcard Lightbox (CD-WF2-01, W6-S2-03)
+function lightboxEraList(extraIdx = -1) {
+  const max = eraReached(), out = [];
+  for (let k = 0; k <= max && k < ERAS.length; k++) out.push(k);
+  if (extraIdx >= 0 && extraIdx < ERAS.length && !out.includes(extraIdx)) { out.push(extraIdx); out.sort((a, b) => a - b); }
+  return out.length ? out : [0];
+}
+function renderLightbox() {
+  const lb = UI.lightbox; if (!lb) return;
+  const k = lb.list[lb.pos], e = ERAS[k] || ERAS[0];
+  const eraName = 'era-' + e.id;
+  if (ART.on && !ART.failed.includes(eraName)) loadArt(eraName, false);
+  $('lb-title').textContent = e.name;
+  $('lb-years').textContent = e.years;
+  $('lb-pos').textContent = (lb.pos + 1) + ' of ' + lb.list.length + ' unlocked';
+  $('lb-cap').textContent = e.cap;
+  const img = $('lb-img');
+  img.alt = e.name + ' (' + e.years + ') painted Hot Springs panorama.';
+  if (ART.on && !ART.failed.includes(eraName)) {
+    img.src = 'assets/' + eraName + '.webp';
+    img.style.display = '';
+    if (img.decode) img.decode().catch(() => {});
+  } else {
+    img.removeAttribute('src');
+    img.style.display = 'none';
+  }
+  const single = lb.list.length <= 1;
+  $('lb-prev').disabled = single;
+  $('lb-next').disabled = single;
+}
+function openLightbox(eraIdx, fromEl = null) {
+  const list = lightboxEraList(eraIdx);
+  const pos = Math.max(0, list.indexOf(eraIdx));
+  UI.lightbox = { list, pos, from: fromEl || document.activeElement };
+  renderLightbox();
+  const sc = $('sc-lightbox');
+  sc.classList.add('on');
+  const pb = sc.querySelector('.panel-body'); if (pb) pb.scrollTop = 0;
+  syncInertness();
+  bumpUiSettle(200);
+  $('lb-close').focus({ preventScroll: true });
+  announce(ERAS[list[pos]].name + ' postcard opened.');
+}
+function stepLightbox(delta) {
+  const lb = UI.lightbox; if (!lb || lb.list.length <= 1) return;
+  lb.pos = (lb.pos + delta + lb.list.length) % lb.list.length;
+  renderLightbox();
+  sfx('click', { dir: delta > 0 ? 1 : -1 });
+  announce(ERAS[lb.list[lb.pos]].name + ', ' + (lb.pos + 1) + ' of ' + lb.list.length + '.');
+}
+function closeLightbox(restore = true) {
+  const lb = UI.lightbox; if (!lb) return;
+  UI.lightbox = null;
+  $('sc-lightbox').classList.remove('on');
+  syncInertness();
+  if (restore) {
+    if (lb.from && lb.from.focus && document.contains(lb.from) && isVisibleControl(lb.from)) lb.from.focus({ preventScroll: true });
+    else if (SCREENS[S.scene]) focusFirst(SCREENS[S.scene]);
+  }
 }
 
 // ===================================================================== SCENES + DOM
@@ -6241,9 +6531,10 @@ function primaryControl(root) {
   return [...root.querySelectorAll('button.primary, button.play')].find(isVisibleControl) || screenControls(root)[0] || null;
 }
 function syncInertness() {
-  // Unconditional non-game #cv & #hud inertness + tabIndex containment across 'title' and all 9 dialogs (W6-P-N04 / W6-S5-04 / CD-WF6-04).
-  const inPlay = S.scene === 'game' && !UI.confirm;
-  const mainActive = (S.scene === 'game' || S.scene === 'title') && !UI.confirm;
+  // Unconditional non-game #cv & #hud inertness + tabIndex containment across 'title' and all modal dialogs including Lightbox (W6-P-N04 / W6-S5-04 / CD-WF6-04).
+  const modalLayer = !!(UI.confirm || UI.lightbox);
+  const inPlay = S.scene === 'game' && !modalLayer;
+  const mainActive = (S.scene === 'game' || S.scene === 'title') && !modalLayer;
   const mainEl = $('main');
   if (mainEl) {
     mainEl.inert = !mainActive;
@@ -6263,9 +6554,15 @@ function syncInertness() {
   }
   for (const [k, id] of Object.entries(SCREENS)) {
     const el = $(id);
-    const active = !UI.confirm && k === S.scene;
+    const active = !modalLayer && k === S.scene;
     el.inert = !active;
     if (active) el.removeAttribute('aria-hidden'); else el.setAttribute('aria-hidden', 'true');
+  }
+  const lb = $('sc-lightbox');
+  if (lb) {
+    const lbActive = !!UI.lightbox && !UI.confirm;
+    lb.inert = !lbActive;
+    if (lbActive) lb.removeAttribute('aria-hidden'); else lb.setAttribute('aria-hidden', 'true');
   }
   const cf = $('sc-confirm');
   if (cf) {
@@ -6275,6 +6572,7 @@ function syncInertness() {
 }
 function showScene(name, restoreEl = null) {
   if (name === 'game' && !S.tray) name = 'title';
+  if (UI.lightbox) closeLightbox(false);
   if (name !== 'game' && UI.drag) cancelDrag({ animate: false });
   if (name !== 'over') cancelCountUp();
   if (name !== 'settings') UI.auditionAudio = false;
@@ -6288,10 +6586,11 @@ function showScene(name, restoreEl = null) {
     if (prev === 'game' || prev === 'pause') { UI.returnTo = 'pause'; if (opener && prev === 'pause') UI.returnFocus.pause = opener; }
     else if (subScenes.includes(prev) && UI.returnTo === 'pause') UI.returnTo = 'pause';
     else if (prev === 'trail' && name !== 'trail') { UI.returnTo = 'trail'; if (opener) UI.returnFocus.trail = opener; }
+    else if (prev === 'over' && name === 'cards') { UI.returnTo = 'over'; if (opener) UI.returnFocus.over = opener; }
     else { UI.returnTo = 'title'; if (opener && prev === 'title') UI.returnFocus.title = opener; }
   } else if (name === 'title' || name === 'game' || name === 'over' || name === 'win') {
     UI.returnTo = 'title';
-    if (name === 'game') UI.returnFocus = { title: null, pause: null, trail: null };
+    if (name === 'game') UI.returnFocus = { title: null, pause: null, trail: null, over: null };
   }
   S.scene = name;
   const pauseChain = name === 'pause' || (UI.pausedAt != null && subScenes.includes(name));
@@ -6329,6 +6628,8 @@ function showScene(name, restoreEl = null) {
   if (name === 'pause') {
     $('pause-goal').textContent = goalSentence();
     $('b-quit').textContent = (!S.over && S.placed > 0) ? 'Save & Menu' : 'Quit to menu';
+    const pt = $('b-pause-trail');
+    if (pt) pt.style.display = S.mode === 'trail' ? '' : 'none';
   }
   if (name === 'title') fillTitle();
   if (name === 'trail') fillTrail();
@@ -6340,7 +6641,7 @@ function showScene(name, restoreEl = null) {
   resize();
   updateHud();
   const applyFocus = () => {
-    if (UI.confirm || S.scene !== name) return;
+    if (UI.confirm || UI.lightbox || S.scene !== name) return;
     if (name === 'game') {
       cv.focus({ preventScroll: true });
     } else if (SCREENS[name]) {
@@ -6351,7 +6652,7 @@ function showScene(name, restoreEl = null) {
   };
   applyFocus();
   setTimeout(() => {
-    if (UI.confirm || S.scene !== name) return;
+    if (UI.confirm || UI.lightbox || S.scene !== name) return;
     const targetRoot = name === 'game' ? cv : (SCREENS[name] ? $(SCREENS[name]) : null);
     const ae = document.activeElement;
     if (!ae || ae === document.body || (targetRoot && ae !== targetRoot && !targetRoot.contains(ae))) applyFocus();
@@ -6370,7 +6671,7 @@ function focusFirst(id) {
   if (el) el.focus({ preventScroll: true });
 }
 function back() {
-  const target = (UI.returnTo === 'pause' && S.tray) ? 'pause' : UI.returnTo === 'trail' ? 'trail' : 'title';
+  const target = (UI.returnTo === 'pause' && S.tray) ? 'pause' : UI.returnTo === 'trail' ? 'trail' : (UI.returnTo === 'over' && S.over) ? 'over' : 'title';
   const restore = UI.returnFocus[target] || null;
   UI.returnFocus[target] = null;
   showScene(target, restore);
@@ -6405,7 +6706,10 @@ function updateHud() {
   }
   $('h-best').textContent = trail ? (SAVE.trail.done.length + '/' + LEVELS.length) : Math.max(bestFor(S.mode), S.score).toLocaleString('en-US');
   $('h-best-lbl').textContent = trail ? 'Solved' : 'Best';
-  $('h-mode').textContent = trail ? (LEVELS.find(l => l.id === S.level) || {}).name || '' : modeLabel();
+  const modeEl = $('h-mode');
+  modeEl.textContent = trail ? (LEVELS.find(l => l.id === S.level) || {}).name || '' : modeLabel();
+  modeEl.classList.toggle('hintable', trail);
+  modeEl.title = trail ? 'Click to re-read this puzzle’s hint' : '';
   const gl = hudGoal(); $('h-goal').hidden = !gl; $('hud').classList.toggle('hasgoal', !!gl);
   $('hud').classList.toggle('long', Math.max(trail ? 0 : targetScoreTxt.length, $('h-best').textContent.length) > 5);
   if (gl) { $('h-goal-lbl').textContent = gl[0]; $('h-goal-num').textContent = gl[1]; }
@@ -6446,6 +6750,35 @@ function bestContinueRun() {
   return null;
 }
 const DIFF_LABEL = { relaxed: 'Relaxed', standard: 'Standard', master: 'Master' };
+function totalCardsUnlocked() {
+  const places = LEVELS.filter(l => CARDS[l.id] && SAVE.trail.done.includes(l.id)).length;
+  const eras = eraReached() + 1;
+  const water = WATER_CARDS.filter(c => waterCardOpen(c)).length;
+  return { places, eras, water, total: places + eras + water, max: LEVELS.filter(l => CARDS[l.id]).length + ERAS.length + WATER_CARDS.length };
+}
+function classicTopBest() {
+  const b = SAVE.best, diff = Object.values(b.diff || {}).map(d => (d && d.classic) || 0);
+  return Math.max(b.classic || 0, ...diff, 0);
+}
+function advanceTicker(manual = false) {
+  const el = $('ticker');
+  if (!el) return;
+  tickerI = (tickerI + 1) % TICKER.length;
+  clearTimeout(tickerSwapTimer);
+  if (reducedMotion()) {
+    el.classList.remove('swap');
+    el.textContent = TICKER[tickerI];
+    if (manual) announce(TICKER[tickerI]);
+    return;
+  }
+  el.classList.add('swap');
+  tickerSwapTimer = setTimeout(() => {
+    tickerSwapTimer = 0;
+    el.textContent = TICKER[tickerI];
+    el.classList.remove('swap');
+    if (manual) announce(TICKER[tickerI]);
+  }, 110);
+}
 function fillTitle() {
   const cont = bestContinueRun(), r = cont ? cont.state : null;
   UI.continueMode = cont ? cont.mode : null;
@@ -6475,70 +6808,121 @@ function fillTitle() {
   $('springs-mtag').textContent = spSaved && spSaved.state.placed > 0 ? 'Saved · ' + (spSaved.state.springs | 0) + '/47' : diffKey === 'standard' ? '47 vents' : '47 vents · ' + diffName;
   $('trail-sub').textContent = (trailTitle() ? trailTitle() + ' · ' : '') + SAVE.trail.done.length + ' of ' + LEVELS.length + ' solved · ' + trailStarTotal() + ' stars.';
   $('trail-mtag').textContent = SAVE.trail.done.length > 0 ? SAVE.trail.done.length + '/24 · ' + trailStarTotal() + '★' : '24 puzzles';
+  // Zero-height unlock tallies & unread antique-brass pips on Title utility links (W6-S2-03, CD-WF1-08)
+  const cc = totalCardsUnlocked(), goalsGot = Object.keys(SAVE.ach).length;
+  if (UI.seenCards < 0) UI.seenCards = cc.total;
+  if (UI.seenGoals < 0) UI.seenGoals = goalsGot;
+  const cCnt = $('cards-cnt'), rCnt = $('records-cnt');
+  if (cCnt) cCnt.textContent = cc.total + '/' + cc.max;
+  if (rCnt) rCnt.textContent = goalsGot + '/' + GOALS.length;
+  const bCards = $('b-cards'), bRecs = $('b-records');
+  if (bCards) bCards.classList.toggle('unread', cc.total > UI.seenCards || UI.freshCards.size > 0);
+  if (bRecs) bRecs.classList.toggle('unread', goalsGot > UI.seenGoals);
   $('ticker').classList.remove('swap');
   $('ticker').textContent = TICKER[tickerI % TICKER.length];
 }
 let tickerSwapTimer = 0;
 setInterval(() => {
-  if (S.scene !== 'title' || reducedMotion()) return;
-  const el = $('ticker');
-  if (!el) return;
-  tickerI++;
-  clearTimeout(tickerSwapTimer);
-  el.classList.add('swap');
-  tickerSwapTimer = setTimeout(() => {
-    tickerSwapTimer = 0;
-    el.textContent = TICKER[tickerI % TICKER.length];
-    el.classList.remove('swap');
-  }, 110);
+  if (S.scene !== 'title' || UI.tickerPaused || UI.confirm || UI.lightbox || reducedMotion()) return;
+  advanceTicker(false);
 }, 8000);
 function trailStarTotal() { return Object.values(SAVE.trail.stars).reduce((a, n) => a + n, 0); }
 function starText(n) { return '★'.repeat(n) + '☆'.repeat(3 - n); }
 function starsEl(n) { const el = document.createElement('span'); el.className = 'stars'; el.setAttribute('role', 'img'); el.setAttribute('aria-label', n + ' of 3 stars'); el.textContent = starText(n); return el; }
 function ring2Gate(i) { return LEVELS[i].ring === 2 && !(LEVELS[i - 1] && LEVELS[i - 1].ring === 2); }
+function ring1Complete() { return LEVELS.slice(0, 12).every(l => SAVE.trail.done.includes(l.id)); }
+function rowPromenadeSolved() { return LEVELS.slice(3, 9).filter(l => SAVE.trail.done.includes(l.id)).length; }
+// Forgiving 3-stage Spring Trail Accordion Funnel (CD-WF2-06 / OQ-WF2-02 / W6-S2-02):
+// Stage 1 (#1-#3): linear onboarding -> Stage 2 (#4-#9): Open Bathhouse Row Promenade once #3 is solved ->
+// Stage 3 (#10-#12): Park Finale once any 4 of 6 Promenade puzzles are solved ->
+// Stage 4 (#13-#24): Ring 2 opens at Ring 1 complete + 18 stars in a rolling 3-puzzle window.
 function unlocked(i) {
+  if (i < 0 || i >= LEVELS.length) return false;
   if (i === 0 || SAVE.trail.done.includes(LEVELS[i].id)) return true;
-  if (ring2Gate(i)) return trailStarTotal() >= TRAIL_RING2_STARS && SAVE.trail.done.includes(LEVELS[i - 1].id);
-  return SAVE.trail.done.includes(LEVELS[i - 1].id);
+  if (i <= 2) return SAVE.trail.done.includes(LEVELS[i - 1].id);
+  if (i <= 8) return SAVE.trail.done.includes(LEVELS[2].id);
+  if (i <= 11) return rowPromenadeSolved() >= 4;
+  if (!ring1Complete() || trailStarTotal() < TRAIL_RING2_STARS) return false;
+  let unsolvedBefore = 0;
+  for (let k = 12; k < i; k++) if (!SAVE.trail.done.includes(LEVELS[k].id)) unsolvedBefore++;
+  return unsolvedBefore < 3;
 }
-// A strip of Bathhouse Row in street order above the list: each building is a button that lights once its puzzle is solved.
+function trailLockHint(i, total, r1Done, rowSolved) {
+  if (i <= 2) return 'Solve #' + i + ' ' + LEVELS[i - 1].name.replace(/ Bathhouse$/, '') + ' first';
+  if (i <= 8) return 'Solve #3 Maurice to open Bathhouse Row';
+  if (i <= 11) return 'Solve ' + Math.max(1, 4 - rowSolved) + ' more on Bathhouse Row (' + rowSolved + '/4)';
+  if (ring2Gate(i)) {
+    if (!r1Done && total >= TRAIL_RING2_STARS) return 'Finish Ring 1';
+    if (!r1Done) return 'Needs ' + TRAIL_RING2_STARS + ' stars (' + total + ') · Finish Ring 1';
+    return 'Needs ' + TRAIL_RING2_STARS + ' stars (' + total + ')';
+  }
+  if (!r1Done && total >= TRAIL_RING2_STARS) return 'Finish Ring 1';
+  if (total < TRAIL_RING2_STARS) return 'Needs ' + TRAIL_RING2_STARS + ' stars (' + total + ')';
+  return 'Solve an open Ring 2 puzzle';
+}
+// Swipeable single-row >=44px inline-SVG Bathhouse Row architectural skyline in N->S street order (CD-WF5-05, S4-06, W6-S2-02).
 function fillRowStrip() {
   const strip = $('row-strip'); strip.innerHTML = '';
   const end = t => { const e = document.createElement('span'); e.className = 'end'; e.textContent = t; e.setAttribute('aria-hidden', 'true'); return e; };
   strip.appendChild(end('N'));
+  const total = trailStarTotal(), r1Done = ring1Complete(), rowSolved = rowPromenadeSolved();
   ROW_ORDER.forEach(id => {
     const i = LEVELS.findIndex(l => l.id === id); if (i < 0) return;
-    const b = document.createElement('button'), done = SAVE.trail.done.includes(id);
-    b.textContent = LEVELS[i].name.replace(/ Bathhouse$/, '');
-    b.setAttribute('aria-label', LEVELS[i].name + (done ? ', solved' : unlocked(i) ? '' : ', locked'));
-    if (done) b.classList.add('done');
-    b.disabled = !unlocked(i);
+    const b = document.createElement('button'), done = SAVE.trail.done.includes(id), open = unlocked(i);
+    const stars = SAVE.trail.stars[id] || 0;
+    b.type = 'button';
+    b.dataset.num = '#' + (i + 1);
+    const lbl = document.createElement('span');
+    lbl.textContent = LEVELS[i].name.replace(/ Bathhouse$/, '');
+    b.append(svgCrestEl(id, 'row-svg'), lbl);
+    b.setAttribute('aria-label', LEVELS[i].name + (done ? ', solved' : open ? '' : ', locked'));
+    b.title = '#' + (i + 1) + ' ' + LEVELS[i].name + (done ? ' — Solved' + (stars ? ' (' + stars + '★)' : '') : open ? ' — ' + goalLabel(LEVELS[i].goal) : ' — ' + trailLockHint(i, total, r1Done, rowSolved));
+    if (done) {
+      b.classList.add('done');
+      if (UI.justLitLevel === id) b.classList.add('just-lit');
+    }
+    b.disabled = !open;
     b.addEventListener('click', () => { sfx('click'); newGame({ mode: 'trail', level: id, resume: true }); });
     strip.appendChild(b);
   });
   strip.appendChild(end('S'));
+  UI.justLitLevel = '';
 }
 function fillTrail() {
   const box = $('levels'); box.innerHTML = '';
-  const total = trailStarTotal();
-  $('trail-intro').textContent = '12 Bathhouse Row landmarks plus 12 Spring Science mastery boards. Each has a fixed set of pieces and one goal, with an Up Next queue and no Score or Heat. Finish with no undos for three stars, up to two for two, more for one. ' + TRAIL_RING2_STARS + ' stars open the second ring. You have ' + total + '.';
+  const total = trailStarTotal(), r1Done = ring1Complete(), r1Count = LEVELS.slice(0, 12).filter(l => SAVE.trail.done.includes(l.id)).length, rowSolved = rowPromenadeSolved();
+  $('trail-intro').textContent = '12 Bathhouse Row landmarks (#1–#3 open the full Bathhouse Row Promenade #4–#9; any 4 Row solves open #10–#12) plus 12 Spring Science mastery boards. Finish with no undos for 3★, up to 2 for 2★, more for 1★. Completing Ring 1 with ' + TRAIL_RING2_STARS + ' stars opens Ring 2 in a rolling 3-puzzle window. You have ' + r1Count + '/12 Ring 1 solved and ' + total + ' stars.';
   fillRowStrip();
   LEVELS.forEach((L, i) => {
     if (ring2Gate(i)) {
       const h = document.createElement('h3'); h.className = 'ring';
-      h.textContent = 'Second ring · Spring Science Mastery' + (total >= TRAIL_RING2_STARS ? '' : ' · locked until ' + TRAIL_RING2_STARS + ' stars');
+      const headTxt = document.createElement('span');
+      if (r1Done && total >= TRAIL_RING2_STARS) headTxt.textContent = 'Second ring · Spring Science Mastery · ' + total + ' / ' + (LEVELS.length * 3) + '★';
+      else if (!r1Done && total >= TRAIL_RING2_STARS) headTxt.textContent = 'Second ring · Spring Science Mastery · Finish Ring 1 (' + r1Count + '/12 · ' + total + '/' + TRAIL_RING2_STARS + '★)';
+      else if (!r1Done) headTxt.textContent = 'Second ring · Spring Science Mastery · locked until ' + TRAIL_RING2_STARS + ' stars & Ring 1 (' + total + '/' + TRAIL_RING2_STARS + '★)';
+      else headTxt.textContent = 'Second ring · Spring Science Mastery · locked until ' + TRAIL_RING2_STARS + ' stars (' + total + '/' + TRAIL_RING2_STARS + '★)';
+      const bar = document.createElement('span'); bar.className = 'ring-bar'; bar.setAttribute('aria-hidden', 'true');
+      const fill = document.createElement('span'); fill.className = 'ring-fill';
+      fill.style.transform = 'scaleX(' + clamp01(total / TRAIL_RING2_STARS).toFixed(3) + ')';
+      bar.appendChild(fill);
+      h.append(headTxt, bar);
       box.appendChild(h);
     }
     const b = document.createElement('button');
+    b.type = 'button';
     const done = SAVE.trail.done.includes(L.id), open = unlocked(i), stars = SAVE.trail.stars[L.id] || 0;
     if (done) b.className = 'done';
     b.disabled = !open;
+    const top = document.createElement('div'); top.className = 'lv-top';
+    const meta = document.createElement('div'); meta.className = 'lv-meta';
     const n = document.createElement('b'); n.textContent = (i + 1) + '. ' + L.name;
     const st = document.createElement('span'); st.className = 'st';
     st.textContent = savedRun('trail', L.id) ? 'In progress · tap to continue' : done ? (stars ? 'Solved' : 'Solved · replay for stars') : open ? goalLabel(L.goal) + ' · ' + L.pieces.length + ' pieces'
-      : ring2Gate(i) ? 'Needs ' + TRAIL_RING2_STARS + ' stars (' + total + ')' : 'Locked';
-    b.append(n, st);
-    if (stars) b.appendChild(starsEl(stars));
+      : trailLockHint(i, total, r1Done, rowSolved);
+    meta.append(n, st);
+    if (stars) meta.appendChild(starsEl(stars));
+    top.append(miniBoardSvg(L, !open), meta);
+    b.appendChild(top);
     b.addEventListener('click', () => { sfx('click'); newGame({ mode: 'trail', level: L.id, resume: true }); });
     box.appendChild(b);
   });
@@ -6552,6 +6936,9 @@ function goalLabel(g) { return g === 'stones+vents' ? 'Clear tufa & vents' : g =
 function waterCardEl(c) {
   const open = waterCardOpen(c), el = document.createElement('article'); el.className = 'card' + (open ? '' : ' locked');
   const h = document.createElement('h4'); h.textContent = c.title; el.appendChild(h);
+  if (open && UI.freshCards && UI.freshCards.has('water:' + c.id)) {
+    const nb = document.createElement('span'); nb.className = 'card-new'; nb.textContent = 'New'; h.appendChild(nb);
+  }
   const p = document.createElement('p'); p.style.margin = open ? '6px 0 0' : '0'; if (!open) p.className = 'muted';
   p.textContent = open ? c.text : c.lines ? 'Clear ' + c.lines + ' groups in total, in any mode.' : 'Finish a Daily Soak ' + c.streak + ' days in a row.';
   el.appendChild(p);
@@ -6559,18 +6946,57 @@ function waterCardEl(c) {
 }
 function eraCardEl(k) {
   const e = ERAS[k], open = k <= eraReached(), el = document.createElement('article'); el.className = 'card postcard' + (open ? '' : ' locked');
-  if (open && ART.on && !ART.failed.includes('era-' + e.id)) { const pic = document.createElement('div'); pic.className = 'pic'; pic.setAttribute('aria-hidden', 'true'); pic.style.backgroundImage = 'url("assets/era-' + e.id + '.webp")'; pic.style.backgroundPosition = (ERA_CROP[e.id] || ERA_CROP.ancient).hero; el.appendChild(pic); }
+  const eraName = 'era-' + e.id;
+  if (open) {
+    if (ART.on && !ART.failed.includes(eraName)) {
+      const btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'pic-btn';
+      btn.setAttribute('aria-label', 'View ' + e.name + ' postcard full size');
+      const img = document.createElement('img');
+      img.className = 'pic-img';
+      img.alt = '';
+      img.decoding = 'async';
+      img.loading = 'eager';
+      img.src = 'assets/' + eraName + '.webp';
+      img.style.objectPosition = (ERA_CROP[e.id] || ERA_CROP.ancient).hero;
+      img.addEventListener('error', () => { img.style.display = 'none'; });
+      const badge = document.createElement('span'); badge.className = 'pic-badge'; badge.setAttribute('aria-hidden', 'true'); badge.textContent = 'View';
+      btn.append(img, badge);
+      btn.addEventListener('click', () => { audioInit(); sfx('click', { dir: 1 }); openLightbox(k, btn); });
+      el.appendChild(btn);
+    }
+  } else {
+    const lp = document.createElement('div'); lp.className = 'pic locked-pic'; lp.setAttribute('aria-hidden', 'true');
+    lp.appendChild(lockedPostcardSvg());
+    el.appendChild(lp);
+  }
   const h = document.createElement('h4'); h.textContent = e.name; el.appendChild(h);
-  const y = document.createElement('div'); y.className = 'yr'; y.textContent = e.years; el.appendChild(y);
+  const y = document.createElement('div'); y.className = 'yr'; y.textContent = e.years;
+  if (open && UI.freshCards && UI.freshCards.has('era:' + e.id)) {
+    const nb = document.createElement('span'); nb.className = 'card-new'; nb.textContent = 'New'; y.appendChild(nb);
+  }
+  el.appendChild(y);
   const p = document.createElement('p'); p.style.margin = '6px 0 0'; if (!open) p.className = 'muted';
   p.textContent = open ? e.cap : 'Reach ' + e.at.toLocaleString('en-US') + ' points in Classic.';
   el.appendChild(p);
   return el;
 }
+function setCardsFilter(cat = 'all') {
+  UI.cardsCat = ['all', 'places', 'eras', 'water'].includes(cat) ? cat : 'all';
+  const tabs = $('cards-tabs');
+  if (tabs) tabs.querySelectorAll('button[data-cat]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.cat === UI.cardsCat)));
+  const map = { places: 'sec-places', eras: 'sec-eras', water: 'sec-water' };
+  for (const [k, id] of Object.entries(map)) {
+    const sec = $(id);
+    if (sec) sec.hidden = UI.cardsCat !== 'all' && UI.cardsCat !== k;
+  }
+  const pb = $('sc-cards') && $('sc-cards').querySelector('.panel-body');
+  if (pb) pb.scrollTop = 0;
+}
 function fillCards() {
   const ebox = $('cards-era'); ebox.innerHTML = '';
   ERAS.forEach((_, k) => ebox.appendChild(eraCardEl(k)));
-  $('cards-era-sub').textContent = (eraReached() + 1) + ' of ' + ERAS.length + ' collected. Score in Classic to move the town forward.';
+  $('cards-era-sub').textContent = (eraReached() + 1) + ' of ' + ERAS.length + ' collected. Score in Classic to move the town forward; tap any collected postcard to inspect the full painting.';
   const wbox = $('cards-water'); wbox.innerHTML = '';
   WATER_CARDS.forEach(c => wbox.appendChild(waterCardEl(c)));
   $('cards-water-sub').textContent = WATER_CARDS.filter(c => waterCardOpen(c)).length + ' of ' + WATER_CARDS.length + ' collected. Clear groups in any mode and keep a Daily Soak streak going.';
@@ -6578,9 +7004,32 @@ function fillCards() {
   const withCards = LEVELS.filter(l => CARDS[l.id]);
   $('cards-sub').textContent = withCards.filter(l => SAVE.trail.done.includes(l.id)).length + ' of ' + withCards.length + ' collected. Solve Spring Trail puzzles to collect cards. Water cards, earned in any mode, follow below. Where the facts come from is on the Help screen.';
   withCards.forEach(L => box.appendChild(cardEl(L.id, !SAVE.trail.done.includes(L.id))));
+  const cc = totalCardsUnlocked();
+  if ($('ctab-all')) $('ctab-all').textContent = 'All (' + cc.max + ')';
+  if ($('ctab-places')) $('ctab-places').textContent = 'Bathhouse Row (' + cc.places + '/' + withCards.length + ')';
+  if ($('ctab-eras')) $('ctab-eras').textContent = 'Era Postcards (' + cc.eras + '/' + ERAS.length + ')';
+  if ($('ctab-water')) $('ctab-water').textContent = 'Water Cards (' + cc.water + '/' + WATER_CARDS.length + ')';
+  setCardsFilter('all'); // CD-WF5-05 / PREC-03: always default to All (27) so #cards-era stays immediately rendered
+  UI.seenCards = cc.total;
+  UI.freshCards.clear();
 }
 function fillRecords() {
   const st = SAVE.stats, dl = $('rec-stats'); dl.innerHTML = '';
+  const yrs = Math.min(4400, st.lines * 10), pct = clamp01(yrs / 4400);
+  if ($('rec-aq-yrs')) $('rec-aq-yrs').textContent = yrs.toLocaleString('en-US') + ' / 4,400 years';
+  const aqBar = $('rec-aq-bar'), aqFill = $('rec-aq-fill');
+  if (aqBar) aqBar.setAttribute('aria-valuenow', String(yrs));
+  if (aqFill) {
+    if (reducedMotion()) {
+      aqFill.style.transform = 'scaleX(' + pct.toFixed(4) + ')';
+    } else {
+      aqFill.style.transform = 'scaleX(0)';
+      requestAnimationFrame(() => { aqFill.style.transform = 'scaleX(' + pct.toFixed(4) + ')'; });
+    }
+  }
+  $('rec-age').textContent = yrs >= 4400
+    ? 'Water’s age: 4,400 years. Your spring has emerged! Most Hot Springs water is about 4,400 years old.'
+    : 'Water’s age: ' + yrs.toLocaleString('en-US') + ' of 4,400 years underground (each group you clear counts 10 years). Most Hot Springs water is about 4,400 years old.';
   const rows = [['Classic best', SAVE.best.classic.toLocaleString('en-US')], ['Springs best', SAVE.best.springs.toLocaleString('en-US')],
     ['Today’s Daily Soak', (SAVE.best.daily[todayStr()] || 0).toLocaleString('en-US')], ['Spring Trail', SAVE.trail.done.length + ' / ' + LEVELS.length + (trailTitle() ? ' · ' + trailTitle() : '')], ['Trail stars', trailStarTotal() + ' / ' + LEVELS.length * 3],
     ['Best Daily Soak', Math.max(0, ...Object.values(SAVE.best.daily)).toLocaleString('en-US')], ['Daily Soaks played', dailyDays().size],
@@ -6589,10 +7038,7 @@ function fillRecords() {
     ['Springs opened (lifetime)', st.springs], ['Games that reached Boiling', SAVE.goals.boiled]];
   for (const [k, v] of rows) { const dt = document.createElement('dt'); dt.textContent = k; const dd = document.createElement('dd'); dd.textContent = v; dl.append(dt, dd); }
   fillRecent(); fillDaily(); fillGoals();
-  const yrs = Math.min(4400, st.lines * 10);
-  $('rec-age').textContent = yrs >= 4400
-    ? 'Water’s age: 4,400 years. Your spring has emerged! Most Hot Springs water is about 4,400 years old.'
-    : 'Water’s age: ' + yrs.toLocaleString('en-US') + ' of 4,400 years underground (each group you clear counts 10 years). Most Hot Springs water is about 4,400 years old.';
+  UI.seenGoals = Object.keys(SAVE.ach).length;
 }
 // The last ten scores per mode, newest first, with their average, so a player can see whether they are improving.
 // Bests at Relaxed and Master, listed once there is one.
@@ -6617,19 +7063,61 @@ function fillRecent() {
     li.append(b, sp); box.appendChild(li);
   }
 }
+function calDetailText(dayIso, today) {
+  const sc = SAVE.best.daily[dayIso], played = dailyDays().has(dayIso);
+  const label = dayLabel(dayIso) + (dayIso === today ? ' (Today)' : '');
+  if (sc > 0) return label + ' · Daily Soak best: ' + sc.toLocaleString('en-US') + '.';
+  if (played) return label + ' · Daily Soak completed.';
+  return label + (dayIso === today ? ' · Not played yet today.' : ' · Not played on this device.');
+}
+function selectCalDay(dayIso, today) {
+  UI.calSelected = dayIso;
+  const cal = $('rec-cal');
+  if (cal) cal.querySelectorAll('button[data-day]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.day === dayIso)));
+  const det = $('rec-cal-detail');
+  if (det) det.textContent = calDetailText(dayIso, today);
+}
 function fillDaily() {
   const today = todayStr(), days = dailyDays(), run = dailyStreak(), cal = $('rec-cal'); cal.innerHTML = '';
-  let n = 0;
+  let n = 0, lastPlayed = '';
+  const allDays = [];
   for (let k = 29; k >= 0; k--) {
-    const d = addDays(today, -k), i = document.createElement('i'), on = days.has(d);
-    i.textContent = String(Number(d.slice(8))); i.setAttribute('aria-hidden', 'true');
-    if (on) { i.className = 'on'; n++; }
-    if (k === 0) i.classList.add('today');
-    cal.appendChild(i);
+    const d = addDays(today, -k), on = days.has(d), sc = SAVE.best.daily[d] || 0;
+    allDays.push(d);
+    if (on) { n++; lastPlayed = d; }
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.dataset.day = d;
+    if (on) btn.classList.add('on');
+    if (k === 0) { btn.classList.add('today'); btn.setAttribute('aria-current', 'date'); }
+    const num = document.createElement('span'); num.textContent = String(Number(d.slice(8)));
+    const mark = document.createElement('span'); mark.className = 'cal-mark'; mark.setAttribute('aria-hidden', 'true'); mark.textContent = on ? '✓' : '·';
+    btn.append(num, mark);
+    btn.setAttribute('aria-label', dayLabel(d) + (k === 0 ? ', today' : '') + (sc > 0 ? ', played, best ' + sc.toLocaleString('en-US') : on ? ', played' : ', not played'));
+    btn.setAttribute('aria-pressed', 'false');
+    btn.addEventListener('click', () => { audioInit(); sfx('click', { dir: 1, soft: 0.6 }); selectCalDay(d, today); });
+    cal.appendChild(btn);
   }
   cal.setAttribute('aria-label', 'Daily Soak played on ' + n + ' of the last 30 days. Today is the last square.');
   const longest = dailyLongest();
   $('rec-streak').textContent = (run ? 'Streak: ' + run + (run === 1 ? ' day' : ' days') + (days.has(today) ? '.' : '. Play today to keep it.') : 'No streak yet. Finish a Daily Soak to start one.') + ' Longest: ' + longest + (longest === 1 ? ' day.' : ' days.');
+  const dailyCta = $('b-rec-daily');
+  if (dailyCta) {
+    const playedToday = days.has(today);
+    dailyCta.hidden = playedToday;
+    dailyCta.textContent = savedRun('daily', today) ? 'Continue today’s Daily Soak' : 'Play today’s Daily Soak';
+  }
+  const initDay = allDays.includes(UI.calSelected) ? UI.calSelected : (days.has(today) ? today : (lastPlayed || today));
+  selectCalDay(initDay, today);
+}
+function goalProgressText(id) {
+  if (id === 'bathhouse-regular') return Math.min(10, SAVE.goals.boiled) + ' / 10 Boiling games';
+  if (id === 'gilded-spa') return Math.min(400, classicTopBest()).toLocaleString('en-US') + ' / 400 Classic best';
+  if (id === 'modern-spa-city') return Math.min(4000, classicTopBest()).toLocaleString('en-US') + ' / 4,000 Classic best';
+  if (id === 'three-days') return Math.min(3, dailyStreak()) + ' / 3-day streak';
+  if (id === 'week-at-springs') return Math.min(7, dailyStreak()) + ' / 7-day streak';
+  if (id === 'four-thousand-years') return Math.min(440, SAVE.stats.lines).toLocaleString('en-US') + ' / 440 groups';
+  return '';
 }
 function fillGoals() {
   const box = $('rec-goals'); box.innerHTML = '';
@@ -6639,7 +7127,12 @@ function fillGoals() {
     if (when) { got++; li.className = 'got'; }
     const b = document.createElement('b'); b.textContent = name;
     const sp = document.createElement('span'); sp.textContent = when ? desc + ' Earned ' + when + '.' : 'Locked. ' + desc;
-    li.append(b, sp); box.appendChild(li);
+    li.append(b, sp);
+    if (!when) {
+      const prog = goalProgressText(id);
+      if (prog) { const pg = document.createElement('span'); pg.className = 'gprog'; pg.textContent = 'Progress: ' + prog; li.appendChild(pg); }
+    }
+    box.appendChild(li);
   }
   $('rec-goals-h').textContent = 'Goals · ' + got + ' of ' + GOALS.length;
 }
@@ -6760,7 +7253,7 @@ function wireDom() {
   document.querySelectorAll('[data-back],[data-close]').forEach(b => b.addEventListener('click', () => { audioInit(); sfx('click', { dir: -1 }); back(); }));
   // Backdrop-scrim click dismissal on non-confirm overlays (wf-5 §1A / §1C.1)
   document.querySelectorAll('.screen.overlay').forEach(sc => {
-    if (sc.id === 'sc-confirm') return;
+    if (sc.id === 'sc-confirm' || sc.id === 'sc-lightbox') return;
     sc.addEventListener('click', e => {
       if (e.target !== sc) return;
       if (sc.id === 'sc-pause') { resumeGame(); return; }
@@ -6770,20 +7263,43 @@ function wireDom() {
       else back();
     });
   });
+  $('sc-lightbox').addEventListener('click', e => { if (e.target === $('sc-lightbox')) { audioInit(); sfx('click', { dir: -1 }); closeLightbox(true); } });
+  $('lb-close').addEventListener('click', () => { audioInit(); sfx('click', { dir: -1 }); closeLightbox(true); });
+  $('lb-done').addEventListener('click', () => { audioInit(); sfx('click', { dir: -1 }); closeLightbox(true); });
+  $('lb-prev').addEventListener('click', () => { audioInit(); stepLightbox(-1); });
+  $('lb-next').addEventListener('click', () => { audioInit(); stepLightbox(1); });
+  $('ov-hero').addEventListener('click', () => { audioInit(); sfx('click', { dir: 1 }); openLightbox(Number($('ov-hero').dataset.era) || 0, $('ov-hero')); });
+  document.querySelectorAll('#cards-tabs [data-cat]').forEach(b => b.addEventListener('click', () => { audioInit(); sfx('click', { dir: 1 }); setCardsFilter(b.dataset.cat); }));
   $('b-continue').addEventListener('click', () => { audioInit(); sfx('click', { dir: 1 }); resumeSaved(); });
   $('b-pause').addEventListener('click', () => { audioInit(); pauseGame(); });
   $('b-resume').addEventListener('click', resumeGame);
   $('b-restart').addEventListener('click', () => { sfx('click'); askRestart(); });
+  $('b-pause-trail').addEventListener('click', () => { audioInit(); sfx('click'); saveResume(); showScene('trail'); });
   $('b-quit').addEventListener('click', () => { sfx('click', { dir: -1 }); saveResume(); showScene('title'); });
   $('b-again').addEventListener('click', () => { sfx('click', { dir: 1 }); restart(); });
+  $('b-ov-trail').addEventListener('click', () => { audioInit(); sfx('click'); showScene('trail'); });
   $('b-menu1').addEventListener('click', () => { sfx('click', { dir: -1 }); showScene('title'); });
   $('b-ovundo').addEventListener('click', () => { doUndo(); });
+  $('b-rec-daily').addEventListener('click', () => { audioInit(); sfx('click', { dir: 1 }); startMode('daily'); });
+  let tickerHover = false, tickerFocus = false;
+  const syncTickerPause = () => { UI.tickerPaused = tickerHover || tickerFocus; };
+  $('ticker').addEventListener('click', () => { audioInit(); sfx('click', { dir: 1, soft: 0.5 }); advanceTicker(true); });
+  $('ticker').addEventListener('mouseenter', () => { tickerHover = true; syncTickerPause(); });
+  $('ticker').addEventListener('mouseleave', () => { tickerHover = false; syncTickerPause(); });
+  $('ticker').addEventListener('focus', () => { tickerFocus = true; syncTickerPause(); });
+  $('ticker').addEventListener('blur', () => { tickerFocus = false; syncTickerPause(); });
+  $('h-mode').addEventListener('click', () => {
+    if (S.scene !== 'game' || S.mode !== 'trail' || S.over) return;
+    const L = LEVELS.find(l => l.id === S.level);
+    if (L && L.hint) { audioInit(); sfx('click', { soft: 0.5 }); toast(L.name, L.hint, 5000); }
+  });
   $('tip-skip').addEventListener('click', () => { audioInit(); sfx('click', { dir: -1 }); tipEnd(); cv.focus({ preventScroll: true }); });
   $('tip').addEventListener('click', e => { if (e.target === $('tip-skip') || !UI.tip) return; audioInit(); sfx('click', { dir: -1 }); UI.tip.cur = null; tipRender(); });
   $('b-tips').addEventListener('click', replayTips);
   $('b-tips-help').addEventListener('click', replayTips);
   $('b-menu2').addEventListener('click', () => { sfx('click', { dir: -1 }); showScene('title'); });
   $('b-trail2').addEventListener('click', () => { sfx('click'); showScene('trail'); });
+  $('b-replay3').addEventListener('click', () => { audioInit(); sfx('click', { dir: 1 }); newGame({ mode: 'trail', level: S.level }); });
   $('b-next').addEventListener('click', () => { sfx('click', { dir: 1 }); const i = LEVELS.findIndex(l => l.id === S.level); if (i >= 0 && i < LEVELS.length - 1 && unlocked(i + 1)) newGame({ mode: 'trail', level: LEVELS[i + 1].id }); else showScene('trail'); });
   $('b-undo').addEventListener('click', () => { audioInit(); doUndo(); cv.focus({ preventScroll: true }); });
   $('b-hint').addEventListener('click', () => { audioInit(); useHint(); cv.focus({ preventScroll: true }); });
@@ -6816,7 +7332,7 @@ function wireDom() {
   $('s-tray').addEventListener('change', e => { audioInit(); setSetting('traySide', e.target.value); sfx('click', { dir: 1 }); });
 }
 function goalSentence() {
-  if (S.mode === 'trail') { const L = LEVELS.find(l => l.id === S.level); return 'Goal: ' + (L ? goalLabel(L.goal) : 'solve the puzzle') + '.'; }
+  if (S.mode === 'trail') { const L = LEVELS.find(l => l.id === S.level); return 'Goal: ' + (L ? goalLabel(L.goal) : 'solve the puzzle') + '.' + (L && L.hint ? ' Hint: ' + L.hint : ''); }
   if (S.mode === 'springs') return 'Goal: clear the row, column or pool of each vent to open it. Open all 47.';
   if (S.mode === 'daily') return 'Goal: fill rows, columns and 3×3 pools on today’s shared board until no piece fits.';
   return 'Goal: fill a row, column or 3×3 pool to clear it, and keep going until no piece fits.';
@@ -6926,7 +7442,7 @@ function resumeSaved(preferredMode = null) {
   S.provBest = null;
   S.ledger = normalizeLedger(r.ledger);
   delete S.updatedAt;
-  UI.earned = []; UI.bestGleamed = false; clearSuspendedNotices(); tipStart(true); hideToast(); clearGoalToasts();
+  UI.earned = []; UI.newEras = []; UI.bestGleamed = false; clearSuspendedNotices(); tipStart(true); hideToast(); clearGoalToasts();
   UI.sel = -1; UI.ghost = null; UI.drag = null; UI.overAt = 0; UI.skipEnd = false; UI.pausedAt = null; UI.lastInput = performance.now();
   UI.hint = null; UI.hintRound = currentHintRound();
   syncGauges(true);
@@ -7202,6 +7718,20 @@ window.addEventListener('keydown', e => {
     }
     return;
   }
+  if (UI.lightbox) {   // 0-KB Era Postcard Lightbox owns the keyboard: Escape closes, Left/Right step eras, Tab traps inside
+    if (k === 'Escape' && !hasMod) { e.preventDefault(); audioInit(); sfx('click', { dir: -1 }); closeLightbox(true); }
+    else if (k === 'ArrowLeft' && !hasMod) { e.preventDefault(); audioInit(); stepLightbox(-1); }
+    else if (k === 'ArrowRight' && !hasMod) { e.preventDefault(); audioInit(); stepLightbox(1); }
+    else if (k === 'Tab' && !hasMod) {
+      const list = padControls();
+      if (list.length) {
+        const idx = list.indexOf(document.activeElement);
+        e.preventDefault();
+        list[e.shiftKey ? (idx <= 0 ? list.length - 1 : idx - 1) : (idx < 0 || idx === list.length - 1 ? 0 : idx + 1)].focus({ preventScroll: true });
+      }
+    }
+    return;
+  }
   // Tab trap inside all 8 non-confirm aria-modal="true" dialogs (W6-S5-04 / CD-WF6-04).
   const activeScreenEl = SCREENS[S.scene] ? $(SCREENS[S.scene]) : null;
   if (k === 'Tab' && !hasMod && activeScreenEl && activeScreenEl.getAttribute('aria-modal') === 'true') {
@@ -7295,7 +7825,7 @@ window.addEventListener('gamepadconnected', () => { PAD.connected = true; });
 window.addEventListener('gamepaddisconnected', checkPadConnected);
 const padKey = key => window.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
 function padControls() {
-  const root = UI.confirm ? $('sc-confirm') : SCREENS[S.scene] ? $(SCREENS[S.scene]) : null;
+  const root = UI.confirm ? $('sc-confirm') : UI.lightbox ? $('sc-lightbox') : SCREENS[S.scene] ? $(SCREENS[S.scene]) : null;
   return screenControls(root);
 }
 function padStep(dir) {
@@ -7315,14 +7845,14 @@ function padSelect(el, sign) {
   el.selectedIndex = (el.selectedIndex + sign + n) % n; el.dispatchEvent(new Event('change', { bubbles: true }));
 }
 function padDirection(dir) {
-  if (S.scene === 'game' && !UI.confirm) { if (!S.over) padKey('Arrow' + dir); return; }
+  if (S.scene === 'game' && !UI.confirm && !UI.lightbox) { if (!S.over) padKey('Arrow' + dir); return; }
   padStep(dir);
 }
 function padButton(name) {
-  if (UI.confirm || S.scene !== 'game') {
+  if (UI.confirm || UI.lightbox || S.scene !== 'game') {
     if (name === 'A') { const el = document.activeElement; if (el && el.tagName === 'SELECT') padSelect(el, 1); else if (el && padControls().includes(el)) el.click(); else if (padControls()[0]) padControls()[0].focus({ preventScroll: true }); }
-    else if (name === 'B') { if (S.scene === 'over' && !UI.confirm && canUndo()) doUndo(); else padKey('Escape'); }
-    else if (name === 'START' && !UI.confirm) {
+    else if (name === 'B') { if (UI.lightbox) padKey('Escape'); else if (S.scene === 'over' && !UI.confirm && canUndo()) doUndo(); else padKey('Escape'); }
+    else if (name === 'START' && !UI.confirm && !UI.lightbox) {
       if (S.scene === 'pause') padKey('p');
       else if (S.scene === 'over' || S.scene === 'win') { const pri = primaryControl($(SCREENS[S.scene])); if (pri) pri.click(); }
     }
@@ -7488,7 +8018,7 @@ window.__game = {
       case 'audio': audioInit(); sfx(a[0] || 'click'); return { ctx: !!AU.ctx, state: AU.ctx ? AU.ctx.state : null, gain: AU.master ? AU.master.gain.value : null };
       case 'infoLine': return infoLine();
       case 'doomed': return trayDoomed();
-      case 'words': return { ticker: TICKER.slice(), cards: Object.fromEntries(Object.entries(CARDS).map(([k, c]) => [k, { facts: c.facts.slice(), src: c.src }])) };
+      case 'words': return { ticker: TICKER.slice(), cards: Object.fromEntries(Object.entries(CARDS).map(([k, c]) => [k, { facts: c.facts.slice(), src: c.src }])), waterCards: WATER_CARDS.map(c => ({ id: c.id, title: c.title, text: c.text })) };
       case 'hint': return useHint();
       case 'hintState': return { hint: UI.hint ? { ...UI.hint } : null, avail: hintAvail(), round: currentHintRound() };
       case 'cues': return CUE_LOG.slice();
