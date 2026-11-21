@@ -275,27 +275,10 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
 </head>
 <body>
 <div id="inset" aria-hidden="true"></div>
+<main id="main">
 <canvas id="bg" aria-hidden="true"></canvas>
 <canvas id="water" aria-hidden="true"></canvas>
 <canvas id="cv" tabindex="0" role="application" aria-label="Thermal Blocks board. Keys: 1 2 3 pick a piece, arrows move, Enter places, U undoes, H shows a hint, P or Escape pauses, M mutes."></canvas>
-
-<header id="hud" aria-label="Game status">
-  <button id="b-pause" aria-label="Pause"><svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg></button>
-  <div class="mid">
-    <div class="stat score"><span class="lbl">Score</span><span class="num" id="h-score">0</span></div>
-    <div class="stat best"><span class="lbl" id="h-best-lbl">Best</span><span class="num" id="h-best">0</span></div>
-    <div class="stat goal" id="h-goal" hidden><span class="lbl" id="h-goal-lbl"></span><span class="num" id="h-goal-num"></span></div>
-    <div class="mode" id="h-mode">Classic</div>
-  </div>
-  <button id="b-hint" aria-label="Hint" title="Hint (H): show one good move, once for each tray"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 00-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0012 3z"/></svg></button>
-  <button id="b-undo" aria-label="Undo"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg><span class="cnt" id="h-undo">1</span></button>
-  <button id="b-sound" aria-label="Sound on" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path id="snd-wave" d="M16 9a4 4 0 010 6M18.5 6.5a8 8 0 010 11"/></svg></button>
-</header>
-
-<div id="toast" role="status" aria-live="polite"></div>
-<div id="live" class="sr" aria-live="polite"></div>
-<div id="achtoast" role="status" aria-live="polite"></div>
-<div id="tip" role="group" aria-label="Tip"><span id="tip-text"></span><button id="tip-skip" type="button">Skip tips</button></div>
 
 <section class="screen" id="sc-title" aria-label="Title">
   <div class="brand">
@@ -316,6 +299,25 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
     <p class="ticker" id="ticker"></p>
   </div>
 </section>
+</main>
+
+<header id="hud" aria-label="Game status">
+  <button id="b-pause" aria-label="Pause"><svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg></button>
+  <div class="mid">
+    <div class="stat score"><span class="lbl">Score</span><span class="num" id="h-score">0</span></div>
+    <div class="stat best"><span class="lbl" id="h-best-lbl">Best</span><span class="num" id="h-best">0</span></div>
+    <div class="stat goal" id="h-goal" hidden><span class="lbl" id="h-goal-lbl"></span><span class="num" id="h-goal-num"></span></div>
+    <div class="mode" id="h-mode">Classic</div>
+  </div>
+  <button id="b-hint" aria-label="Hint" title="Hint (H): show one good move, once for each tray"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 00-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0012 3z"/></svg></button>
+  <button id="b-undo" aria-label="Undo"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg><span class="cnt" id="h-undo">1</span></button>
+  <button id="b-sound" aria-label="Sound on" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path id="snd-wave" d="M16 9a4 4 0 010 6M18.5 6.5a8 8 0 010 11"/></svg></button>
+</header>
+
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="live" class="sr" aria-live="polite"></div>
+<div id="achtoast" role="status" aria-live="polite"></div>
+<div id="tip" role="group" aria-label="Tip"><span id="tip-text"></span><button id="tip-skip" type="button">Skip tips</button></div>
 
 <section class="screen overlay" id="sc-pause" role="dialog" aria-modal="true" aria-labelledby="pause-title">
   <div class="panel" style="width:min(380px,100%)">
@@ -445,7 +447,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
       <table class="keys">
         <tr><td>Mouse</td><td>Drag a piece and drop it. Or click a piece, then click the board.</td></tr>
         <tr><td>Touch</td><td>Drag a piece onto the board (it floats above your finger and snaps to the nearest open spot). Prefer tapping? Turn on <b>Tap to place</b> in Settings: tap a piece, tap the board to preview, and tap the preview to place.</td></tr>
-        <tr><td>Keyboard</td><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> or <kbd>Tab</kbd> pick a piece · arrows move · <kbd>Enter</kbd>/<kbd>Space</kbd> place · <kbd>U</kbd> undo · <kbd>H</kbd> hint · <kbd>M</kbd> mute · <kbd>P</kbd> pause · <kbd>Esc</kbd> cancel or pause</td></tr>
+        <tr><td>Keyboard</td><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd>, <kbd>Q</kbd>/<kbd>E</kbd>, or <kbd>Tab</kbd> pick a piece · arrows move · <kbd>Enter</kbd>/<kbd>Space</kbd> place · <kbd>U</kbd> or <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>H</kbd> hint · <kbd>M</kbd> mute · <kbd>P</kbd> pause · <kbd>Esc</kbd> cancel or pause</td></tr>
         <tr><td>Gamepad</td><td>D-pad or left stick moves · <b>A</b> places · <b>B</b> undoes (or goes back) · <b>LB</b>/<b>RB</b> pick a piece · <b>Y</b> hint · <b>Start</b> pauses</td></tr>
       </table>
       <p class="muted">Undo: one per round by default in Classic and Springs (change it in Settings), fixed at one per round in Daily Soak. Stuck? The lightbulb button (or <kbd>H</kbd>) shows one good move, once for each tray, in Classic, Daily Soak and Springs.</p>
@@ -1492,7 +1494,7 @@ function persist(intent = 'none', opts = null) {
 let S = freshGame('classic');
 S.scene = 'title';
 let SEED_PENDING = null;
-const UI = { sel: -1, cur: null, ghost: null, ghostCleared: false, drag: null, hover: null, returnTo: 'title', overAt: 0, skipEnd: false, fxFrozen: null, pausedAt: null, countRaf: 0, countUntil: 0, auditionAudio: false, dispHeat: 0, heatAnim: null, heatPulseAt: 0, dispScore: 0, scoreAnim: null, ambSteamAlpha: 1, endTimers: [], turnTimers: [], lastTap: null, lastInput: performance.now(), input: (window.matchMedia && matchMedia('(pointer:coarse)').matches) ? 'touch' : 'mouse', tip: null, earned: [] };
+const UI = { sel: -1, cur: null, ghost: null, ghostCleared: false, drag: null, hover: null, kbd: false, returnTo: 'title', returnFocus: { title: null, pause: null, trail: null }, overAt: 0, skipEnd: false, fxFrozen: null, pausedAt: null, countRaf: 0, countUntil: 0, auditionAudio: false, dispHeat: 0, heatAnim: null, heatPulseAt: 0, dispScore: 0, scoreAnim: null, ambSteamAlpha: 1, endTimers: [], turnTimers: [], lastTap: null, lastInput: performance.now(), input: (window.matchMedia && matchMedia('(pointer:coarse)').matches) ? 'touch' : 'mouse', tip: null, earned: [] };
 
 function todayStr(d = new Date()) {
   const p = n => String(n).padStart(2, '0');
@@ -3842,6 +3844,30 @@ function drawHint(now) {
   for (const [dr, dc] of p.cells) { rr(ctx, b.gx + (h.c + dc) * cell + 2, b.gy + (h.r + dr) * cell + 2, cell - 4, cell - 4, cell * 0.15); ctx.stroke(); }
   ctx.restore();
 }
+function drawKbdRimIndices() {
+  if (!UI.kbd || S.scene !== 'game') return;
+  const b = LAY.board, cell = b.cell, f = b.frame;
+  const gh = UI.ghost, t = gh && S.tray[gh.slot], p = t && PIECES[t.id];
+  const r0 = gh ? gh.r : (UI.cur ? UI.cur.r : -1), r1 = gh && p ? gh.r + p.h - 1 : r0;
+  const c0 = gh ? gh.c : (UI.cur ? UI.cur.c : -1), c1 = gh && p ? gh.c + p.wd - 1 : c0;
+  const bs = Math.max(15, Math.min(f - 1, 18));
+  const ty = b.y + f * 0.5, lx = b.x + f * 0.5;
+  ctx.save();
+  for (let i = 0; i < 9; i++) {
+    // Numeric 1-9 rim indices on BOTH axes (never A-I) matching spoken 'row R, column C' 1:1 (CD-WF5-07 / PREC-01 >=12px)
+    const cx = b.gx + (i + 0.5) * cell, cHit = c0 >= 0 && i >= c0 && i <= c1;
+    ctx.fillStyle = cHit ? 'rgba(26,48,44,.94)' : 'rgba(8,24,28,.82)';
+    rr(ctx, cx - bs / 2, ty - bs / 2, bs, bs, 4); ctx.fill();
+    if (cHit) { ctx.strokeStyle = 'rgba(247,207,98,.85)'; ctx.lineWidth = 1.2; rr(ctx, cx - bs / 2, ty - bs / 2, bs, bs, 4); ctx.stroke(); }
+    text(String(i + 1), cx, ty + 0.5, 12, cHit ? '#F7CF62' : '#F4F2EC', 'center', 'sans', '700', false);
+    const ry = b.gy + (i + 0.5) * cell, rHit = r0 >= 0 && i >= r0 && i <= r1;
+    ctx.fillStyle = rHit ? 'rgba(26,48,44,.94)' : 'rgba(8,24,28,.82)';
+    rr(ctx, lx - bs / 2, ry - bs / 2, bs, bs, 4); ctx.fill();
+    if (rHit) { ctx.strokeStyle = 'rgba(247,207,98,.85)'; ctx.lineWidth = 1.2; rr(ctx, lx - bs / 2, ry - bs / 2, bs, bs, 4); ctx.stroke(); }
+    text(String(i + 1), lx, ry + 0.5, 12, rHit ? '#F7CF62' : '#F4F2EC', 'center', 'sans', '700', false);
+  }
+  ctx.restore();
+}
 function drawGhost(now) {
   const gh = UI.ghost; if (!gh) return;
   const t = S.tray[gh.slot]; if (!t) return;
@@ -4576,7 +4602,7 @@ function draw(now) {
   ctx.restore();
   drawVentWisps(now);
   if (S.mode !== 'trail') drawHeatSteam(now);
-  if (S.scene === 'game') { drawGhost(now); drawHint(now); }
+  if (S.scene === 'game') { drawKbdRimIndices(); drawGhost(now); drawHint(now); }
   drawFx(now);
   ctx.restore();
   drawInfo(now);
@@ -4666,7 +4692,7 @@ function failSafe() {
     cancelCountUp();
     WATER.clear();
     clearGoalToasts();
-    if (UI.confirm) { UI.confirm = null; $('sc-confirm').classList.remove('on'); }
+    if (UI.confirm) { UI.confirm = null; $('sc-confirm').classList.remove('on'); syncInertness(); }
     if (UI.tip) { clearTimeout(UI.tip.timer); UI.tip = null; tipRender(); }
     UI.sel = -1; UI.ghost = null; UI.drag = null; UI.hint = null; UI.overAt = 0; UI.skipEnd = false; UI.pausedAt = null; UI.heatAnim = null; UI.scoreAnim = null; UI.heatPulseAt = 0; FX.length = 0;
     S = freshGame('classic'); S.scene = 'game';
@@ -5343,6 +5369,9 @@ function tipText(k) {
 function tipRender() {
   const t = UI.tip, el = $('tip'), on = !!(t && t.cur && S.scene === 'game' && !S.over);
   el.classList.toggle('on', on);
+  const tipActive = on && !UI.confirm;
+  el.inert = !tipActive;
+  if (tipActive) el.removeAttribute('aria-hidden'); else el.setAttribute('aria-hidden', 'true');
   if (on) $('tip-text').textContent = tipText(t.cur);
 }
 function tipShow(k) {
@@ -5654,7 +5683,52 @@ function resumePauseClocks() {
   if (UI.heatPulseAt) UI.heatPulseAt += dt;
   WATER.phaseT = now;
 }
-function showScene(name) {
+const PRIMARY_FOCUS_SCREENS = new Set(['sc-title', 'sc-pause', 'sc-over', 'sc-win', 'sc-confirm']);
+function isVisibleControl(el) {
+  return !!(el && !el.disabled && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden');
+}
+function screenControls(root) {
+  if (!root) return [];
+  return [...root.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])')].filter(isVisibleControl);
+}
+function primaryControl(root) {
+  if (!root) return null;
+  return [...root.querySelectorAll('button.primary, button.play')].find(isVisibleControl) || screenControls(root)[0] || null;
+}
+function syncInertness() {
+  // Unconditional non-game #cv & #hud inertness + tabIndex containment across 'title' and all 9 dialogs (W6-P-N04 / W6-S5-04 / CD-WF6-04).
+  const inPlay = S.scene === 'game' && !UI.confirm;
+  const mainActive = (S.scene === 'game' || S.scene === 'title') && !UI.confirm;
+  const mainEl = $('main');
+  if (mainEl) {
+    mainEl.inert = !mainActive;
+    if (mainActive) mainEl.removeAttribute('aria-hidden'); else mainEl.setAttribute('aria-hidden', 'true');
+  }
+  cv.inert = !inPlay;
+  cv.tabIndex = inPlay ? 0 : -1;
+  if (inPlay) cv.removeAttribute('aria-hidden'); else cv.setAttribute('aria-hidden', 'true');
+  const hudEl = $('hud');
+  hudEl.inert = !inPlay;
+  if (inPlay) hudEl.removeAttribute('aria-hidden'); else hudEl.setAttribute('aria-hidden', 'true');
+  const tipEl = $('tip');
+  if (tipEl) {
+    const tipActive = inPlay && tipEl.classList.contains('on');
+    tipEl.inert = !tipActive;
+    if (tipActive) tipEl.removeAttribute('aria-hidden'); else tipEl.setAttribute('aria-hidden', 'true');
+  }
+  for (const [k, id] of Object.entries(SCREENS)) {
+    const el = $(id);
+    const active = !UI.confirm && k === S.scene;
+    el.inert = !active;
+    if (active) el.removeAttribute('aria-hidden'); else el.setAttribute('aria-hidden', 'true');
+  }
+  const cf = $('sc-confirm');
+  if (cf) {
+    cf.inert = !UI.confirm;
+    if (UI.confirm) cf.removeAttribute('aria-hidden'); else cf.setAttribute('aria-hidden', 'true');
+  }
+}
+function showScene(name, restoreEl = null) {
   if (name === 'game' && !S.tray) name = 'title';
   if (name !== 'game' && UI.drag) cancelDrag({ animate: false });
   if (name !== 'over') cancelCountUp();
@@ -5664,12 +5738,15 @@ function showScene(name) {
   const prev = S.scene;
   const subScenes = ['help', 'settings', 'trail', 'cards', 'records'];
   if (subScenes.includes(name) && prev !== name) {
-    if (prev === 'game' || prev === 'pause') UI.returnTo = 'pause';
+    const prevRoot = SCREENS[prev] ? $(SCREENS[prev]) : null;
+    const opener = document.activeElement && prevRoot && prevRoot.contains(document.activeElement) ? document.activeElement : null;
+    if (prev === 'game' || prev === 'pause') { UI.returnTo = 'pause'; if (opener && prev === 'pause') UI.returnFocus.pause = opener; }
     else if (subScenes.includes(prev) && UI.returnTo === 'pause') UI.returnTo = 'pause';
-    else if (prev === 'trail' && name !== 'trail') UI.returnTo = 'trail';
-    else UI.returnTo = 'title';
+    else if (prev === 'trail' && name !== 'trail') { UI.returnTo = 'trail'; if (opener) UI.returnFocus.trail = opener; }
+    else { UI.returnTo = 'title'; if (opener && prev === 'title') UI.returnFocus.title = opener; }
   } else if (name === 'title' || name === 'game' || name === 'over' || name === 'win') {
     UI.returnTo = 'title';
+    if (name === 'game') UI.returnFocus = { title: null, pause: null, trail: null };
   }
   S.scene = name;
   if (name === 'game') resumePauseClocks();
@@ -5681,25 +5758,50 @@ function showScene(name) {
   const hudOn = inGame() || GAME_SCENES.has(name);
   $('hud').classList.toggle('on', hudOn);
   if (name !== 'game') { clearGoalToasts(); hideToast(); }
-  if (name === 'title') { fillTitle(); setTimeout(() => focusFirst('sc-title'), 0); }
+  if (name === 'title') fillTitle();
   if (name === 'trail') fillTrail();
   if (name === 'cards') fillCards();
   if (name === 'records') fillRecords();
   if (name === 'settings') fillSettings();
   if (name === 'over') fillOver();
-  if (name === 'game') { setTimeout(() => cv.focus({ preventScroll: true }), 0); }
-  else if (SCREENS[name] && name !== 'title') setTimeout(() => focusFirst(SCREENS[name]), 0);
+  syncInertness();
   resize();
   updateHud();
+  const applyFocus = () => {
+    if (UI.confirm || S.scene !== name) return;
+    if (name === 'game') {
+      cv.focus({ preventScroll: true });
+    } else if (SCREENS[name]) {
+      const root = $(SCREENS[name]);
+      if (restoreEl && root.contains(restoreEl) && isVisibleControl(restoreEl)) restoreEl.focus({ preventScroll: true });
+      else focusFirst(SCREENS[name]);
+    }
+  };
+  applyFocus();
+  setTimeout(() => {
+    if (UI.confirm || S.scene !== name) return;
+    const targetRoot = name === 'game' ? cv : (SCREENS[name] ? $(SCREENS[name]) : null);
+    const ae = document.activeElement;
+    if (!ae || ae === document.body || (targetRoot && ae !== targetRoot && !targetRoot.contains(ae))) applyFocus();
+  }, 0);
   audioMood();
   dirty = true;
   return true;
 }
-function focusFirst(id) { const el = $(id).querySelector('button.primary:not([style*="none"]), button:not(:disabled)'); if (el) el.focus({ preventScroll: true }); }
+function focusFirst(id) {
+  const root = $(id);
+  if (!root) return;
+  const headBtn = root.querySelector('.panel-head button');
+  const el = PRIMARY_FOCUS_SCREENS.has(id)
+    ? primaryControl(root)
+    : (isVisibleControl(headBtn) ? headBtn : screenControls(root)[0]);
+  if (el) el.focus({ preventScroll: true });
+}
 function back() {
-  if (UI.returnTo === 'pause' && S.tray) showScene('pause');
-  else if (UI.returnTo === 'trail') showScene('trail');
-  else showScene('title');
+  const target = (UI.returnTo === 'pause' && S.tray) ? 'pause' : UI.returnTo === 'trail' ? 'trail' : 'title';
+  const restore = UI.returnFocus[target] || null;
+  UI.returnFocus[target] = null;
+  showScene(target, restore);
 }
 // The goal of Springs and of each Trail puzzle as a number beside the score (S4-14): [label, value], or null where the goal is score.
 function hudGoal() {
@@ -6065,14 +6167,17 @@ function askConfirm(title, body, yes, no, onYes) {
   $('cf-title').textContent = title; $('cf-body').textContent = body; $('cf-yes').textContent = yes; $('cf-no').textContent = no;
   UI.confirm = { onYes, from: document.activeElement };
   $('sc-confirm').classList.add('on');
+  syncInertness();
   $('cf-no').focus({ preventScroll: true });
   announce(title + ' ' + body);
 }
 function closeConfirm(yes) {
   const c = UI.confirm; if (!c) return;
   UI.confirm = null; $('sc-confirm').classList.remove('on');
+  syncInertness();
   if (yes) c.onYes();
-  else if (c.from && c.from.focus && document.contains(c.from)) c.from.focus({ preventScroll: true });
+  else if (c.from && c.from.focus && document.contains(c.from) && isVisibleControl(c.from)) c.from.focus({ preventScroll: true });
+  else if (SCREENS[S.scene]) focusFirst(SCREENS[S.scene]);
 }
 // What a saved Classic or Springs run is worth for that mode, or null: only a run with a piece placed is something to lose.
 function savedRunWorth(mode) {
@@ -6185,24 +6290,40 @@ function cancelDrag(opts = null) {
     dirty = true;
   }
 }
-function dragGhost(d) {
-  const t = d && S.tray[d.slot];
+// Shared 0.6-cell overhang pull-in + 0.75-cell nearest-valid snap assist used across drag, mouse click-select, and touch Tap-to-Place (W6-S5-04 / CD-WF5-07).
+function resolveSnapTarget(slot, fr, fc) {
+  const t = S.tray[slot];
   if (!t) return null;
-  const p = PIECES[t.id], b = LAY.board;
-  const [x, y] = dragTopLeft(d, p);
-  let fr = (y - b.gy) / b.cell, fc = (x - b.gx) / b.cell;
-  // only show a ghost when the dragged piece is mostly over the board; a small overhang is pulled back in
+  const p = PIECES[t.id];
+  // only show a ghost when the piece is mostly over the board; a small overhang is pulled back in
   if (fr < -0.6 || fc < -0.6 || fr + p.h > 9.6 || fc + p.wd > 9.6) return null;
   fr = Math.max(0, Math.min(9 - p.h, fr)); fc = Math.max(0, Math.min(9 - p.wd, fc));
-  const near = ghostAt(d.slot, Math.round(fr), Math.round(fc));
+  const near = ghostAt(slot, Math.round(fr + 1e-9), Math.round(fc + 1e-9));
   if (!near || near.valid) return near;
   // snap assist: the closest valid neighbouring spot within 3/4 of a cell beats a blocked one
   let best = null, bd = 0.75;
   for (const r of [Math.floor(fr), Math.ceil(fr)]) for (const c of [Math.floor(fc), Math.ceil(fc)]) {
     const dist = Math.hypot(r - fr, c - fc);
-    if (dist < bd && canPlace(S.board, p.id, r, c)) { bd = dist; best = ghostAt(d.slot, r, c); }
+    if (dist < bd && canPlace(S.board, p.id, r, c)) { bd = dist; best = ghostAt(slot, r, c); }
   }
   return best || near;
+}
+function pointerTarget(slot, p) {
+  const t = S.tray[slot];
+  if (!t || slotAt(p) >= 0) return null;
+  const pc = PIECES[t.id], b = LAY.board;
+  const pr = (p.y - b.gy) / b.cell, pcx = (p.x - b.gx) / b.cell;
+  if (pr < -0.6 || pcx < -0.6 || pr > 9.6 || pcx > 9.6) return null;
+  const fr = Math.max(0, Math.min(9 - pc.h, pr - pc.h / 2));
+  const fc = Math.max(0, Math.min(9 - pc.wd, pcx - pc.wd / 2));
+  return resolveSnapTarget(slot, fr, fc);
+}
+function dragGhost(d) {
+  const t = d && S.tray[d.slot];
+  if (!t) return null;
+  const p = PIECES[t.id], b = LAY.board;
+  const [x, y] = dragTopLeft(d, p);
+  return resolveSnapTarget(d.slot, (y - b.gy) / b.cell, (x - b.gx) / b.cell);
 }
 function dragHint(k) {
   addFx({ type: 'nudge', slot: k, dur: reducedMotion() ? 1 : 340 }); sfx('pick', { k }); tipPicked();
@@ -6232,6 +6353,7 @@ cv.addEventListener('pointerdown', e => {
   if (S.scene === 'game' && S.over && UI.overAt) { UI.skipEnd = true; return; }   // a tap skips the wait for the results card (S1-02)
   if (S.scene !== 'game' || S.over) return;
   audioInit();
+  if (UI.kbd) { UI.kbd = false; dirty = true; }
   if (UI.drag && e.pointerId !== UI.drag.id) return;   // a second finger does not disturb the drag in hand (S6-14)
   const p = pt(e), k = slotAt(p);
   if (e.button === 2) return;
@@ -6245,26 +6367,39 @@ cv.addEventListener('pointerdown', e => {
     dirty = true; e.preventDefault(); return;
   }
   const cell = cellAt(p);
-  if (cell && UI.sel >= 0 && S.tray[UI.sel]) {
-    const touch = e.pointerType !== 'mouse';
-    if (touch && !SAVE.settings.tapPlace) return;
-    const pos = centeredAt(UI.sel, cell);
-    const gh = UI.ghost;
-    const onGhost = gh && gh.slot === UI.sel && PIECES[S.tray[UI.sel].id].cells.some(([dr, dc]) => gh.r + dr === cell.r && gh.c + dc === cell.c);
-    if (touch && !(onGhost && gh.valid)) { UI.cur = pos; UI.ghost = ghostAt(UI.sel, pos.r, pos.c); sfx(UI.ghost.valid ? 'pick' : 'invalid'); dirty = true; return; }
-    const tgt = touch ? gh : ghostAt(UI.sel, pos.r, pos.c);
-    UI.cur = { r: tgt.r, c: tgt.c };
-    if (tgt.valid) doPlace(UI.sel, tgt.r, tgt.c); else { sfx('invalid'); UI.ghost = tgt; dirty = true; }
-    return;
+  if (UI.sel >= 0 && S.tray[UI.sel]) {
+    const pos = pointerTarget(UI.sel, p);
+    if (pos) {
+      const touch = e.pointerType !== 'mouse';
+      if (touch && !SAVE.settings.tapPlace) return;
+      const gh = UI.ghost;
+      const pc = PIECES[S.tray[UI.sel].id];
+      const onGhost = !!(cell && gh && gh.slot === UI.sel && pc.cells.some(([dr, dc]) => gh.r + dr === cell.r && gh.c + dc === cell.c));
+      // Strict Tap-to-Place confirmation (CD-WF5-07 / CD-WF6-06): identical resolved target origin (40/40 including 10 concave pieces) OR occupied ghost cell.
+      const confirmTap = !!(gh && gh.slot === UI.sel && gh.valid && ((pos.r === gh.r && pos.c === gh.c) || onGhost));
+      if (touch && !confirmTap) {
+        UI.cur = { r: pos.r, c: pos.c };
+        UI.ghost = pos;
+        const pan = (pos.c + pc.wd / 2 - 4.5) / 4.5 * 0.55;
+        sfx(pos.valid ? 'pick' : 'invalid', { src: 'drag', pan });
+        checkClearLock(UI.ghost, pan);
+        dirty = true;
+        return;
+      }
+      const tgt = touch ? gh : pos;
+      UI.cur = { r: tgt.r, c: tgt.c };
+      if (tgt.valid) doPlace(UI.sel, tgt.r, tgt.c); else { sfx('invalid', { src: 'drag' }); UI.ghost = tgt; dirty = true; }
+      return;
+    }
   }
-  if (!cell) { UI.sel = -1; UI.ghost = null; dirty = true; }
+  if (!cell) { UI.sel = -1; UI.ghost = null; UI.ghostCleared = false; dirty = true; }
 });
 cv.addEventListener('pointermove', e => {
   const p = pt(e), d = UI.drag;
   if (d && e.pointerId === d.id) {
     if (!S.tray[d.slot]) { cancelDrag({ animate: false }); return; }
     d.x = p.x; d.y = p.y;
-    if (!d.moved && Math.hypot(p.x - d.sx, p.y - d.sy) > 8) { d.moved = true; d.t1 = performance.now(); UI.sel = -1; UI.ghostCleared = false; sfx('pick', { k: d.slot, pan: (d.slot - 1) * 0.25 }); tipPicked(); }
+    if (!d.moved && Math.hypot(p.x - d.sx, p.y - d.sy) > 8) { d.moved = true; d.t1 = performance.now(); UI.sel = -1; UI.kbd = false; UI.ghostCleared = false; sfx('pick', { k: d.slot, pan: (d.slot - 1) * 0.25 }); tipPicked(); }
     if (d.moved) {
       UI.ghost = dragGhost(d);
       const tCur = UI.ghost && S.tray[UI.ghost.slot], pCur = tCur && PIECES[tCur.id];
@@ -6274,8 +6409,18 @@ cv.addEventListener('pointermove', e => {
     dirty = true; return;
   }
   if (S.scene === 'game' && e.pointerType === 'mouse' && UI.sel >= 0 && S.tray[UI.sel]) {
-    const cell = cellAt(p);
-    if (cell) { const pos = centeredAt(UI.sel, cell); UI.cur = pos; const g = ghostAt(UI.sel, pos.r, pos.c); if (!UI.ghost || g.r !== UI.ghost.r || g.c !== UI.ghost.c) { UI.ghost = g; dirty = true; } }
+    const g = pointerTarget(UI.sel, p);
+    if (g) {
+      UI.cur = { r: g.r, c: g.c };
+      if (!UI.ghost || g.slot !== UI.ghost.slot || g.r !== UI.ghost.r || g.c !== UI.ghost.c || g.valid !== UI.ghost.valid) {
+        UI.ghost = g;
+        const pc = PIECES[S.tray[UI.sel].id];
+        checkClearLock(UI.ghost, (g.c + pc.wd / 2 - 4.5) / 4.5 * 0.55);
+        dirty = true;
+      }
+    } else if (UI.ghost && !UI.kbd) {
+      UI.ghost = null; UI.ghostCleared = false; dirty = true;
+    }
   }
 });
 function endDrag(e, cancel) {
@@ -6343,46 +6488,96 @@ function cycleSel(dir) {
 }
 window.addEventListener('keydown', e => {
   const k = e.key, tag = (document.activeElement && document.activeElement.tagName) || '';
-  if (UI.confirm) {   // the yes/no card owns the keyboard: Escape says no, Tab stays between its two buttons
-    if (k === 'Escape') { e.preventDefault(); closeConfirm(false); }
-    else if (k === 'Tab') { e.preventDefault(); $(document.activeElement === $('cf-no') ? 'cf-yes' : 'cf-no').focus({ preventScroll: true }); }
+  const hasMod = e.ctrlKey || e.metaKey || e.altKey;
+  const isCtrlZ = (k === 'z' || k === 'Z') && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey;
+  if (UI.confirm) {   // the yes/no alertdialog owns the keyboard: Escape says no, Tab stays inside its visible controls
+    if (k === 'Escape' && !hasMod) { e.preventDefault(); closeConfirm(false); }
+    else if (k === 'Tab' && !hasMod) {
+      const list = padControls();
+      if (list.length) {
+        const idx = list.indexOf(document.activeElement);
+        e.preventDefault();
+        list[e.shiftKey ? (idx <= 0 ? list.length - 1 : idx - 1) : (idx < 0 || idx === list.length - 1 ? 0 : idx + 1)].focus({ preventScroll: true });
+      }
+    }
     return;
   }
-  if (k === 'Escape') {
+  // Tab trap inside all 8 non-confirm aria-modal="true" dialogs (W6-S5-04 / CD-WF6-04).
+  const activeScreenEl = SCREENS[S.scene] ? $(SCREENS[S.scene]) : null;
+  if (k === 'Tab' && !hasMod && activeScreenEl && activeScreenEl.getAttribute('aria-modal') === 'true') {
+    const list = padControls();
+    if (list.length) {
+      const idx = list.indexOf(document.activeElement);
+      if (e.shiftKey) {
+        if (idx <= 0) { e.preventDefault(); list[list.length - 1].focus({ preventScroll: true }); }
+      } else {
+        if (idx < 0 || idx === list.length - 1) { e.preventDefault(); list[0].focus({ preventScroll: true }); }
+      }
+    }
+    return;
+  }
+  if (k === 'Escape' && !hasMod) {
     e.preventDefault();
-    if (S.scene === 'game') { if (UI.drag) { cancelDrag({ animate: true }); UI.sel = -1; } else if (UI.sel >= 0) { UI.sel = -1; UI.ghost = null; dirty = true; } else if (!S.over) pauseGame(); }
+    if (S.scene === 'game') { if (UI.drag) { cancelDrag({ animate: true }); UI.sel = -1; } else if (UI.sel >= 0) { UI.sel = -1; UI.ghost = null; UI.ghostCleared = false; dirty = true; } else if (!S.over) pauseGame(); }
     else if (S.scene === 'pause') resumeGame();
     else if (['help', 'settings', 'trail', 'cards', 'records'].includes(S.scene)) back();
+    else if (S.scene === 'over') { audioInit(); sfx('click', { dir: -1 }); showScene('title'); }
+    else if (S.scene === 'win') { audioInit(); sfx('click', { dir: -1 }); showScene(S.mode === 'trail' ? 'trail' : 'title'); }
     return;
   }
   // M mutes and unmutes on every screen (a click confirms the unmute). P pauses and resumes on the cards that show the game's header.
   const typing = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA';
   const typesText = tag === 'TEXTAREA' || tag === 'SELECT' || (tag === 'INPUT' && !['checkbox', 'radio', 'range', 'button'].includes(document.activeElement.type));   // a checkbox or the slider does not take letters, so M still mutes there
-  if ((k === 'm' || k === 'M') && !typesText && !e.ctrlKey && !e.metaKey && !e.altKey) { audioInit(); setSetting('sound', !SAVE.settings.sound); sfx('click'); return; }
-  if (GAME_SCENES.has(S.scene) && !typing) {
+  if ((k === 'm' || k === 'M') && !typesText && !hasMod) { audioInit(); setSetting('sound', !SAVE.settings.sound); sfx('click'); return; }
+  if (GAME_SCENES.has(S.scene) && !typing && !hasMod) {
     if ((k === 'p' || k === 'P') && S.scene === 'pause') { resumeGame(); return; }
     if ((k === 'p' || k === 'P') && S.scene === 'game' && !S.over) { pauseGame(); return; }
   }
+  // #sc-over Post-Loss Undo shortcut: U or (Ctrl|Cmd)+Z (without Alt) undoes whenever undoAvail() (W6-S5-04).
+  if (S.scene === 'over') {
+    if ((((k === 'u' || k === 'U') && !hasMod) || isCtrlZ) && !typing && canUndo()) { audioInit(); doUndo(); e.preventDefault(); }
+    return;
+  }
   if (S.scene === 'game' && S.over && UI.overAt) {   // the pause before the results card: U takes the last move back, Enter or Space moves on
-    if (k === 'u' || k === 'U' || ((k === 'z' || k === 'Z') && (e.ctrlKey || e.metaKey))) { doUndo(); e.preventDefault(); }
-    else if ((k === 'Enter' || k === ' ') && tag !== 'BUTTON') { UI.skipEnd = true; e.preventDefault(); }
+    if (((k === 'u' || k === 'U') && !hasMod) || isCtrlZ) { doUndo(); e.preventDefault(); }
+    else if ((k === 'Enter' || k === ' ') && !hasMod && tag !== 'BUTTON') { UI.skipEnd = true; e.preventDefault(); }
     return;
   }
   if (S.scene !== 'game' || S.over) return;
-  if (!UI.kbd && k !== 'Escape') { UI.kbd = true; dirty = true; }
+  // Modifier-key guard (CD-WF5-07 / CD-WF6-06): pass Ctrl/Meta/Alt shortcuts to browser while preserving (Ctrl|Cmd)+Z Undo.
+  if (hasMod) {
+    if (isCtrlZ) { audioInit(); if (!UI.kbd) { UI.kbd = true; dirty = true; } doUndo(); e.preventDefault(); }
+    return;
+  }
   if (tag === 'BUTTON' && (k === 'Enter' || k === ' ')) return;
-  audioInit();
-  if (k >= '1' && k <= '3') { selectSlot(+k - 1); cv.focus({ preventScroll: true }); e.preventDefault(); }
-  else if (k === 'Tab' && document.activeElement === cv) { cycleSel(e.shiftKey ? -1 : 1); e.preventDefault(); }
-  else if (k === 'q' || k === 'Q') cycleSel(-1);
-  else if (k === 'e' || k === 'E') cycleSel(1);
-  else if (k === 'ArrowUp') { moveCursor(-1, 0); e.preventDefault(); }
-  else if (k === 'ArrowDown') { moveCursor(1, 0); e.preventDefault(); }
-  else if (k === 'ArrowLeft') { moveCursor(0, -1); e.preventDefault(); }
-  else if (k === 'ArrowRight') { moveCursor(0, 1); e.preventDefault(); }
-  else if (k === 'Enter' || k === ' ') { confirmPlace(); e.preventDefault(); }
-  else if (k === 'h' || k === 'H') { useHint(); e.preventDefault(); }
-  else if (k === 'u' || k === 'U' || ((k === 'z' || k === 'Z') && (e.ctrlKey || e.metaKey))) { doUndo(); e.preventDefault(); }
+  if (k === 'Tab' && document.activeElement === cv) {
+    // Boundary-releasing #cv Tab (WCAG 2.1.2 / CD-WF5-07): cycle occupied tray slots, then release cleanly to #hud / #tip-skip.
+    const ks = [0, 1, 2].filter(idx => S.tray[idx]);
+    const ci = ks.indexOf(UI.sel);
+    if (!e.shiftKey && ks.length && ci < ks.length - 1) {
+      audioInit();
+      if (!UI.kbd) { UI.kbd = true; dirty = true; }
+      selectSlot(ks[ci < 0 ? 0 : ci + 1]);
+      e.preventDefault();
+    } else if (e.shiftKey && ks.length && ci > 0) {
+      audioInit();
+      if (!UI.kbd) { UI.kbd = true; dirty = true; }
+      selectSlot(ks[ci - 1]);
+      e.preventDefault();
+    }
+    return;
+  }
+  const markKbd = () => { audioInit(); if (!UI.kbd) { UI.kbd = true; dirty = true; } };
+  if (k >= '1' && k <= '3') { markKbd(); selectSlot(+k - 1); cv.focus({ preventScroll: true }); e.preventDefault(); }
+  else if (k === 'q' || k === 'Q') { markKbd(); cycleSel(-1); }
+  else if (k === 'e' || k === 'E') { markKbd(); cycleSel(1); }
+  else if (k === 'ArrowUp') { markKbd(); moveCursor(-1, 0); e.preventDefault(); }
+  else if (k === 'ArrowDown') { markKbd(); moveCursor(1, 0); e.preventDefault(); }
+  else if (k === 'ArrowLeft') { markKbd(); moveCursor(0, -1); e.preventDefault(); }
+  else if (k === 'ArrowRight') { markKbd(); moveCursor(0, 1); e.preventDefault(); }
+  else if (k === 'Enter' || k === ' ') { markKbd(); confirmPlace(); e.preventDefault(); }
+  else if (k === 'h' || k === 'H') { markKbd(); useHint(); e.preventDefault(); }
+  else if (k === 'u' || k === 'U') { markKbd(); doUndo(); e.preventDefault(); }
 });
 // Gamepad (S1-12): the pad drives the keyboard path the game already has, and nothing else. D-pad and left stick are the arrow keys
 // (held, they repeat), A is Enter, B is U on the board and Escape elsewhere, the shoulder buttons are Q and E, Y is H, Start is P.
@@ -6401,7 +6596,7 @@ window.addEventListener('gamepaddisconnected', checkPadConnected);
 const padKey = key => window.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
 function padControls() {
   const root = UI.confirm ? $('sc-confirm') : SCREENS[S.scene] ? $(SCREENS[S.scene]) : null;
-  return root ? [...root.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled)')].filter(el => el.getClientRects().length) : [];
+  return screenControls(root);
 }
 function padStep(dir) {
   const el = document.activeElement, horizontal = dir === 'Left' || dir === 'Right', sign = dir === 'Left' || dir === 'Up' ? -1 : 1;
@@ -6426,8 +6621,11 @@ function padDirection(dir) {
 function padButton(name) {
   if (UI.confirm || S.scene !== 'game') {
     if (name === 'A') { const el = document.activeElement; if (el && el.tagName === 'SELECT') padSelect(el, 1); else if (el && padControls().includes(el)) el.click(); else if (padControls()[0]) padControls()[0].focus({ preventScroll: true }); }
-    else if (name === 'B') padKey('Escape');
-    else if (name === 'START' && (S.scene === 'pause' || S.scene === 'over' || S.scene === 'win') && !UI.confirm) padKey('p');
+    else if (name === 'B') { if (S.scene === 'over' && !UI.confirm && canUndo()) doUndo(); else padKey('Escape'); }
+    else if (name === 'START' && !UI.confirm) {
+      if (S.scene === 'pause') padKey('p');
+      else if (S.scene === 'over' || S.scene === 'win') { const pri = primaryControl($(SCREENS[S.scene])); if (pri) pri.click(); }
+    }
     return;
   }
   if (S.over) { if (name === 'B') padKey('u'); else if (name === 'A' && UI.overAt) padKey('Enter'); return; }
