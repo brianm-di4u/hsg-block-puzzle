@@ -164,8 +164,10 @@ button.primary:active:not(:disabled){transform:translateY(2px);box-shadow:inset 
 /* Screens & sticky flex modals (CD-WF5-04, CD-WF5-06) */
 .screen{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));overflow:auto;z-index:10}
 .screen.on{display:flex}
-.screen.overlay{background:var(--scrim);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
-.screen.overlay.on{animation:scrimIn var(--dur-scrim) ease-out both}
+.screen.overlay{backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+.screen.overlay::before{content:"";position:fixed;inset:0;background:var(--scrim);pointer-events:none;z-index:0}
+.screen.overlay.on::before{animation:scrimIn var(--dur-scrim) ease-out both}
+.screen.overlay .panel{position:relative;z-index:1}
 .screen.overlay.on .panel{animation:panelIn var(--dur-panel) var(--ease-settle) both}
 .screen.overlay button,.screen.overlay select,.screen.overlay input[type=range]{min-height:45px;min-width:45px}
 /* Leaded-glass corners (S4-10, CD-WF5-04): four emerald-and-brass diamonds live in the non-scrolling outer .panel gutter;
@@ -368,14 +370,14 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
   :root:not(.motion-full){--dur-tap:0ms;--dur-control:0ms;--dur-panel:0ms;--dur-scrim:0ms;--dur-toast:0ms}
   :root:not(.motion-full) .newbest.hit{animation:none;box-shadow:0 3px 0 #8C5A12,inset 0 0 0 2px #FFF4CC,0 0 0 2px rgba(247,207,98,.75)}
   :root:not(.motion-full) #h-score.pop,:root:not(.motion-full) #h-best.gleam,:root:not(.motion-full) .winstars .star.lit,:root:not(.motion-full) .win-card-in,:root:not(.motion-full) #ov-stats>*{animation:none;opacity:1;transform:none}
-  :root:not(.motion-full) .screen.overlay.on,:root:not(.motion-full) .screen.overlay.on .panel,:root:not(.motion-full) #sc-title.on .brand,:root:not(.motion-full) #sc-title.on .panel,:root:not(.motion-full) #toast.on,:root:not(.motion-full) #achtoast.on,:root:not(.motion-full) #tip.on,:root:not(.motion-full) #bg.bg-xfade{animation:none}
+  :root:not(.motion-full) .screen.overlay.on::before,:root:not(.motion-full) .screen.overlay.on .panel,:root:not(.motion-full) #sc-title.on .brand,:root:not(.motion-full) #sc-title.on .panel,:root:not(.motion-full) #toast.on,:root:not(.motion-full) #achtoast.on,:root:not(.motion-full) #tip.on,:root:not(.motion-full) #bg.bg-xfade{animation:none}
   :root:not(.motion-full) button,:root:not(.motion-full) .set select,:root:not(.motion-full) .set input[type=checkbox],:root:not(.motion-full) .set input[type=checkbox]::before,:root:not(.motion-full) .ticker{transition:none}
   :root:not(.motion-full) button:active:not(:disabled),:root:not(.motion-full) .play:active:not(:disabled),:root:not(.motion-full) button.primary:active:not(:disabled),:root:not(.motion-full) #hud button:active:not(:disabled),:root:not(.motion-full) .set select:active{transform:none;border-color:var(--color-highlight)}
 }
 :root.motion-reduced{--dur-tap:0ms;--dur-control:0ms;--dur-panel:0ms;--dur-scrim:0ms;--dur-toast:0ms}
 :root.motion-reduced .newbest.hit{animation:none;box-shadow:0 3px 0 #8C5A12,inset 0 0 0 2px #FFF4CC,0 0 0 2px rgba(247,207,98,.75)}
 :root.motion-reduced #h-score.pop,:root.motion-reduced #h-best.gleam,:root.motion-reduced .winstars .star.lit,:root.motion-reduced .win-card-in,:root.motion-reduced #ov-stats>*{animation:none;opacity:1;transform:none}
-:root.motion-reduced .screen.overlay.on,:root.motion-reduced .screen.overlay.on .panel,:root.motion-reduced #sc-title.on .brand,:root.motion-reduced #sc-title.on .panel,:root.motion-reduced #toast.on,:root.motion-reduced #achtoast.on,:root.motion-reduced #tip.on,:root.motion-reduced #bg.bg-xfade{animation:none}
+:root.motion-reduced .screen.overlay.on::before,:root.motion-reduced .screen.overlay.on .panel,:root.motion-reduced #sc-title.on .brand,:root.motion-reduced #sc-title.on .panel,:root.motion-reduced #toast.on,:root.motion-reduced #achtoast.on,:root.motion-reduced #tip.on,:root.motion-reduced #bg.bg-xfade{animation:none}
 :root.motion-reduced button,:root.motion-reduced .set select,:root.motion-reduced .set input[type=checkbox],:root.motion-reduced .set input[type=checkbox]::before,:root.motion-reduced .ticker{transition:none}
 :root.motion-reduced button:active:not(:disabled),:root.motion-reduced .play:active:not(:disabled),:root.motion-reduced button.primary:active:not(:disabled),:root.motion-reduced #hud button:active:not(:disabled),:root.motion-reduced .set select:active{transform:none;border-color:var(--color-highlight)}
 </style>
@@ -1601,7 +1603,12 @@ function persist(intent = 'none', opts = null) {
 let S = freshGame('classic');
 S.scene = 'title';
 let SEED_PENDING = null;
-const UI = { sel: -1, cur: null, ghost: null, ghostCleared: false, drag: null, hover: null, kbd: false, returnTo: 'title', returnFocus: { title: null, pause: null, trail: null }, overAt: 0, skipEnd: false, fxFrozen: null, pausedAt: null, countRaf: 0, countUntil: 0, auditionAudio: false, dispHeat: 0, heatAnim: null, heatPulseAt: 0, dispScore: 0, scoreAnim: null, bestGleamed: false, lastTipRoom: false, ambSteamAlpha: 1, endTimers: [], turnTimers: [], lastTap: null, lastInput: performance.now(), input: (window.matchMedia && matchMedia('(pointer:coarse)').matches) ? 'touch' : 'mouse', tip: null, earned: [] };
+const UI = { sel: -1, cur: null, ghost: null, ghostCleared: false, drag: null, hover: null, kbd: false, returnTo: 'title', returnFocus: { title: null, pause: null, trail: null }, overAt: 0, skipEnd: false, fxFrozen: null, pausedAt: null, countRaf: 0, countUntil: 0, uiSettleUntil: 0, auditionAudio: false, dispHeat: 0, heatAnim: null, heatPulseAt: 0, dispScore: 0, scoreAnim: null, bestGleamed: false, lastTipRoom: false, ambSteamAlpha: 1, endTimers: [], turnTimers: [], lastTap: null, lastInput: performance.now(), input: (window.matchMedia && matchMedia('(pointer:coarse)').matches) ? 'touch' : 'mouse', tip: null, earned: [] };
+function bumpUiSettle(ms) {
+  if (reducedMotion()) return;
+  const until = performance.now() + ms;
+  if (until > UI.uiSettleUntil) UI.uiSettleUntil = until;
+}
 
 function todayStr(d = new Date()) {
   const p = n => String(n).padStart(2, '0');
@@ -1643,7 +1650,7 @@ function eraId() {
 const AU = {
   ctx: null, master: null, sum: null, smooth: null, duck: null, noise: null, kit: null, limiter: null,
   reverb: null, reverbSend: null, reverbHP: null,
-  endCues: [], turnCues: [], runToken: 0, suspendTimer: 0, pendingMotif: false, everRunning: false,
+  endCues: [], turnCues: [], runToken: 0, suspendTimer: 0, pendingMotif: false, pendingResumeSfx: false, everRunning: false,
   lastClearLock: -Infinity, lastStep: -Infinity,
 };
 // The master gain is Volume x MASTER_SCALE (1.25: default master is 0.875, so cues peak 0.2 to 0.45 and music 0.06 to 0.16).
@@ -1707,10 +1714,16 @@ function rampSmooth(target, durSec = 0.015) {
     g.linearRampToValueAtTime(target, t + Math.max(0.005, durSec));
   } catch (_) {}
 }
+function syncRunningAudio() {
+  if (!AU.ctx || AU.ctx.state !== 'running' || document.hidden || AU.suspendTimer) return;
+  rampSmooth(targetMasterGain(), 0.035);
+  audioMood();
+  if (AU.kit && !AU.kit.held) AU.kit.start();
+}
 function audioInit() {
   if (AU.ctx) {
-    if (AU.ctx.state !== 'running' && !document.hidden && S.scene !== 'pause' && SAVE.settings.sound) {
-      AU.ctx.resume().catch(() => {});
+    if (AU.ctx.state !== 'running' && !document.hidden && !AU.suspendTimer && S.scene !== 'pause' && SAVE.settings.sound) {
+      AU.ctx.resume().then(syncRunningAudio).catch(() => {});
     }
     return;
   }
@@ -1739,11 +1752,17 @@ function audioInit() {
       const st = AU.ctx.state;
       if (st === 'running') {
         AU.everRunning = true;
+        if (!document.hidden && !AU.suspendTimer) {
+          syncRunningAudio();
+          if (AU.pendingResumeSfx && S.scene === 'game') {
+            AU.pendingResumeSfx = false;
+            sfx('resume');
+          }
+        }
         if (AU.pendingMotif && S.scene === 'title' && !document.hidden) {
           AU.pendingMotif = false;
           sfx('motif');
         }
-        if (AU.kit && !AU.kit.held && !document.hidden) AU.kit.start();
       } else if (st === 'interrupted') {
         if (AU.kit) AU.kit.stop();
       } else if (st === 'suspended') {
@@ -1761,8 +1780,9 @@ const onControl = el => !!(el && el.closest && el.closest('button, a, input, sel
 for (const ev of ['pointerdown', 'pointerup', 'touchend', 'keydown']) window.addEventListener(ev, e => {
   const first = !AU.ctx;
   audioInit();
-  if (!first && AU.ctx && AU.ctx.state !== 'running' && !document.hidden && S.scene !== 'pause' && SAVE.settings.sound) {
-    AU.ctx.resume().catch(() => {});
+  if (!first && AU.ctx && !document.hidden && !AU.suspendTimer && S.scene !== 'pause' && SAVE.settings.sound) {
+    if (AU.ctx.state !== 'running') AU.ctx.resume().then(syncRunningAudio).catch(() => {});
+    else if (AU.smooth && Math.abs(AU.smooth.gain.value - targetMasterGain()) > 0.02) syncRunningAudio();
   }
   if (first && AU.ctx && S.scene === 'title' && !onControl(e.target) && !(e.type === 'keydown' && (e.key === 'Tab' || e.key === 'Enter' || e.key === ' '))) {
     if (AU.ctx.state === 'running') sfx('motif');
@@ -1823,13 +1843,18 @@ function audioMood() {
   const hold = document.hidden || sc === 'pause' || (pausedSub && !(sc === 'settings' && UI.auditionAudio));
   if (hold && !k.held) k.hold();
   else if (!hold && k.held) k.release();
-  if (!hold && !document.hidden && AU.ctx && AU.ctx.state === 'suspended' && SAVE.settings.sound) {
-    AU.ctx.resume().then(() => {
-      if (!document.hidden && S.scene !== 'pause') {
-        rampSmooth(targetMasterGain(), 0.035);
-        if (AU.kit && !AU.kit.held) AU.kit.start();
-      }
-    }).catch(() => {});
+  if (!hold && !document.hidden && !AU.suspendTimer && AU.ctx && SAVE.settings.sound) {
+    if (AU.ctx.state === 'running') {
+      rampSmooth(targetMasterGain(), 0.035);
+      if (!k.held) k.start();
+    } else if (AU.ctx.state === 'suspended' || AU.ctx.state === 'interrupted') {
+      AU.ctx.resume().then(() => {
+        if (!document.hidden && !AU.suspendTimer && S.scene !== 'pause') {
+          rampSmooth(targetMasterGain(), 0.035);
+          if (AU.kit && !AU.kit.held) AU.kit.start();
+        }
+      }).catch(() => {});
+    }
   }
 }
 function boardFill() { let n = 0; for (const v of S.board) if (v) n++; return n / 81; }
@@ -2214,7 +2239,7 @@ function sfx(name, o = {}) {
   hapticFor(name, o);
   if (!AU.ctx || !SAVE.settings.sound || !SAVE.settings.sfx) return;
   if (AU.ctx.state !== 'running') {
-    if (!document.hidden && S.scene !== 'pause') AU.ctx.resume().catch(() => {});
+    if (!document.hidden && !AU.suspendTimer && S.scene !== 'pause') AU.ctx.resume().then(syncRunningAudio).catch(() => {});
     return;
   }
   try {
@@ -5117,6 +5142,7 @@ function toast(title, body, ms = 4500, opts = null) {
   el.classList.remove('on');
   void el.offsetWidth;
   el.classList.add('on');
+  bumpUiSettle(240);
   if (above) {
     if (chan1Active === 'toast') chan1Active = 'none';
     chan1ToastCur = null; chan1ToastQueue = null; pausedToast = null; pausedAboveRem = 0;
@@ -5588,6 +5614,7 @@ function showGoalToast(ms = GOAL_TOAST_MS) {
   el.classList.remove('on');
   void el.offsetWidth;
   el.classList.add('on');
+  bumpUiSettle(240);
   clearTimeout(goalTimer);
   goalEndsAt = performance.now() + ms;
   goalTimer = setTimeout(() => showGoalToast(), ms);
@@ -5663,7 +5690,9 @@ function tipText(k) {
 }
 function tipRender() {
   const t = UI.tip, el = $('tip'), on = !!(t && t.cur && S.scene === 'game' && !S.over);
+  const wasOn = el.classList.contains('on');
   el.classList.toggle('on', on);
+  if (on && !wasOn) bumpUiSettle(240);
   const tipActive = on && !UI.confirm;
   el.inert = !tipActive;
   if (tipActive) el.removeAttribute('aria-hidden'); else el.setAttribute('aria-hidden', 'true');
@@ -5900,6 +5929,7 @@ function fillOver() {
     dt.style.animationDelay = dly; dd.style.animationDelay = dly;
     dl.append(dt, dd);
   });
+  bumpUiSettle(450);
 }
 // One line on what to try next, picked from how this game went (S3-12). Only the game's own rules are quoted.
 function overTip() {
@@ -5976,6 +6006,7 @@ function showWinTrail() {
   box.appendChild(cardNode);
   $('b-next').style.display = hasNext ? '' : 'none';
   showScene('win');
+  bumpUiSettle(540);
 }
 
 // ===================================================================== SCENES + DOM
@@ -6063,13 +6094,17 @@ function showScene(name, restoreEl = null) {
     if (prev === 'title' && !liteFx() && !reducedMotion()) {
       const bgEl = $('bg');
       if (bgEl) { bgEl.classList.remove('bg-xfade'); void bgEl.offsetWidth; bgEl.classList.add('bg-xfade'); }
+      bumpUiSettle(220);
     }
-  } else if (name === 'pause') {
-    if (UI.pausedAt == null) UI.pausedAt = performance.now();
-    UI.sel = -1; UI.ghost = null; UI.ghostCleared = false; cancelTurnTimers(); AU.runToken++; PERF.n = 0; PERF.sum = 0;
-  } else if (name === 'title' || name === 'over' || name === 'win') {
-    UI.pausedAt = null;
-    if (name === 'title') { cancelTurnTimers(); AU.runToken++; }
+  } else {
+    bumpUiSettle(220);
+    if (name === 'pause') {
+      if (UI.pausedAt == null) UI.pausedAt = performance.now();
+      UI.sel = -1; UI.ghost = null; UI.ghostCleared = false; cancelTurnTimers(); AU.runToken++; PERF.n = 0; PERF.sum = 0;
+    } else if (name === 'title' || name === 'over' || name === 'win') {
+      UI.pausedAt = null;
+      if (name === 'title') { cancelTurnTimers(); AU.runToken++; }
+    }
   }
   for (const [k, id] of Object.entries(SCREENS)) $(id).classList.toggle('on', k === name);
   const pb = SCREENS[name] && $(SCREENS[name]).querySelector('.panel-body');
@@ -6444,6 +6479,7 @@ function applySettings(changedKey = null) {
   root.classList.toggle('theme-light', s.theme === 'light');
   root.classList.toggle('motion-reduced', s.motion === 'reduced');
   root.classList.toggle('motion-full', s.motion === 'full');
+  if (reducedMotion()) UI.uiSettleUntil = 0;
   root.classList.toggle('tray-left', s.traySide === 'left');
   $('s-sound').checked = s.sound;   // M and the speaker button change Sound while the Settings card may be open
   syncAudioControlDim();
@@ -6532,6 +6568,7 @@ function askConfirm(title, body, yes, no, onYes) {
   UI.confirm = { onYes, from: document.activeElement };
   suspendNotices(false);
   $('sc-confirm').classList.add('on');
+  bumpUiSettle(220);
   syncInertness();
   $('cf-no').focus({ preventScroll: true });
   announce(title + ' ' + body);
@@ -6570,8 +6607,26 @@ function askRestart() {
   const what = S.mode === 'trail' ? 'puzzle' : S.mode === 'daily' ? 'Daily Soak' : 'game';
   askConfirm('Restart this ' + what + '?', S.mode === 'trail' ? 'Your moves so far will be undone.' : 'You are at ' + S.score.toLocaleString('en-US') + ' points. They will be lost.', 'Restart', 'Keep playing', restart);
 }
-function pauseGame() { if (S.scene === 'game' && !S.over) { cancelDrag({ animate: false }); UI.sel = -1; UI.ghostCleared = false; cancelTurnTimers(); AU.runToken++; if (UI.pausedAt == null) UI.pausedAt = performance.now(); PERF.n = 0; PERF.sum = 0; $('pause-goal').textContent = goalSentence(); sfx('pause'); showScene('pause'); } }
-function resumeGame() { audioInit(); sfx('resume'); showScene('game'); }
+function pauseGame() { if (S.scene === 'game' && !S.over) { AU.pendingResumeSfx = false; cancelDrag({ animate: false }); UI.sel = -1; UI.ghostCleared = false; cancelTurnTimers(); AU.runToken++; if (UI.pausedAt == null) UI.pausedAt = performance.now(); PERF.n = 0; PERF.sum = 0; $('pause-goal').textContent = goalSentence(); sfx('pause'); showScene('pause'); } }
+function resumeGame() {
+  showScene('game');
+  audioInit();
+  if (AU.ctx && AU.ctx.state !== 'running' && !document.hidden && !AU.suspendTimer && SAVE.settings.sound && SAVE.settings.sfx) {
+    AU.pendingResumeSfx = true;
+    AU.ctx.resume().then(() => {
+      if (AU.ctx && AU.ctx.state === 'running' && !document.hidden && !AU.suspendTimer) {
+        syncRunningAudio();
+        if (AU.pendingResumeSfx && S.scene === 'game') {
+          AU.pendingResumeSfx = false;
+          sfx('resume');
+        }
+      }
+    }).catch(() => { AU.pendingResumeSfx = false; });
+  } else {
+    AU.pendingResumeSfx = false;
+    sfx('resume');
+  }
+}
 function restart() {
   if (S.mode === 'trail') newGame({ mode: 'trail', level: S.level });
   else if (S.mode === 'daily') newGame({ mode: 'daily', date: S.daily });
@@ -7041,6 +7096,7 @@ window.addEventListener('blur', () => {
 });
 function suspendAudioCleanly(immediate = false) {
   if (!AU.ctx) return;
+  AU.pendingResumeSfx = false;
   clearTimeout(AU.suspendTimer); AU.suspendTimer = 0;
   rampSmooth(0.0001, 0.035);
   if (AU.kit) { AU.kit.hold(0.025); AU.kit.stop(); }
@@ -7053,6 +7109,19 @@ function suspendAudioCleanly(immediate = false) {
     }, 45);
   }
 }
+function restoreAudioOnVisible() {
+  clearTimeout(AU.suspendTimer); AU.suspendTimer = 0;
+  if (!AU.ctx || document.hidden) return;
+  // Pause-only tab-return audio hold (W6-S6-03 / CD-WF6-04 / wf-4:149):
+  // keep Title, Settings, Game, Over & Win alive on tab/bfcache return, but never spuriously resume while paused.
+  if (S.scene !== 'pause' && SAVE.settings.sound) {
+    if (AU.ctx.state !== 'running') AU.ctx.resume().then(syncRunningAudio).catch(() => {});
+    else syncRunningAudio();
+  } else {
+    if (AU.ctx.state === 'running' && SAVE.settings.sound) rampSmooth(targetMasterGain(), 0.035);
+    audioMood();
+  }
+}
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     if (UI.drag) cancelDrag({ animate: false });
@@ -7062,27 +7131,16 @@ document.addEventListener('visibilitychange', () => {
     suspendAudioCleanly(false);
     return;
   }
-  clearTimeout(AU.suspendTimer); AU.suspendTimer = 0;
   resumeNotices();
-  if (!AU.ctx) return;
-  // Pause-only tab-return audio hold (W6-S6-03 / CD-WF6-04 / wf-4:149):
-  // keep Title, Settings, Game, Over & Win alive on tab return, but never spuriously resume while paused.
-  if (S.scene !== 'pause' && SAVE.settings.sound) {
-    const finishResume = () => {
-      if (document.hidden || S.scene === 'pause') return;
-      rampSmooth(targetMasterGain(), 0.035);
-      audioMood();
-      if (AU.kit && !AU.kit.held) AU.kit.start();
-    };
-    if (AU.ctx.state !== 'running') AU.ctx.resume().then(finishResume).catch(() => {});
-    else finishResume();
-  } else {
-    audioMood();
-  }
+  restoreAudioOnVisible();
 });
 window.addEventListener('pagehide', () => {
   if (S.scene === 'game') saveResume();
   suspendAudioCleanly(true);
+});
+window.addEventListener('pageshow', () => {
+  resumeNotices();
+  restoreAudioOnVisible();
 });
 
 // ===================================================================== TEST HOOKS
@@ -7114,7 +7172,7 @@ window.__game = {
     if (s.scene) showScene(s.scene);
     updateHud(); dirty = true; return true;
   },
-  isIdle() { return UI.fxFrozen != null || (FX.length === 0 && !UI.drag && !UI.overAt && !UI.scoreAnim && !UI.heatAnim && ART.loading === 0 && !(performance.now() < (UI.countUntil || 0))); },
+  isIdle() { return UI.fxFrozen != null || (FX.length === 0 && !UI.drag && !UI.overAt && !UI.scoreAnim && !UI.heatAnim && ART.loading === 0 && !(performance.now() < (UI.countUntil || 0)) && !(performance.now() < (UI.uiSettleUntil || 0))); },
   scene(name) { if (GAME_SCENES.has(name) && !S.tray.some(Boolean) && !S.over) newGame({ mode: 'classic' }); if (name === 'over') { S.over = true; } if (name === 'win' && S.mode === 'trail') { showWinTrail(); return true; } return showScene(name); },
   newGame(opts) { newGame(opts || {}); return this.getState(); },
   act(name, ...a) {

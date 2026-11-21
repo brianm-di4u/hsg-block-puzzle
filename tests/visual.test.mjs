@@ -1283,6 +1283,43 @@ export const tests = [
       t.expect(afterResume.toastOn && /Hold across pause/.test(afterResume.toastText), 'paused Channel 1 toast survived 750ms Pause and resumed cleanly');
       t.equal(afterResume.tipTimerActive, true, 'paused #tip timer resumed on returning to game');
       await t.game('act', 'hideToast');
+
+      // 4. CD-WF5-06 compositor hygiene & isIdle() UI settle: .screen.overlay.on itself has animationName === 'none'
+      // (scrimIn lives on ::before so backdrop-filter never pops and .panel never multiplies opacity^2),
+      // .panel and #toast settle to opacity === '1' after waitForStable(), and 3-star Trail win settles with all 3 .star.lit at opacity === '1'.
+      await t.game('act', 'pause');
+      await t.waitForStable();
+      const modalComp = await t.page.evaluate(() => {
+        const sc = document.getElementById('sc-pause');
+        const panel = sc.querySelector('.panel');
+        return {
+          scAnim: getComputedStyle(sc).animationName,
+          scBlur: getComputedStyle(sc).backdropFilter,
+          beforeAnim: getComputedStyle(sc, '::before').animationName,
+          panelOpacity: getComputedStyle(panel).opacity,
+        };
+      });
+      t.equal(modalComp.scAnim, 'none', 'CD-WF5-06: .screen.overlay.on carrying backdrop-filter has animationName === none');
+      t.expect(/blur/.test(modalComp.scBlur), 'CD-WF5-06: .screen.overlay retains static backdrop-filter blur');
+      t.equal(modalComp.beforeAnim, 'scrimIn', 'CD-WF5-06: scrimIn opacity animation lives on .screen.overlay.on::before');
+      t.equal(modalComp.panelOpacity, '1', 'modal .panel settles to opacity === 1 after waitForStable()');
+
+      await t.game('act', 'resume');
+      await t.page.evaluate(() => toast('Settled notice', 'Opaque after waitForStable.', 4000));
+      await t.waitForStable();
+      t.equal(await t.page.evaluate(() => getComputedStyle(document.getElementById('toast')).opacity), '1', '#toast settles to opacity === 1 after waitForStable()');
+      await t.game('act', 'hideToast');
+
+      await t.game('newGame', { mode: 'trail', level: 'quapaw' });
+      await t.page.evaluate(() => { UI.trailWin = { stars: 3, prev: 0, undos: 0, first: true }; showWinTrail(); });
+      await t.waitForStable();
+      const trailWin = await t.page.evaluate(() => {
+        const panel = document.querySelector('#sc-win .panel');
+        const stars = [...document.querySelectorAll('#win-stars .star.lit')].map(s => getComputedStyle(s).opacity);
+        return { panelOpacity: getComputedStyle(panel).opacity, count: stars.length, allOpaque: stars.length === 3 && stars.every(o => o === '1') };
+      });
+      t.equal(trailWin.panelOpacity, '1', 'Trail win .panel settles to opacity === 1 after waitForStable()');
+      t.equal(trailWin.allOpaque, true, 'Trail 3-star win settles with all 3 .star.lit spans at opacity === 1 (count=' + trailWin.count + ')');
     },
   },
 ];

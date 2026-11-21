@@ -256,17 +256,53 @@ export const tests = [
       await t.page.waitForTimeout(250);
       t.equal(await state(), 'suspended', 'stays suspended when returning to tab while paused');
       t.equal((await t.game('act', 'audioState')).held, true, 'kit stays held on pause return');
-      // 3. Resuming from Pause wakes AudioContext and scheduler cleanly.
+      // 3. Repro 4 (W6-S5-02): Resuming from suspended Pause wakes AudioContext, restores AU.smooth >= 0.85, and plays heard 'resume' SFX.
+      await t.game('act', 'clearCues');
       await t.page.click('#b-resume');
-      await t.page.waitForFunction(() => AU.ctx.state === 'running', null, { timeout: 3000 });
+      await t.page.waitForFunction(() => AU.ctx.state === 'running' && AU.smooth && AU.smooth.gain.value >= 0.85, null, { timeout: 3000 });
       const resumedSt = await t.game('act', 'audioState');
+      const resumeCues = await t.game('act', 'cues');
+      const resumeHeard = await t.game('act', 'heardCues');
       t.equal(resumedSt.state, 'running', 'resuming from Pause wakes AudioContext');
       t.equal(resumedSt.held, false, 'kit released after resume');
       t.equal(resumedSt.timerOn, true, 'scheduler restarted after resume');
-      // 4. pagehide cleanly holds and suspends audio (iOS bfcache hygiene).
+      t.expect(resumedSt.smooth >= 0.85, 'AU.smooth restored after Pause resume (' + resumedSt.smooth.toFixed(4) + ')');
+      t.expect(resumeCues.includes('resume') && resumeHeard.includes('resume'), 'Repro 4: resume SFX actually heard after suspended Pause return (' + JSON.stringify({ cues: resumeCues, heard: resumeHeard }) + ')');
+      // 4. Repro 1 (W6-S6-03): Quick <45ms Pause hide/return (cancelling suspendTimer before suspend()) -> Resume restores AU.smooth >= 0.85.
+      await t.game('act', 'pause');
+      await setHidden(true);
+      await t.page.waitForTimeout(15);
+      await setHidden(false);
+      await t.page.click('#b-resume');
+      await t.page.waitForFunction(() => AU.ctx.state === 'running' && AU.smooth && AU.smooth.gain.value >= 0.85, null, { timeout: 3000 });
+      const quickSt = await t.game('act', 'audioState');
+      t.expect(quickSt.state === 'running' && !quickSt.held && quickSt.timerOn && quickSt.smooth >= 0.85, 'Repro 1: quick <45ms Pause hide/return -> Resume restores AU.smooth >= 0.85 (' + JSON.stringify({ state: quickSt.state, held: quickSt.held, timerOn: quickSt.timerOn, smooth: +quickSt.smooth.toFixed(4) }) + ')');
+      // 5. Repro 2 (W6-S6-03): >100ms Pause hide/return -> Help -> Close -> Resume restores AU.smooth >= 0.85.
+      await t.game('act', 'pause');
+      await setHidden(true);
+      await t.page.waitForFunction(() => AU.ctx.state === 'suspended', null, { timeout: 3000 });
+      await setHidden(false);
+      await t.page.waitForTimeout(120);
+      await t.page.click('#sc-pause [data-go="help"]');
+      await t.page.click('#sc-help [data-close]');
+      await t.page.click('#b-resume');
+      await t.page.waitForFunction(() => AU.ctx.state === 'running' && AU.smooth && AU.smooth.gain.value >= 0.85, null, { timeout: 3000 });
+      const subSt = await t.game('act', 'audioState');
+      t.expect(subSt.state === 'running' && !subSt.held && subSt.timerOn && subSt.smooth >= 0.85, 'Repro 2: Pause hide/return -> Help -> Close -> Resume restores AU.smooth >= 0.85 (' + JSON.stringify({ state: subSt.state, held: subSt.held, timerOn: subSt.timerOn, smooth: +subSt.smooth.toFixed(4) }) + ')');
+      // 6. Repro 3 (W6-S6-03): pagehide cleanly suspends; both pageshow bfcache return and gesture click return restore AU.smooth >= 0.85, held=false, timerOn=true.
       await t.page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
       await t.page.waitForFunction(() => AU.ctx.state === 'suspended', null, { timeout: 3000 });
       t.equal((await t.game('act', 'audioState')).timerOn, false, 'pagehide stops scheduler and suspends audio');
+      await t.page.evaluate(() => window.dispatchEvent(new Event('pageshow')));
+      await t.page.waitForFunction(() => AU.ctx.state === 'running' && AU.smooth && AU.smooth.gain.value >= 0.85, null, { timeout: 3000 });
+      const bfSt = await t.game('act', 'audioState');
+      t.expect(bfSt.state === 'running' && !bfSt.held && bfSt.timerOn && bfSt.smooth >= 0.85, 'Repro 3A: pageshow bfcache return restores AU.smooth >= 0.85 & scheduler (' + JSON.stringify({ state: bfSt.state, held: bfSt.held, timerOn: bfSt.timerOn, smooth: +bfSt.smooth.toFixed(4) }) + ')');
+      await t.page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
+      await t.page.waitForFunction(() => AU.ctx.state === 'suspended', null, { timeout: 3000 });
+      await t.page.mouse.click(4, 4);
+      await t.page.waitForFunction(() => AU.ctx.state === 'running' && AU.smooth && AU.smooth.gain.value >= 0.85, null, { timeout: 3000 });
+      const gestSt = await t.game('act', 'audioState');
+      t.expect(gestSt.state === 'running' && !gestSt.held && gestSt.timerOn && gestSt.smooth >= 0.85, 'Repro 3B: pagehide -> gesture return restores AU.smooth >= 0.85, held=false & timerOn=true (' + JSON.stringify({ state: gestSt.state, held: gestSt.held, timerOn: gestSt.timerOn, smooth: +gestSt.smooth.toFixed(4) }) + ')');
     },
   },
   {
