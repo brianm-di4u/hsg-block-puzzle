@@ -34,11 +34,11 @@ export const tests = [
       let r = await t.game('act', 'place', 2, 4, 4);
       t.expect(r.ok, 'o4 placed');
       t.equal(JSON.stringify(await vib(t)), '[10]', 'a plain drop is a single 10 ms pulse');
-      // a placement that clears one group: place pulse, then a clear pulse
+      // a placement that clears one group: single non-clobbering unified clearing-drop pattern [10, 35, 18] (OQ-WF4-01 / OQ-WF6-03)
       await clearVib(t);
       r = await t.game('act', 'place', 0, 0, 0);
       t.equal(r.G, 1, 'one group cleared');
-      t.equal(JSON.stringify(await vib(t)), '[10,[18]]', 'place pulse then one 18 ms clear pulse');
+      t.equal(JSON.stringify(await vib(t)), '[[10,35,18]]', 'unified clearing-drop pattern [10, 35, 18] without clobbering');
       // an illegal placement: two short pulses
       await clearVib(t);
       r = await t.game('act', 'place', 1, 4, 4);
@@ -58,7 +58,10 @@ export const tests = [
       const r = await t.game('act', 'place', 0, 0, 0);
       t.expect(r.G >= 3, 'three or more groups cleared (' + r.G + ')');
       const calls = await vib(t);
-      const clear = calls[calls.length - 1];
+      t.equal(calls.length, 1, 'single unified clearing-drop vibrate call (OQ-WF4-01 / OQ-WF6-03)');
+      const pat = calls[0];
+      t.equal(pat.slice(0, 2), [10, 35], 'starts with 10 ms place tap and 35 ms gap');
+      const clear = pat.slice(2);
       t.equal(clear.length, 2 * Math.min(4, r.G) - 1, 'pulses follow the group count');
       t.expect(clear.every((v, i) => (i % 2 ? v === 30 : v === 18)), 'pulses of 18 ms with 30 ms gaps');
     },

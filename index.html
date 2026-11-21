@@ -232,6 +232,8 @@ button.big{width:100%;font-size:1.1em;padding:12px}
 :root.motion-reduced .set input[type=checkbox],:root.motion-reduced .set input[type=checkbox]::before{transition:none}
 @media (forced-colors:active){.set input[type=checkbox],.set select{-webkit-appearance:auto;appearance:auto}.set input[type=checkbox]::before{display:none}}
 .set input[type=range]{width:min(160px,44vw);min-height:44px;accent-color:#B8902E}
+.set input[type=range].dim{opacity:.45}
+.set.dim span{color:var(--color-muted)}
 kbd{font-family:var(--font-mono);border:1px solid var(--color-border);border-radius:4px;padding:0 4px;background:var(--color-bg)}
 table.keys{border-collapse:collapse;width:100%}
 table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertical-align:top}
@@ -1490,7 +1492,7 @@ function persist(intent = 'none', opts = null) {
 let S = freshGame('classic');
 S.scene = 'title';
 let SEED_PENDING = null;
-const UI = { sel: -1, cur: null, ghost: null, drag: null, hover: null, returnTo: 'title', overAt: 0, skipEnd: false, fxFrozen: null, pausedAt: null, countRaf: 0, countUntil: 0, auditionAudio: false, dispHeat: 0, heatAnim: null, heatPulseAt: 0, dispScore: 0, scoreAnim: null, ambSteamAlpha: 1, endTimers: [], turnTimers: [], lastTap: null, lastInput: performance.now(), input: (window.matchMedia && matchMedia('(pointer:coarse)').matches) ? 'touch' : 'mouse', tip: null, earned: [] };
+const UI = { sel: -1, cur: null, ghost: null, ghostCleared: false, drag: null, hover: null, returnTo: 'title', overAt: 0, skipEnd: false, fxFrozen: null, pausedAt: null, countRaf: 0, countUntil: 0, auditionAudio: false, dispHeat: 0, heatAnim: null, heatPulseAt: 0, dispScore: 0, scoreAnim: null, ambSteamAlpha: 1, endTimers: [], turnTimers: [], lastTap: null, lastInput: performance.now(), input: (window.matchMedia && matchMedia('(pointer:coarse)').matches) ? 'touch' : 'mouse', tip: null, earned: [] };
 
 function todayStr(d = new Date()) {
   const p = n => String(n).padStart(2, '0');
@@ -1527,24 +1529,56 @@ function eraId() {
 
 // ===================================================================== AUDIO (WebAudio synthesis)
 // Cues are one-shot oscillators and noise (sfx). Music and ambience come from the generative kit below, which
-// schedules a little ahead of the audio clock. Everything feeds AU.master (Sound switch + Volume), then a limiter and a soft ceiling.
-const AU = { ctx: null, master: null, duck: null, noise: null, kit: null, limiter: null, endCues: [] };
-// The master gain is Volume x MASTER_SCALE. It was 0.6, which left cues peaking about 0.12 and the music about 0.05 at the
-// default volume of 0.7; at 1.25 the default master is 0.875, so cues peak 0.2 to 0.45 and music 0.06 to 0.16 as heard.
-// Lowering it does not tame the busiest moment (the compressor below squeezes loud sound to about full scale whatever the
-// scale, and lets fast peaks through: a Springs win at full volume measured up to 1.09), and at 1.15 the pick and invalid cues
-// fall under 0.2. So a soft ceiling follows the compressor: nothing under CEILING_KNEE changes, nothing can pass CEILING_MAX.
+// schedules a little ahead of the audio clock. Everything sums into AU.sum -> AU.smooth (15 ms de-zippering &
+// pop-free tab-hide ramp, while AU.master mirrors synchronous gain.value per CD-WF4-06) -> AU.duck -> limiter -> soft ceiling.
+const AU = {
+  ctx: null, master: null, sum: null, smooth: null, duck: null, noise: null, kit: null, limiter: null,
+  reverb: null, reverbSend: null, reverbHP: null,
+  endCues: [], turnCues: [], runToken: 0, suspendTimer: 0, pendingMotif: false, everRunning: false,
+  lastClearLock: -Infinity, lastStep: -Infinity,
+};
+// The master gain is Volume x MASTER_SCALE (1.25: default master is 0.875, so cues peak 0.2 to 0.45 and music 0.06 to 0.16).
+// A compressor + soft ceiling holds even a staggered 6-cue climax mix at 100% volume strictly under 0.90 while passing quiet audio unchanged.
 const MASTER_SCALE = 1.25;
-const CEILING_KNEE = 0.7, CEILING_MAX = 0.94;
+const CEILING_KNEE = 0.68, CEILING_MAX = 0.89;
 function makeNoiseBuffer(c) {
   const len = c.sampleRate, buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
   let s = 7; for (let i = 0; i < len; i++) { s = (s * 16807) % 2147483647; d[i] = s / 1073741823.5 - 1; }
   return buf;
 }
+// 0-KB procedural tiled-bathhouse stereo impulse response (CD-WF4-06 / W6-S5-02):
+// discrete early stone-tile reflections (12-75 ms) + smooth damped diffuse tail, high-passed >= 320 Hz so low thuds stay tight.
+function makeBathhouseReverb(c, out, wetGain = 0.12) {
+  if (!c || !c.createConvolver) return null;
+  const sr = c.sampleRate, len = Math.max(1, Math.round(sr * 0.46));
+  const ir = c.createBuffer(2, len, sr);
+  const L = ir.getChannelData(0), R = ir.getChannelData(1);
+  let s = 0x1832;
+  const nxt = () => { s = (s * 16807) % 2147483647; return s / 1073741823.5 - 1; };
+  // Early reflections evoking tiled bathhouse stone walls
+  const taps = [
+    [0.013, 0.46, 0.18], [0.021, 0.16, 0.42], [0.031, 0.34, 0.15],
+    [0.043, 0.14, 0.31], [0.056, 0.25, 0.18], [0.071, 0.15, 0.22],
+  ];
+  for (const [sec, gl, gr] of taps) {
+    const idx = Math.min(len - 1, Math.round(sec * sr));
+    L[idx] += gl; R[idx] += gr;
+  }
+  for (let i = Math.round(0.018 * sr); i < len; i++) {
+    const t = i / sr, env = Math.exp(-t / 0.12) * 0.14;
+    L[i] += nxt() * env;
+    R[i] += nxt() * env;
+  }
+  const send = c.createGain(); send.gain.value = wetGain;
+  const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 360; hp.Q.value = 0.7;
+  const conv = c.createConvolver(); conv.buffer = ir;
+  send.connect(hp); hp.connect(conv); conv.connect(out);
+  return { send, hp, conv };
+}
 // The limiter is a compressor and then a soft ceiling: { input, output }. Quiet sound passes both unchanged.
 function makeLimiter(c) {
   const l = c.createDynamicsCompressor();
-  l.threshold.value = -3; l.knee.value = 0; l.ratio.value = 20; l.attack.value = 0.003; l.release.value = 0.12;
+  l.threshold.value = -4.5; l.knee.value = 0; l.ratio.value = 20; l.attack.value = 0.002; l.release.value = 0.12;
   const curve = new Float32Array(2049), room = CEILING_MAX - CEILING_KNEE;
   for (let i = 0; i < curve.length; i++) {
     const x = i / 1024 - 1, a = Math.abs(x);
@@ -1554,81 +1588,158 @@ function makeLimiter(c) {
   l.connect(ceiling);
   return { input: l, output: ceiling };
 }
+function targetMasterGain() { return SAVE.settings.sound ? SAVE.settings.volume * MASTER_SCALE : 0; }
+function rampSmooth(target, durSec = 0.015) {
+  if (!AU.smooth || !AU.ctx) return;
+  try {
+    const t = AU.ctx.currentTime, g = AU.smooth.gain;
+    g.cancelScheduledValues(t);
+    g.setValueAtTime(g.value, t);
+    g.linearRampToValueAtTime(target, t + Math.max(0.005, durSec));
+  } catch (_) {}
+}
 function audioInit() {
-  if (AU.ctx) { if (AU.ctx.state !== 'running') AU.ctx.resume().catch(() => {}); return; }
+  if (AU.ctx) {
+    if (AU.ctx.state !== 'running' && !document.hidden && S.scene !== 'pause' && SAVE.settings.sound) {
+      AU.ctx.resume().catch(() => {});
+    }
+    return;
+  }
   try {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     AU.ctx = new AC();
     AU.master = AU.ctx.createGain();
+    AU.sum = AU.ctx.createGain(); AU.sum.gain.value = 1;
+    AU.smooth = AU.ctx.createGain();
     const lim = makeLimiter(AU.ctx);
     AU.limiter = lim.output;   // the last node before the speakers
-    AU.duck = AU.ctx.createGain();   // dips for a moment before the end-of-game cues; Volume and the Sound switch live on AU.master
-    AU.master.connect(AU.duck); AU.duck.connect(lim.input); AU.limiter.connect(AU.ctx.destination);
+    AU.duck = AU.ctx.createGain();   // dips for a moment before the end-of-game cues
+    const initGain = targetMasterGain();
+    AU.master.gain.value = initGain;
+    AU.smooth.gain.value = document.hidden ? 0.0001 : initGain;
+    AU.sum.connect(AU.smooth); AU.smooth.connect(AU.duck); AU.duck.connect(lim.input); AU.limiter.connect(AU.ctx.destination);
+    const rev = makeBathhouseReverb(AU.ctx, AU.sum, 0.12);
+    AU.reverb = rev ? rev.conv : null;
+    AU.reverbSend = rev ? rev.send : null;
+    AU.reverbHP = rev ? rev.hp : null;
     AU.noise = makeNoiseBuffer(AU.ctx);
-    AU.kit = makeAudioKit(AU.ctx, AU.master, { seed: (Date.now() ^ 0x5EED) >>> 0, music: 0, ambience: 0 });
-    applyVolume();
+    AU.kit = makeAudioKit(AU.ctx, AU.sum, { seed: (Date.now() ^ 0x5EED) >>> 0, music: 0, ambience: 0 });
+    AU.ctx.addEventListener('statechange', () => {
+      if (!AU.ctx) return;
+      const st = AU.ctx.state;
+      if (st === 'running') {
+        AU.everRunning = true;
+        if (AU.pendingMotif && S.scene === 'title' && !document.hidden) {
+          AU.pendingMotif = false;
+          sfx('motif');
+        }
+        if (AU.kit && !AU.kit.held && !document.hidden) AU.kit.start();
+      } else if (st === 'interrupted') {
+        if (AU.kit) AU.kit.stop();
+      } else if (st === 'suspended') {
+        if (AU.kit) AU.kit.stop();
+      }
+    });
+    applyVolume(true);
     audioMood();
     AU.kit.start();
   } catch (e) { AU.ctx = null; AU.kit = null; }
 }
-// The first gesture anywhere (a click on a dead corner of the title, a key, a touch) starts audio, so the title has its
-// music at once. A touch only counts for the browser's autoplay rule when it lifts, so pointerup calls this too (it resumes).
-// The very first one, on the title and not on a button or a field (their own click sounds follow at once), plays the game's three-note motif once.
+// The first gesture anywhere (pointerdown, pointerup, touchend on iOS Safari, or keydown) starts audio so the title has its
+// music at once. The very first gesture on bare title ground plays the three-note motif once (deferred onto resume() if suspended).
 const onControl = el => !!(el && el.closest && el.closest('button, a, input, select, textarea, label, [role="button"]'));
-for (const ev of ['pointerdown', 'pointerup', 'keydown']) window.addEventListener(ev, e => {
+for (const ev of ['pointerdown', 'pointerup', 'touchend', 'keydown']) window.addEventListener(ev, e => {
   const first = !AU.ctx;
   audioInit();
-  if (first && AU.ctx && S.scene === 'title' && !onControl(e.target) && !(e.type === 'keydown' && (e.key === 'Tab' || e.key === 'Enter' || e.key === ' '))) sfx('motif');
+  if (!first && AU.ctx && AU.ctx.state !== 'running' && !document.hidden && S.scene !== 'pause' && SAVE.settings.sound) {
+    AU.ctx.resume().catch(() => {});
+  }
+  if (first && AU.ctx && S.scene === 'title' && !onControl(e.target) && !(e.type === 'keydown' && (e.key === 'Tab' || e.key === 'Enter' || e.key === ' '))) {
+    if (AU.ctx.state === 'running') sfx('motif');
+    else {
+      AU.pendingMotif = true;
+      AU.ctx.resume().then(() => {
+        if (AU.pendingMotif && AU.ctx && AU.ctx.state === 'running' && S.scene === 'title' && !document.hidden) {
+          AU.pendingMotif = false;
+          sfx('motif');
+        }
+      }).catch(() => {});
+    }
+  }
 }, { capture: true, passive: true });
 function musicLevel() { const s = SAVE.settings; return s.music ? Math.min(1, s.musicVol) : 0; }
 function ambienceLevel() { const s = SAVE.settings; return s.ambience ? Math.min(1, s.ambVol) : 0; }
-function applyVolume() {
-  if (AU.master) AU.master.gain.value = SAVE.settings.sound ? SAVE.settings.volume * MASTER_SCALE : 0;
+function applyVolume(immediate = false) {
+  const target = targetMasterGain();
+  if (AU.master) AU.master.gain.value = target;   // synchronous mirror for polish.test.mjs & council-w2-a (CD-WF4-06)
+  if (AU.smooth && AU.ctx && !document.hidden) {
+    if (immediate) AU.smooth.gain.value = target;
+    else rampSmooth(target, 0.015);
+  }
   if (AU.kit) { AU.kit.music.level(musicLevel()); AU.kit.amb.level(ambienceLevel()); }
 }
-// Which music and ambience belong to the screen: the title piece off the board (winter bath-ancient, zero heat/intensity),
-// the mode's exclusive soundscape in a run (Classic 7-era climb, Springs Valley of Vapors 3-Act surge, Daily Era of the Day,
-// Trail landmark era at calm inten=0 per CD-WF4-03), and calm results music at the end (heat=0, inten=0 per CD-WF6-04).
+// Which music and ambience belong to the screen: winter bath-ancient on Title (and title-rooted menus) and calm bath-ancient
+// on Over/Win (zero Midcentury HVAC, Boiling vent hiss, or crisis intensity per W6-P-N01 / CD-WF6-04), and each mode's
+// exclusive soundscape in active play (Trail landmark era locked at calm inten=0 per CD-WF4-03).
+const OUTDOOR_ERAS = new Set(['ancient', 'frontier']);
 function audioMood() {
   const k = AU.kit;
   if (!k) return;
   const sc = S.scene, era = eraId();
   const onTitle = !inGame() && sc !== 'over' && sc !== 'win';
-  const piece = sc === 'over' || sc === 'win' ? (S.won ? 'win' : 'over') : inGame() ? era : 'title';
-  const ambId = onTitle ? 'bath-ancient' : 'bath-' + era;
-  const season = onTitle ? 'winter' : 'default';
-  k.music.play(SCORES[piece], { fade: piece === 'win' || piece === 'over' ? 1.5 : 2.5 });
+  const calmEnd = sc === 'over' || sc === 'win';
+  const piece = calmEnd ? (S.won ? 'win' : 'over') : inGame() ? era : 'title';
+  const ambId = (onTitle || calmEnd) ? 'bath-ancient' : 'bath-' + era;
+  const season = (onTitle || sc === 'over') ? 'winter' : 'default';
+  const curSc = k.music.score;
+  const isEraSwitch = !onTitle && !calmEnd && curSc && curSc !== SCORES[piece] && curSc !== SCORES.title && curSc !== SCORES.over && curSc !== SCORES.win;
+  k.music.play(SCORES[piece], isEraSwitch ? { fade: 0.6, quantize: true } : { fade: calmEnd ? 1.5 : 2.5 });
   k.amb.play(SCENES[ambId], { fade: 3, season });
   k.amb.set('season', season);
-  let heatLvl = (onTitle || sc === 'over' || sc === 'win' || S.mode === 'trail') ? 0 : Math.min(1, S.heat / 12);
-  if (!onTitle && sc !== 'over' && sc !== 'win' && S.mode === 'springs') {
+  if (AU.reverbSend && AU.ctx) {
+    const wet = (onTitle || calmEnd || OUTDOOR_ERAS.has(era)) ? 0.10 : 0.135;
+    AU.reverbSend.gain.setTargetAtTime(wet, AU.ctx.currentTime, 0.2);
+  }
+  let heatLvl = (onTitle || calmEnd || S.mode === 'trail') ? 0 : Math.min(1, S.heat / 12);
+  if (!onTitle && !calmEnd && S.mode === 'springs') {
     const act = springsAct(S.springs || 0);
     heatLvl = Math.max(heatLvl, act === 3 ? 0.55 : act === 2 ? 0.25 : 0);
   }
   k.amb.set('heat', heatLvl);
-  if (onTitle || sc === 'over' || sc === 'win') k.music.intensity(0);
+  if (onTitle || calmEnd) k.music.intensity(0);
   else audioPressure();
   // Keep AU.kit.hold() active across Pause -> Help/Cards/Records/Trail (releasing on Pause -> Settings only while auditioning Music/Ambience, W6-S5-01).
   const pausedSub = sc !== 'game' && sc !== 'title' && sc !== 'over' && sc !== 'win' && UI.returnTo === 'pause';
   const hold = document.hidden || sc === 'pause' || (pausedSub && !(sc === 'settings' && UI.auditionAudio));
-  if (hold && !k.held) k.hold(); else if (!hold && k.held) k.release();
+  if (hold && !k.held) k.hold();
+  else if (!hold && k.held) k.release();
+  if (!hold && !document.hidden && AU.ctx && AU.ctx.state === 'suspended' && SAVE.settings.sound) {
+    AU.ctx.resume().then(() => {
+      if (!document.hidden && S.scene !== 'pause') {
+        rampSmooth(targetMasterGain(), 0.035);
+        if (AU.kit && !AU.kit.held) AU.kit.start();
+      }
+    }).catch(() => {});
+  }
 }
 function boardFill() { let n = 0; for (const v of S.board) if (v) n++; return n / 81; }
-// A filling board (and Springs Act II/III surge) lifts the music; Spring Trail stays at calm inten=0 (CD-WF4-03).
+// Composite boardFill + heat + trayDoomed (plus Springs 3-Act surge) drives adaptive perc2 & L.lift;
+// Spring Trail, results, and non-game scenes stay strictly at calm inten=0 (CD-WF4-03 / CD-WF6-04).
 function audioPressure() {
   if (!AU.kit) return;
-  if (S.mode === 'trail') { AU.kit.music.intensity(0); return; }
+  if (S.scene !== 'game' || S.over || S.mode === 'trail') { AU.kit.music.intensity(0); return; }
   const base = Math.max(0, Math.min(1, (boardFill() - 0.35) / 0.4));
+  const doom = trayDoomed() ? 0.25 : 0;
   if (S.mode === 'springs') {
     const act = springsAct(S.springs || 0);
-    const boost = (act === 3 ? 0.48 : act === 2 ? 0.20 : 0) + (S.heat / 12) * 0.18;
+    const boost = (act === 3 ? 0.48 : act === 2 ? 0.20 : 0) + (S.heat / 12) * 0.18 + doom * 0.6;
     AU.kit.music.intensity(Math.max(0, Math.min(1, base + boost)));
     return;
   }
-  AU.kit.music.intensity(Math.max(0, Math.min(1, base + (S.heat / 12) * 0.12)));
+  AU.kit.music.intensity(Math.max(0, Math.min(1, base + (S.heat / 12) * 0.18 + doom)));
 }
-// Live harmonic unity (W6-S1-03 / wf-4:161): transposes live tonal SFX onto bright consonant major-pentatonic degrees
+// Live harmonic unity (W6-S1-03 / W6-S5-07 / wf-4:161): transposes live tonal SFX onto bright consonant major-pentatonic degrees
 // of the active score strictly when live music is audible (musicLevel() > 0 && AU.kit && !AU.kit.held).
 // Always falls back to concert A=440 / E=330 when offline (AU.kit === null) or music is muted (S5-04 / S5-14 parity).
 function activeHarmony(scoreOverride = null) {
@@ -1655,27 +1766,48 @@ function jitter(pan = 0) {
   return { f: 2 ** ((Math.random() * 2 - 1) * 20 / 1200), g: 10 ** (-Math.random() * 1.5 / 20), o: Math.random() * 0.9, pan: Math.max(-0.7, Math.min(0.7, pan)) };
 }
 let CUE_BUS = null;
+const DRY_CUES = new Set(['click', 'step']);
+function dryOutput() { return (AU.sum && AU.sum.context === AU.ctx) ? AU.sum : AU.master; }
 function cueDest() {
-  if (CUE_BUS) return CUE_BUS;
-  const c = AU.ctx;
-  if (!JIT.pan || !c.createStereoPanner) return AU.master;
-  const p = c.createStereoPanner(); p.pan.value = JIT.pan; p.connect(AU.master); return p;
+  if (CUE_BUS && CUE_BUS.context === AU.ctx) return CUE_BUS;
+  const c = AU.ctx, out = dryOutput();
+  if (!JIT.pan || !c.createStereoPanner) return out;
+  const p = c.createStereoPanner(); p.pan.value = JIT.pan; p.connect(out); return p;
+}
+function applyEnv(param, t, dur, peak, att = 0.005) {
+  const pk = Math.max(0.0001, peak);
+  if (att && typeof att === 'object') {
+    const a = Math.max(0.0008, att.a ?? 0.003), d = Math.max(0.002, att.d ?? dur * 0.25);
+    const sus = Math.max(0.0001, pk * (att.s ?? 0.35));
+    const r = Math.max(0.005, att.r ?? Math.max(0.01, dur - a - d));
+    const relAt = Math.max(t + a + d, t + dur - r);
+    param.setValueAtTime(0.0001, t);
+    param.linearRampToValueAtTime(pk, t + a);
+    param.exponentialRampToValueAtTime(sus, t + a + d);
+    param.setValueAtTime(sus, relAt);
+    param.exponentialRampToValueAtTime(0.0001, relAt + r);
+    return relAt + r;
+  }
+  const a = Math.max(0.0008, typeof att === 'number' ? att : 0.005);
+  param.setValueAtTime(0.0001, t);
+  param.exponentialRampToValueAtTime(pk, t + a);
+  param.exponentialRampToValueAtTime(0.0001, t + Math.max(dur, a + 0.002));
+  return t + Math.max(dur, a + 0.002);
 }
 function tone(f, t, dur, type = 'sine', vol = 0.25, f2 = null, att = 0.005) {
   const c = AU.ctx, o = c.createOscillator(), g = c.createGain();
   o.type = type; o.frequency.setValueAtTime(f * JIT.f, t);
   if (f2) o.frequency.exponentialRampToValueAtTime(f2 * JIT.f, t + dur);
-  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol * JIT.g, t + att);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  o.connect(g); g.connect(cueDest()); o.start(t); o.stop(t + dur + 0.02);
+  const endT = applyEnv(g.gain, t, dur, vol * JIT.g, att);
+  o.connect(g); g.connect(cueDest()); o.start(t); o.stop(endT + 0.02);
 }
-function hiss(t, dur, vol, f1, f2, q = 1.2, type = 'bandpass') {
+function hiss(t, dur, vol, f1, f2, q = 1.2, type = 'bandpass', att = null) {
   const c = AU.ctx, s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
   s.buffer = AU.noise; s.loop = true; f.type = type; f.Q.value = q;
   f.frequency.setValueAtTime(f1, t); f.frequency.exponentialRampToValueAtTime(f2, t + dur);
-  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol * JIT.g, t + Math.min(0.03, dur / 3));
-  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  s.connect(f); f.connect(g); g.connect(cueDest()); s.start(t, JIT.o); s.stop(t + dur + 0.05);
+  const envAtt = att === null ? Math.min(0.03, dur / 3) : att;
+  const endT = applyEnv(g.gain, t, dur, vol * JIT.g, envAtt);
+  s.connect(f); f.connect(g); g.connect(cueDest()); s.start(t, JIT.o); s.stop(endT + 0.05);
 }
 const PENTA = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24];
 const CUES = ['motif', 'click', 'pick', 'place', 'invalid', 'deal', 'undo', 'clear', 'vent', 'era', 'over', 'win', 'bonus', 'ach', 'heat', 'warn', 'best', 'card', 'pause', 'resume'];
@@ -1694,7 +1826,9 @@ function motif(t, base, vol) {   // three soft sine notes through a short feedba
   CUE_BUS = dry;   // tone() sends to the dry bus for these three notes, and the dry bus also feeds the echo
   try { MOTIF.forEach((st, k) => tone(semi(base, st), t + k * 0.22, 0.7, 'sine', vol)); } finally { CUE_BUS = prevBus; }
   dry.connect(dl);
-  setTimeout(() => { try { dry.disconnect(); dl.disconnect(); fb.disconnect(); wet.disconnect(); } catch (e) { /* already gone */ } }, 6000);
+  if (!(c instanceof (window.OfflineAudioContext || window.webkitOfflineAudioContext || Function))) {
+    setTimeout(() => { try { dry.disconnect(); dl.disconnect(); fb.disconnect(); wet.disconnect(); } catch (e) { /* already gone */ } }, 6000);
+  }
 }
 const DEAL_BASE = 196;  // Hz of the first tick of the deal (was 392)
 const BIG_CLEAR = 3;    // groups at once that earn the long ringing bell on top of the ladder
@@ -1705,35 +1839,40 @@ function playCue(name, o, t) {
       const dir = o.dir || 0;
       const f = dir > 0 ? 1120 : dir < 0 ? 860 : 980;
       const fEnd = dir > 0 ? 1280 : dir < 0 ? 740 : 880;
-      tone(f, t, 0.028, 'sine', 0.085, fEnd, 0.0015);
-      tone(f * 2.42, t, 0.018, 'sine', 0.032, fEnd * 2.2, 0.001);
-      hiss(t, 0.014, 0.045, 3600, 2200, 1.8);
+      tone(f, t, 0.026, 'sine', 0.085, fEnd, 0.0015);
+      tone(f * 2.42, t, 0.017, 'sine', 0.032, fEnd * 2.2, 0.001);
+      hiss(t, 0.014, 0.045, 3600, 2200, 1.8, 'bandpass', 0.0015);
       break;
     }
     case 'pick': {
       const f = semi(520, PENTA[o.k || 0]);
-      tone(f, t, 0.08, 'triangle', 0.31, f * 1.35); tone(f * 2, t, 0.04, 'sine', 0.08);
-      hiss(t, 0.03, 0.1, 3200, 2400, 1.5); break;
+      tone(f, t, 0.08, 'triangle', 0.305, f * 1.35, 0.002); tone(f * 2, t, 0.04, 'sine', 0.085, null, 0.0015);
+      hiss(t, 0.03, 0.1, 3200, 2400, 1.5, 'bandpass', 0.002); break;
     }
-    case 'place': {    // a glazed tile set on stone: a damped body (higher for small pieces; 380 Hz, where a phone speaker still reaches), a tick, a low thud
-      const f = 380 * (1 + (6 - Math.min(9, o.n || 4)) * 0.035);   // was 180 Hz
-      tone(f, t, 0.12, 'sine', 0.21, f * 0.6); tone(f * 2.4, t, 0.05, 'triangle', 0.1);
-      hiss(t, 0.05, 0.13, 3600, 1800, 1.1); tone(95, t, 0.1, 'sine', 0.1, 60);
+    case 'place': {    // sculpted glazed ceramic tile set on stone: 1.5 ms contact snap, mass-scaled release/wet-seat/sub-thud, place > invalid (CD-WF4-04 / W6-S5-02)
+      const m = Math.max(1, Math.min(9, o.n || 4)), mass = (m - 1) / 8;
+      const f = 380 * (1 + (6 - m) * 0.035);
+      const rel = 0.1 + mass * 0.05;
+      tone(f, t, rel, 'sine', 0.245, f * 0.62, { a: 0.0015, d: 0.024, s: 0.36, r: rel - 0.0255 });
+      tone(f * 2.45, t, 0.044, 'triangle', 0.115, f * 2.1, { a: 0.0015, d: 0.014, s: 0.22, r: 0.028 });
+      hiss(t, 0.038 + mass * 0.02, 0.132, 3900, 1750, 1.25, 'bandpass', 0.0015);
+      hiss(t + 0.012, 0.05 + mass * 0.03, 0.052 + mass * 0.02, 1600, 950, 1.0, 'bandpass', 0.006);
+      tone(108 - mass * 16, t, 0.075 + mass * 0.035, 'sine', 0.058 + mass * 0.032, 62, 0.002);
       break;
     }
-    case 'invalid': tone(330, t, 0.11, 'triangle', 0.29, 300); tone(247, t + 0.11, 0.16, 'triangle', 0.29, 210); hiss(t, 0.08, 0.05, 900, 500, 0.8); break;   // a two-note fall (was a 110 Hz square buzz)
+    case 'invalid': tone(330, t, 0.11, 'triangle', 0.29, 300); tone(247, t + 0.11, 0.16, 'triangle', 0.29, 210); hiss(t, 0.08, 0.05, 900, 500, 0.8); break;   // preserved above P-N02 250 Hz HPF >= 0.20 floor (CD-WF4-04)
     case 'deal': {     // three soft wood ticks synced 1:1 to 0/45/90 ms staggered deals, an octave under the clear chimes
-      hiss(t, 0.16, 0.05, 1800, 5200, 0.8);
-      [0, 1, 2].forEach(k => { tone(DEAL_BASE + k * 49, t + k * 0.045, 0.08, 'triangle', 0.24); tone((DEAL_BASE + k * 49) * 2, t + k * 0.045, 0.04, 'sine', 0.07); });
+      hiss(t, 0.16, 0.05, 1800, 5200, 0.8, 'bandpass', 0.003);
+      [0, 1, 2].forEach(k => { tone(DEAL_BASE + k * 49, t + k * 0.045, 0.08, 'triangle', 0.24, null, 0.002); tone((DEAL_BASE + k * 49) * 2, t + k * 0.045, 0.04, 'sine', 0.07, null, 0.0015); });
       break;
     }
     case 'undo': tone(500, t, 0.14, 'triangle', 0.31, 280); tone(250, t + 0.02, 0.12, 'sine', 0.12, 170); hiss(t, 0.12, 0.08, 1800, 600, 0.8); break;
     case 'clear': {    // a water rush, then glass-bell notes that climb with the heat and the chain (key-locked via activeHarmony)
-      const G = o.G || 1, h = o.heat || 0, n = G + 2, v = Math.min(0.22, 0.46 / Math.sqrt(n));
-      const first = Math.min(8, Math.floor(h / 2) + Math.min(CLEAR_LIFT, Math.max(0, (o.run || 1) - 1)));   // was floor(h / 2): a clear after a clear starts higher
+      const G = o.G || 1, h = o.heat || 0, n = G + 2, v = Math.min(0.205, 0.42 / Math.sqrt(n));
+      const first = Math.min(8, Math.floor(h / 2) + Math.min(CLEAR_LIFT, Math.max(0, (o.run || 1) - 1)));
       const hrm = activeHarmony(), root = hrm ? hrm.tonicNear(69) : 440;
-      hiss(t, 0.7 + G * 0.15, 0.24, 900, 5200, 0.7);
-      hiss(t, 0.5 + G * 0.12, 0.12, 300, 1500, 0.5, 'lowpass');
+      hiss(t, 0.7 + G * 0.15, 0.21, 900, 5200, 0.7);
+      hiss(t, 0.5 + G * 0.12, 0.105, 300, 1500, 0.5, 'lowpass');
       for (let k = 0; k < n; k++) {
         const f = semi(root, PENTA[Math.min(PENTA.length - 1, first + k)]);
         tone(f, t + 0.04 + k * 0.07, 0.5, 'sine', v); tone(f * 2.76, t + 0.04 + k * 0.07, 0.25, 'sine', v * 0.22);
@@ -1745,7 +1884,75 @@ function playCue(name, o, t) {
       }
       break;
     }
-    case 'vent': for (let k = 0; k < 5; k++) tone(300 + k * 90 + Math.random() * 60, t + k * 0.05 + Math.random() * 0.02, 0.08, 'sine', 0.27, 700); hiss(t, 0.35, 0.08, 1200, 3200, 0.9); break;
+    case 'vent': {     // resonant bandpass bubble formants + thermal steam burst (wf-4 §4B)
+      for (let k = 0; k < 5; k++) {
+        const st = t + k * 0.048 + Math.random() * 0.015;
+        const bf = 340 + k * 95 + Math.random() * 55;
+        tone(bf, st, 0.085, 'sine', 0.22, bf * 1.95, 0.003);
+        hiss(st, 0.07, 0.13, bf * 1.8, bf * 3.1, 4.0, 'bandpass', 0.004);
+      }
+      hiss(t + 0.03, 0.34, 0.11, 1300, 3400, 1.1, 'bandpass', 0.012);
+      break;
+    }
+    case 'tufa': {     // porous travertine limestone crumble (1.1-2.4 kHz + dry pebble taps)
+      hiss(t, 0.18, 0.16, 2200, 1100, 1.6, 'bandpass', 0.003);
+      for (let k = 0; k < 4; k++) {
+        const st = t + k * 0.032 + Math.random() * 0.012;
+        const pf = 920 + Math.random() * 680;
+        tone(pf, st, 0.03, 'triangle', 0.09, pf * 0.72, 0.0015);
+        hiss(st, 0.035, 0.1, 2400, 1300, 2.4, 'bandpass', 0.002);
+      }
+      break;
+    }
+    case 'ventSpawn': { // soft rising submerged bubble pop panned to vent column
+      tone(280, t, 0.095, 'sine', 0.13, 640, 0.004);
+      tone(460, t + 0.045, 0.07, 'sine', 0.09, 890, 0.003);
+      hiss(t, 0.14, 0.06, 900, 2400, 2.2, 'bandpass', 0.008);
+      break;
+    }
+    case 'cool': {     // gentle downward steam-settle sigh on heat tier drop
+      hiss(t, 0.28, 0.075, 2200, 680, 1.0, 'bandpass', 0.02);
+      tone(370, t + 0.02, 0.22, 'sine', 0.075, 275, 0.015);
+      break;
+    }
+    case 'boil': {     // resonant 143F Boiling shimmer bell
+      const hrm = activeHarmony(), base = hrm ? hrm.tonicNear(76) : 659.25;
+      [0, 7, 12, 16].forEach((st, k) => {
+        const f = semi(base, st);
+        tone(f, t + k * 0.055, 0.72, 'sine', 0.14, null, 0.004);
+        tone(f * 2.76, t + k * 0.055, 0.36, 'sine', 0.035, null, 0.003);
+      });
+      hiss(t, 0.55, 0.11, 2200, 6200, 1.3, 'bandpass', 0.015);
+      break;
+    }
+    case 'hint': {     // distinct two-note luminous bathhouse chime replacing recycled 'pick'
+      const hrm = activeHarmony(), base = hrm ? hrm.tonicNear(74) : 587.33;
+      [0, 7].forEach((st, k) => {
+        const f = semi(base, st);
+        tone(f, t + k * 0.095, 0.34, 'sine', 0.18, null, 0.003);
+        tone(f * 2.0, t + k * 0.095, 0.18, 'sine', 0.055, null, 0.002);
+      });
+      hiss(t, 0.16, 0.04, 3200, 5600, 1.6, 'bandpass', 0.005);
+      break;
+    }
+    case 'step': {     // whisper-quiet dry ceramic tick (<= 0.06 peak, keyboard/gamepad only)
+      tone(1060, t, 0.018, 'sine', 0.032, 920, 0.0012);
+      hiss(t, 0.01, 0.018, 3400, 2200, 2.0, 'bandpass', 0.001);
+      break;
+    }
+    case 'clearLock': { // whisper-quiet crystalline harmonic detent on 0 -> >=1 would-clear entry (<= 0.04 peak, CD-WF4-02)
+      const hrm = activeHarmony(), f = hrm ? hrm.tonicNear(81) : 880;
+      tone(f, t, 0.085, 'sine', 0.024, null, 0.002);
+      tone(f * 1.5, t + 0.012, 0.065, 'sine', 0.012, null, 0.002);
+      break;
+    }
+    case 'trailStar': { // staggered antique-brass bell chime matching 120 ms Spring Trail star reveal
+      const hrm = activeHarmony(SCORES.win), base = hrm ? hrm.tonicNear(72) : 523.25;
+      const f = semi(base, [0, 4, 7][Math.min(2, o.star || 0)]);
+      tone(f, t, 0.45, 'sine', 0.16, null, 0.003);
+      tone(f * 2.76, t, 0.22, 'sine', 0.045, null, 0.002);
+      break;
+    }
     case 'era': {
       const hrm = activeHarmony(o.score || SCORES[eraId()]), base = hrm ? hrm.tonicNear(64) : MOTIF_BASE;
       [...MOTIF, 16].forEach((st, k) => { tone(semi(base, st), t + k * 0.12, 1.0, 'sine', 0.2); tone(semi(base / 2, st), t + k * 0.12, 1.2, 'sine', 0.08); });
@@ -1757,8 +1964,8 @@ function playCue(name, o, t) {
     }
     case 'win': {
       const hrm = activeHarmony(SCORES.win), root = hrm ? hrm.tonicNear(60) : 392, tailBase = hrm ? hrm.tonicNear(60) : MOTIF_BASE;
-      [0, 4, 7, 12, 16, 19, 24].forEach((st, k) => tone(semi(root, st), t + k * 0.08, 0.5, 'sine', 0.3));
-      tone(root / 2, t, 1.2, 'sine', 0.16); hiss(t, 1.2, 0.12, 800, 4000); motif(t + 0.8, tailBase, 0.09);
+      [0, 4, 7, 12, 16, 19, 24].forEach((st, k) => tone(semi(root, st), t + k * 0.08, 0.5, 'sine', 0.265));
+      tone(root / 2, t, 1.2, 'sine', 0.135); hiss(t, 1.2, 0.105, 800, 4000); motif(t + 0.8, tailBase, 0.09);
       break;   // ends on the game's motif, softly
     }
     case 'ach': {      // a goal earned: three bell notes (brass-bright) with a little shimmer
@@ -1772,7 +1979,15 @@ function playCue(name, o, t) {
       const f = semi(base, st);
       hiss(t, 0.5, 0.14, 500, 3200, 0.9); tone(f, t + 0.05, 0.5, 'sine', 0.26); tone(f * 1.5, t + 0.12, 0.4, 'sine', 0.12); break;
     }
-    case 'warn': tone(147, t, 0.2, 'sine', 0.3, 118); tone(147, t + 0.24, 0.2, 'sine', 0.3, 118); tone(294, t, 0.08, 'sine', 0.05); tone(294, t + 0.24, 0.08, 'sine', 0.05); break;
+    case 'warn': {     // phone-audible antique-brass two-pulse alert (294/441 Hz overtones + rattle; 250 Hz HPF >= 0.20 per W6-S5-02)
+      for (const dt of [0, 0.22]) {
+        tone(147, t + dt, 0.19, 'sine', 0.105, 118, 0.004);
+        tone(294, t + dt, 0.18, 'triangle', 0.185, 246, { a: 0.0025, d: 0.045, s: 0.45, r: 0.12 });
+        tone(441, t + dt, 0.14, 'sine', 0.125, 382, { a: 0.002, d: 0.038, s: 0.36, r: 0.095 });
+        hiss(t + dt, 0.045, 0.048, 2200, 1200, 1.8, 'bandpass', 0.002);
+      }
+      break;
+    }
     case 'best': {     // a new best: a bright rising arpeggio that rings out
       const hrm = activeHarmony(), base = hrm ? hrm.tonicNear(72) : 523;
       [0, 4, 7, 12, 16].forEach((st, k) => { const f = semi(base, st); tone(f, t + k * 0.08, 0.6, 'triangle', 0.2); tone(f * 2, t + k * 0.08, 0.3, 'sine', 0.06); });
@@ -1792,49 +2007,67 @@ function playCue(name, o, t) {
     }
   }
 }
-// Haptics: short pulses on a drop, a clear, a blocked drop and the end of a game, where the device can vibrate. Off when the player has
-// asked for reduced motion or turned Vibration off; it works with the sound off. The switch is hidden where there is no vibrate().
+// Haptics: unified non-clobbering clearing-drop pattern [10, 35, 18, ...] (OQ-WF4-01 / OQ-WF6-03), o.at-aligned cancellable
+// over/win vibration, 4 ms clearLock detent (CD-WF4-02), and blocked-drop pulse. Off when Vibration off or reduced motion.
 const canVibrate = () => typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
 function buzz(pattern) {
   if (!SAVE.settings.haptics || !canVibrate() || reducedMotion()) return;
   try { navigator.vibrate(pattern); } catch (e) { /* haptics are optional */ }
 }
 function hapticFor(name, o) {
-  if (o.soft) return;
-  if (name === 'place') buzz(10);
-  else if (name === 'clear') { const p = []; for (let k = 0; k < Math.min(4, o.G || 1); k++) p.push(18, 30); p.pop(); buzz(p); }
-  else if (name === 'invalid') buzz([12, 40, 12]);
-  else if (name === 'over') buzz(25);
+  if (o.soft || o.skipHaptic) return;
+  if (name === 'place') {
+    if (o.clearingG && o.clearingG > 0) {
+      const p = [10, 35];
+      for (let k = 0; k < Math.min(4, o.clearingG); k++) p.push(18, 30);
+      p.pop();
+      buzz(p);
+    } else buzz(10);
+  } else if (name === 'clear') {
+    const p = []; for (let k = 0; k < Math.min(4, o.G || 1); k++) p.push(18, 30); p.pop(); buzz(p);
+  } else if (name === 'invalid') buzz([12, 40, 12]);
+  else if (name === 'clearLock') buzz(4);
+  else if (name === 'over' || name === 'win') {
+    const pat = name === 'over' ? 25 : [16, 45, 22, 45, 32];
+    const delayMs = Math.round((o.at || 0) * 1000);
+    if (delayMs > 0) {
+      const tok = AU.runToken;
+      UI.endTimers.push(setTimeout(() => { if (S.over && AU.runToken === tok) buzz(pat); }, delayMs));
+    } else buzz(pat);
+  }
 }
 // The last cues asked for, whether or not they were heard (sound off, no context yet): for the test hook.
 const CUE_LOG = [];
-const FIRST_CUE_CLOCK = 0.15, FIRST_CUE_LEAD = 0.15;   // seconds: a context younger than the first, cues start the second later
-// Dip everything 6 dB from t0 to t1 so the tails of the last placement and clear step aside for the cue that starts at t1.
+const FIRST_CUE_CLOCK = 0.15, FIRST_CUE_LEAD = 0.15;   // seconds: a context younger than the first, cues start the second later (CD-WF4-04 / S5-09)
+// Dip everything 6 dB from t0 to t1 so the tails of the last placement and clear step aside for the end cue at t1 (S5-11).
 function duckTails(t0, t1) {
   const g = AU.duck.gain;
   g.cancelScheduledValues(t0); g.setValueAtTime(1, t0); g.linearRampToValueAtTime(0.5, t0 + 0.05);
-  g.setValueAtTime(0.5, t1 - 0.02); g.linearRampToValueAtTime(1, t1 + 0.03);
+  g.setValueAtTime(0.5, Math.max(t0 + 0.05, t1 - 0.02)); g.linearRampToValueAtTime(1, t1 + 0.03);
 }
-// o.at: seconds after now to start the cue, on the audio clock (the over and win cues follow the last placement by 0.3 s).
-const INVALID_GAP = 250;   // ms: a blocked drag that keeps being blocked sounds and buzzes once in this time
-let lastInvalid = -Infinity;
+// Per-source invalid throttle (wf-4 §2C) preserving S5-13's 250 ms default throttle.
+const INVALID_GAP = 250, STEP_GAP = 70, CLEAR_LOCK_GAP = 110;
+const lastInvalidBySrc = {};
 const HEARD_LOG = [];      // the cues that really started, for the test hook (CUE_LOG also holds the ones held back)
-// Cancel any scheduled end-of-game audio cues (GainNodes + best/card timers) on Post-Loss Undo or reset (W6-S5-01).
+function fadeGainNodes(list) {
+  if (!list || !list.length) return;
+  const t = AU.ctx ? AU.ctx.currentTime : 0;
+  const nodes = list.splice(0);
+  for (const g of nodes) {
+    try {
+      g.gain.cancelScheduledValues(t);
+      g.gain.setValueAtTime(Math.max(0.0001, g.gain.value), t);
+      g.gain.linearRampToValueAtTime(0.0001, t + 0.025);
+      setTimeout(() => { try { g.disconnect(); } catch (_) {} }, 50);
+    } catch (_) {}
+  }
+}
+// Cancel any scheduled end-of-game audio cues (GainNodes + best/card/haptic timers) on Post-Loss Undo or reset (W6-S5-01 / W6-S5-02).
 function cancelEndCues() {
+  AU.runToken++;
   for (let i = 0; i < UI.endTimers.length; i++) clearTimeout(UI.endTimers[i]);
   UI.endTimers.length = 0;
-  if (AU.endCues && AU.endCues.length) {
-    const t = AU.ctx ? AU.ctx.currentTime : 0;
-    const nodes = AU.endCues.splice(0);
-    for (const g of nodes) {
-      try {
-        g.gain.cancelScheduledValues(t);
-        g.gain.setValueAtTime(Math.max(0.0001, g.gain.value), t);
-        g.gain.linearRampToValueAtTime(0.0001, t + 0.025);
-        setTimeout(() => { try { g.disconnect(); } catch (_) {} }, 50);
-      } catch (_) {}
-    }
-  }
+  fadeGainNodes(AU.endCues);
   if (AU.ctx && AU.duck) {
     try {
       const t = AU.ctx.currentTime, g = AU.duck.gain;
@@ -1847,40 +2080,65 @@ function cancelEndCues() {
 function cancelTurnTimers() {
   for (let i = 0; i < UI.turnTimers.length; i++) clearTimeout(UI.turnTimers[i]);
   UI.turnTimers.length = 0;
+  fadeGainNodes(AU.turnCues);
+}
+function makeCueBus(c, name, pan, out, revSend) {
+  const g = c.createGain(); g.gain.value = 1;
+  let busOut = g;
+  if (pan && c.createStereoPanner) {
+    const p = c.createStereoPanner(); p.pan.value = pan; g.connect(p); busOut = p;
+  }
+  busOut.connect(out);
+  if (!DRY_CUES.has(name) && revSend && revSend.context === c) busOut.connect(revSend);
+  return { inNode: g, outNode: busOut };
 }
 function sfx(name, o = {}) {
+  const nowMs = performance.now();
+  if (name === 'step') { if (nowMs - AU.lastStep < STEP_GAP) return; AU.lastStep = nowMs; }
+  if (name === 'clearLock') { if (nowMs - AU.lastClearLock < CLEAR_LOCK_GAP) return; AU.lastClearLock = nowMs; }
   CUE_LOG.push(name); if (CUE_LOG.length > 60) CUE_LOG.shift();
-  if (name === 'invalid') { const nowMs = performance.now(); if (nowMs - lastInvalid < INVALID_GAP) return; lastInvalid = nowMs; }
+  if (name === 'invalid') {
+    const src = o.src || 'default';
+    if (nowMs - (lastInvalidBySrc[src] ?? -Infinity) < INVALID_GAP) return;
+    lastInvalidBySrc[src] = nowMs;
+  }
   hapticFor(name, o);
   if (!AU.ctx || !SAVE.settings.sound || !SAVE.settings.sfx) return;
+  if (AU.ctx.state !== 'running') {
+    if (!document.hidden && S.scene !== 'pause') AU.ctx.resume().catch(() => {});
+    return;
+  }
   try {
     HEARD_LOG.push(name); if (HEARD_LOG.length > 60) HEARD_LOG.shift();
     JIT = jitter(o.pan || 0);
     if (o.soft) JIT.g *= o.soft;
-    // On a context that has only just started, the output device is not pulling samples yet: a cue at the very start of
-    // its clock is mostly lost (the first click measured 0.003 against 0.049 later). Start the first cues a little later.
+    // On a context that has only just started, the output device is not pulling samples yet: start the first cues FIRST_CUE_LEAD ahead (S5-09).
     const now = AU.ctx.currentTime;
     AU.lead = now < FIRST_CUE_CLOCK ? FIRST_CUE_LEAD : 0.01;
-    const start = now + AU.lead + (o.at || 0);
-    if (o.at && AU.duck) duckTails(now + AU.lead, start);
-    if (name === 'over' || name === 'win') {
-      const eg = AU.ctx.createGain(); eg.gain.value = 1; eg.connect(AU.master);
-      AU.endCues.push(eg);
-      const prevBus = CUE_BUS;
-      CUE_BUS = eg;
-      try { playCue(name, o, start); } finally { CUE_BUS = prevBus; }
-      setTimeout(() => {
-        const idx = AU.endCues.indexOf(eg);
-        if (idx >= 0) AU.endCues.splice(idx, 1);
-        try { eg.disconnect(); } catch (_) {}
-      }, 4500);
-    } else {
-      playCue(name, o, start);
-    }
+    const delaySec = o.at || 0;
+    const start = now + AU.lead + delaySec;
+    const isEnd = name === 'over' || name === 'win' || name === 'trailStar';
+    if ((name === 'over' || name === 'win') && delaySec > 0 && AU.duck) duckTails(now + AU.lead, start);
+    const bus = makeCueBus(AU.ctx, name, JIT.pan, dryOutput(), AU.reverbSend);
+    const trackList = isEnd ? AU.endCues : delaySec > 0 ? AU.turnCues : null;
+    if (trackList) trackList.push(bus.inNode);
+    const prevBus = CUE_BUS;
+    CUE_BUS = bus.inNode;
+    try { playCue(name, o, start); } finally { CUE_BUS = prevBus; }
+    const cleanMs = Math.round((delaySec + (isEnd ? 4.5 : name === 'motif' ? 5.5 : 2.6)) * 1000);
+    setTimeout(() => {
+      if (trackList) {
+        const idx = trackList.indexOf(bus.inNode);
+        if (idx >= 0) trackList.splice(idx, 1);
+      }
+      try { bus.inNode.disconnect(); } catch (_) {}
+      if (bus.outNode !== bus.inNode) { try { bus.outNode.disconnect(); } catch (_) {} }
+    }, cleanMs);
     if (AU.kit && !AU.kit.held) {
-      if (name === 'clear') AU.kit.music.duck(3, 350);
-      else if (name === 'era' || name === 'win' || name === 'over') AU.kit.music.duck(6, 500);
-      else if (name === 'ach' || name === 'best' || name === 'card') AU.kit.music.duck(3, 400);
+      if (name === 'clear') AU.kit.music.duck(3, 350, delaySec);
+      else if (name === 'era') AU.kit.music.duck(6, 500, delaySec);
+      else if (name === 'win' || name === 'over') AU.kit.music.duck(6, 500, delaySec); // starts after AU.duck returns, zero -12 dB double-duck
+      else if (name === 'ach' || name === 'best' || name === 'card' || name === 'boil') AU.kit.music.duck(3, 400, delaySec);
     }
   } catch (e) { /* audio is optional */ }
 }
@@ -1902,26 +2160,50 @@ function makeAudioKit(ctx, out, opt = {}) {
   { const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = rnd() * 2 - 1; }
   const noise = (t, dur) => { const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true; s.start(t, rr(0, 1.9)); if (dur) s.stop(t + dur); return s; };
 
-  let mLevel = opt.music ?? 0.5, aLevel = opt.ambience ?? 0.5, inten = 0, held = false, timer = 0;
-  const musicBus = gain(mLevel, out), ambBus = gain(aLevel, out);
+  let mLevel = opt.music ?? 0.5, aLevel = opt.ambience ?? 0.5, inten = 0, held = false, timer = 0, started = false;
+  let duckUntil = 0, duckDb = 0;
+  // Lean bus EQ (CD-WF4-06 / W6-S5-07): -2.5 dB 300 Hz peaking carve on musicBus for ceramic SFX clarity + 110 Hz HPF on ambBus
+  const musicEq = ctx.createBiquadFilter(); musicEq.type = 'peaking'; musicEq.frequency.value = 300; musicEq.Q.value = 1.1; musicEq.gain.value = -2.5; musicEq.connect(out);
+  const ambHp = lowpass(110, out, 'highpass', 0.7);
+  const musicBus = gain(mLevel, musicEq), ambBus = gain(aLevel, ambHp);
   const dead = [];   // { at, nodes }: sub-buses to disconnect once their fade-out has finished
+  function flushDead(now) {
+    for (let i = dead.length - 1; i >= 0; i--) {
+      if (dead[i].at < now) {
+        for (const n of dead[i].nodes) {
+          try { if (n.stop) n.stop(); } catch (e) { /* already stopped */ }
+          try { n.disconnect(); } catch (e) { /* already gone */ }
+        }
+        dead.splice(i, 1);
+      }
+    }
+  }
   const retire = (bus, nodes, at, fade) => {
-    bus.gain.cancelScheduledValues(at); bus.gain.setValueAtTime(Math.max(bus.gain.value, 0.0001), at);
-    bus.gain.linearRampToValueAtTime(0.0001, at + Math.max(fade, 0.02)); dead.push({ at: at + fade + 0.2, nodes });
+    const startAt = Math.max(ctx.currentTime, at);
+    bus.gain.cancelScheduledValues(startAt);
+    bus.gain.setValueAtTime(Math.max(bus.gain.value, 0.0001), startAt);
+    bus.gain.linearRampToValueAtTime(0.0001, startAt + Math.max(fade, 0.02));
+    dead.push({ at: startAt + fade + 0.2, nodes });
+    flushDead(ctx.currentTime);
   };
+  function syncTimer() {
+    const want = started && !held && ctx.state === 'running' && (mLevel > 0 || aLevel > 0);
+    if (want && !timer) timer = setInterval(() => { if (ctx.state === 'running') scheduleUntil(ctx.currentTime + 0.25); }, 25);
+    else if (!want && timer) { clearInterval(timer); timer = 0; }
+  }
 
   // ------------------------------------------------------------------------------------------- instruments
   // sus: held for the note's length then released over r seconds. Otherwise percussive: decays over `decay`.
   // waves: one oscillator each, detuned +/- det cents. parts: extra sine partials [frequency multiple, gain].
   const INST = {
-    pad:    { waves: ['triangle', 'sine'], det: 6, sus: true, a: 0.9, r: 1.8, lp: 1500 },
-    organ:  { waves: ['sine'], parts: [[2, 0.4], [3, 0.15]], sus: true, a: 0.04, r: 0.25 },
+    pad:    { waves: ['triangle', 'sine'], det: 6, sus: true, a: 0.65, r: 0.55, lp: 1500, hp: 160 },
+    organ:  { waves: ['sine'], parts: [[2, 0.4], [3, 0.15]], sus: true, a: 0.04, r: 0.25, hp: 160 },
     flute:  { waves: ['sine'], parts: [[2, 0.07]], sus: true, a: 0.06, r: 0.3, vib: 5 },
-    brass:  { waves: ['sawtooth', 'square'], det: 5, sus: true, a: 0.03, r: 0.12, lp: 1900 },
+    brass:  { waves: ['sawtooth', 'triangle'], det: 5, sus: true, a: 0.035, r: 0.14, lp: 1650, hp: 160 },
     mallet: { waves: ['sine'], parts: [[3, 0.16], [4.2, 0.05]], a: 0.004, decay: 1.1 },
     piano:  { waves: ['triangle'], parts: [[2, 0.22], [3, 0.07]], a: 0.004, decay: 0.75 },
     pluck:  { waves: ['sawtooth'], a: 0.003, decay: 0.38, lp: 3400, lpTo: 500 },
-    bass:   { waves: ['triangle'], parts: [[2, 0.12]], a: 0.008, decay: 0.55, lp: 800 },
+    bass:   { waves: ['triangle'], parts: [[2, 0.24], [3, 0.09]], a: 0.008, decay: 0.55, lp: 1100 },
     tuba:   { waves: ['sawtooth'], sus: true, a: 0.02, r: 0.08, lp: 420 },
   };
   function voice(m, t, midi, dur, ins, level, pn, dry) {
@@ -1932,6 +2214,7 @@ function makeAudioKit(ctx, out, opt = {}) {
     else env.gain.exponentialRampToValueAtTime(0.0001, end);
     let dst = panTo(pn, dry ? m.lp : m.inp);
     if (ins.lp) { const fl = lowpass(ins.lp, dst); if (ins.lpTo) { fl.frequency.setValueAtTime(ins.lp, t); fl.frequency.exponentialRampToValueAtTime(ins.lpTo, t + ins.decay); } dst = fl; }
+    if (ins.hp) dst = lowpass(ins.hp, dst, 'highpass', 0.7);
     env.connect(dst);
     ins.waves.forEach((w, i) => {
       const o = ctx.createOscillator(); o.type = w; o.frequency.value = f; if (ins.det) o.detune.value = (i % 2 ? -1 : 1) * ins.det;
@@ -1948,20 +2231,6 @@ function makeAudioKit(ctx, out, opt = {}) {
   };
 
   // ------------------------------------------------------------------------------------------------- music
-  // A score is data:
-  //   { bpm, beats: 4, spb: 2 (steps per beat: 2 = eighths, 4 = sixteenths), swing: 0..0.33,
-  //     key: 62 (MIDI note of the tonic), scale: [0,2,4,5,7,9,11], sevenths: [4] (chord degrees that take a 7th),
-  //     form: 'AABA', sections: { A: [0,5,3,4], B: [3,0,4,4] }   // chord roots as scale degrees, one bar each
-  //                                                               // ([degree, bars] holds a chord for longer),
-  //     pad:  { inst: 'pad', gain: 0.05 },
-  //     bass: { inst: 'bass', pattern: 'root' | 'two' | 'walk', gain: 0.12 },
-  //     comp: { inst: 'piano', at: [1, 3] (beats), gain: 0.04 },
-  //     lead: { inst: 'mallet', gain: 0.09, oct: 1, lo: -2, hi: 9, classes: [0,1,2,4,5], vary: 0.3, rest: 0.15,
-  //             rhythms: [[0,3,4,6], ...] (steps in the bar) },
-  //     perc: { k: [0, 2], s: [1, 3], h: [0.5, 1.5, 2.5, 3.5], gain: 0.5 }, perc2: {...} (added at high intensity),
-  //     lp: 4200, delay: 0.18 (echo level, 0 for none), delayBeats: 0.75 }
-  // The lead is composed once per section bar and remembered, so A sounds like A each time it returns; on
-  // every return a bar has a `vary` chance of a small variation that is not remembered.
   const RHY = {
     8: [[0, 3, 4, 6], [0, 2, 4], [0, 4, 6, 7], [2, 4, 6], [0, 3, 6], [0, 2, 3, 4, 6], [0, 4], [0, 1, 2, 4], [1, 2, 4, 6]],
     6: [[0, 2, 4], [0, 3], [0, 4, 5], [2, 4], [0, 2, 3, 4]],
@@ -1995,7 +2264,7 @@ function makeAudioKit(ctx, out, opt = {}) {
     let rh;
     if (B.end) rh = [0];
     else if (rnd() < (L.rest ?? 0.15)) rh = [];
-    else if (B.i >= 2 && m.rh[B.label + (B.i - 2)] && rnd() < 0.6) rh = m.rh[B.label + (B.i - 2)];
+    else if (B.i >= 2 && m.rh[B.label + (B.i - 2)]?.length && rnd() < 0.6) rh = m.rh[B.label + (B.i - 2)];
     else rh = pick(pool);
     m.rh[B.label + B.i] = rh;
     const mot = [];
@@ -2032,7 +2301,7 @@ function makeAudioKit(ctx, out, opt = {}) {
     const deg = (d) => s.key + sc[((d % 7) + 7) % 7] + 12 * Math.floor(d / 7);
     const fold = (n, lo) => lo + (((n - lo) % 12) + 12) % 12;
     const chord = [B.d, B.d + 2, B.d + 4].concat((s.sevenths || []).includes(((B.d % 7) + 7) % 7) ? [B.d + 6] : []);
-    if (s.pad && B.first) for (const d of chord) voice(m, t0, fold(deg(d), s.key - 5), barDur * B.len, INST[s.pad.inst || 'pad'], (s.pad.gain ?? 0.05), rr(-0.4, 0.4), false);
+    if (s.pad && B.first) for (const d of chord) voice(m, t0, fold(deg(d), s.key - 5), barDur * B.len * 0.80, INST[s.pad.inst || 'pad'], (s.pad.gain ?? 0.05), rr(-0.4, 0.4), false);
     if (s.bass) {
       const ins = INST[s.bass.inst || 'bass'], lo = s.key - 24 + 12 * (s.bass.oct || 0), g = s.bass.gain ?? 0.12, root = fold(deg(B.d), lo);
       let fifth = fold(deg(B.d + 4), lo); if (fifth > root + 6) fifth -= 12;
@@ -2057,14 +2326,33 @@ function makeAudioKit(ctx, out, opt = {}) {
   }
   const music = {
     play(score, o = {}) {
-      const at = o.at ?? ctx.currentTime + 0.03, fade = o.fade ?? 1.2;
+      const now = ctx.currentTime;
+      let at = o.at ?? now + 0.03;
+      const fade = o.fade ?? 1.2;
       if (cur && cur.score === score) return;
-      if (cur) retire(cur.bus, cur.nodes, at, fade);
+      if (o.quantize && cur && cur.score) {
+        const beat = 60 / (cur.score.bpm * (1 + 0.06 * inten));
+        const halfBar = beat * Math.max(1, (cur.score.beats || 4) / 2);
+        let qAt = cur.t;
+        while (qAt - halfBar > now + 0.08) qAt -= halfBar;
+        if (qAt <= now + 0.03) qAt = now + Math.min(halfBar, 0.6);
+        at = Math.min(now + 1.2, Math.max(now + 0.03, qAt));
+      }
+      if (cur) retire(cur.bus, cur.nodes, Math.max(now, at - (o.quantize ? 0.15 : 0)), fade);
       cur = score ? mStart(score, at, fade) : null;
     },
     stop(fade = 1) { music.play(null, { fade }); },
-    level(v) { mLevel = v; if (!held) musicBus.gain.setTargetAtTime(v, ctx.currentTime, 0.05); },
-    duck(db = 6, ms = 400) { if (held) return; const t = ctx.currentTime; musicBus.gain.cancelScheduledValues(t); musicBus.gain.setTargetAtTime(mLevel * 10 ** (-db / 20), t, 0.02); musicBus.gain.setTargetAtTime(mLevel, t + ms / 1000, 0.25); },
+    level(v) { mLevel = v; if (!held) musicBus.gain.setTargetAtTime(v, ctx.currentTime, 0.05); syncTimer(); },
+    duck(db = 6, ms = 400, delaySec = 0) {
+      if (held) return;
+      const t = ctx.currentTime + Math.max(0, delaySec), until = t + ms / 1000;
+      if (t < duckUntil && db < duckDb) return;   // 3 dB never overrides active 6 dB duck (wf-4 §4C)
+      duckDb = db; duckUntil = Math.max(duckUntil, until);
+      musicBus.gain.cancelScheduledValues(t);
+      if (delaySec <= 0) musicBus.gain.setValueAtTime(musicBus.gain.value, t);
+      musicBus.gain.setTargetAtTime(mLevel * 10 ** (-db / 20), t, 0.02);
+      musicBus.gain.setTargetAtTime(mLevel, duckUntil, 0.25);
+    },
     intensity(x) { inten = Math.max(0, Math.min(1, x)); },
     get inten() { return inten; },
     get score() { return cur && cur.score; },
@@ -2073,19 +2361,13 @@ function makeAudioKit(ctx, out, opt = {}) {
   };
 
   // ---------------------------------------------------------------------------------------------- ambience
-  // A scene is data:
-  //   { beds:  [{ type: 'lowpass' | 'bandpass' | 'highpass', freq, q, gain, pan,
-  //               lfo: { rate (Hz), depth 0..1 } (slow swell of the bed's level), flfo: { rate, depth (Hz) },
-  //               param: 'wind', range: [0.2, 1] }],     // amb.set('wind', 0..1) moves this bed's level
-  //     spots: [{ make: 'drip' | 'bird' | 'hiss' | 'bell' | 'cricket' | 'swell' | (ctx, dest, t, rnd) => {},
-  //               every: [4, 10] (seconds between), gain, pan: [-0.6, 0.6], param: 'night' }] }
-  // Beds are continuous; spots are sparse one-shots at random gaps so the place never loops audibly.
+  // Beds are continuous; spots are sparse one-shots at random gaps with gentle distance lowpass so the space feels natural.
   const SPOT = {
     drip: (dst, t, v) => { const f = rr(1100, 2300), o = ctx.createOscillator(), e = gain(0.0001, dst); o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 0.55, t + 0.03); o.frequency.exponentialRampToValueAtTime(f * 1.5, t + 0.09); e.gain.setValueAtTime(v, t); e.gain.exponentialRampToValueAtTime(0.0001, t + 0.12); o.connect(e); o.start(t); o.stop(t + 0.14); },
-    bird: (dst, t, v) => { const n = 2 + ((rnd() * 3) | 0), base = rr(2600, 4200); for (let i = 0; i < n; i++) { const s = t + i * rr(0.09, 0.16), o = ctx.createOscillator(), e = gain(0.0001, dst); o.frequency.setValueAtTime(base * rr(0.9, 1.1), s); o.frequency.exponentialRampToValueAtTime(base * rr(1.15, 1.5), s + 0.06); e.gain.setValueAtTime(0.0001, s); e.gain.linearRampToValueAtTime(v * 0.7, s + 0.015); e.gain.exponentialRampToValueAtTime(0.0001, s + 0.08); o.connect(e); o.start(s); o.stop(s + 0.1); } },
+    bird: (dst, t, v) => { const fl = lowpass(rr(2200, 3500), dst); const n = 2 + ((rnd() * 3) | 0), base = rr(2500, 3900); for (let i = 0; i < n; i++) { const s = t + i * rr(0.09, 0.16), o = ctx.createOscillator(), e = gain(0.0001, fl); o.frequency.setValueAtTime(base * rr(0.9, 1.1), s); o.frequency.exponentialRampToValueAtTime(base * rr(1.15, 1.45), s + 0.06); e.gain.setValueAtTime(0.0001, s); e.gain.linearRampToValueAtTime(v * 0.7, s + 0.015); e.gain.exponentialRampToValueAtTime(0.0001, s + 0.08); o.connect(e); o.start(s); o.stop(s + 0.1); } },
     hiss: (dst, t, v) => { const d = rr(0.7, 1.8), e = gain(0.0001, lowpass(rr(3500, 6000), dst, 'highpass')); e.gain.setValueAtTime(0.0001, t); e.gain.linearRampToValueAtTime(v * 0.6, t + d * 0.3); e.gain.exponentialRampToValueAtTime(0.0001, t + d); noise(t, d + 0.05).connect(e); },
-    bell: (dst, t, v) => { const f = rr(700, 1100); for (const [mult, pg, dec] of [[1, 1, 2.2], [2.76, 0.4, 1.3], [5.4, 0.18, 0.7]]) { const o = ctx.createOscillator(), e = gain(0.0001, dst); o.frequency.value = f * mult; e.gain.setValueAtTime(v * pg * 0.6, t); e.gain.exponentialRampToValueAtTime(0.0001, t + dec); o.connect(e); o.start(t); o.stop(t + dec + 0.05); } },
-    cricket: (dst, t, v) => { const f = rr(4200, 5200), n = 3 + ((rnd() * 4) | 0); for (let i = 0; i < n; i++) { const s = t + i * 0.055, o = ctx.createOscillator(), e = gain(0.0001, dst); o.frequency.value = f; e.gain.setValueAtTime(v * 0.35, s); e.gain.exponentialRampToValueAtTime(0.0001, s + 0.03); o.connect(e); o.start(s); o.stop(s + 0.04); } },
+    bell: (dst, t, v) => { const fl = lowpass(rr(1600, 2700), dst); const f = rr(700, 1100); for (const [mult, pg, dec] of [[1, 1, 2.2], [2.76, 0.4, 1.3], [5.4, 0.18, 0.7]]) { const o = ctx.createOscillator(), e = gain(0.0001, fl); o.frequency.value = f * mult; e.gain.setValueAtTime(v * pg * 0.6, t); e.gain.exponentialRampToValueAtTime(0.0001, t + dec); o.connect(e); o.start(t); o.stop(t + dec + 0.05); } },
+    cricket: (dst, t, v) => { const fl = lowpass(rr(2600, 3800), dst); const f = rr(4000, 4900), n = 3 + ((rnd() * 4) | 0); for (let i = 0; i < n; i++) { const s = t + i * 0.055, o = ctx.createOscillator(), e = gain(0.0001, fl); o.frequency.value = f; e.gain.setValueAtTime(v * 0.35, s); e.gain.exponentialRampToValueAtTime(0.0001, s + 0.03); o.connect(e); o.start(s); o.stop(s + 0.04); } },
     swell: (dst, t, v) => { const d = rr(2.5, 5), e = gain(0.0001, lowpass(rr(500, 900), dst, 'bandpass', 0.6)); e.gain.setValueAtTime(0.0001, t); e.gain.linearRampToValueAtTime(v, t + d * 0.45); e.gain.linearRampToValueAtTime(0.0001, t + d); noise(t, d + 0.05).connect(e); },
   };
   let scene = null;
@@ -2093,10 +2375,12 @@ function makeAudioKit(ctx, out, opt = {}) {
   function aStart(def, at, fade) {
     const bus = gain(0.0001, ambBus), nodes = [bus], beds = [];
     for (const b of def.beds || []) {
-      const g = gain(b.gain ?? 0.05, panTo(b.pan || 0, bus)), f = lowpass(b.freq || 600, g, b.type || 'lowpass', b.q ?? 0.7), src = noise(at);
+      const pNode = (b.pan && ctx.createStereoPanner) ? panTo(b.pan, bus) : bus;
+      const g = gain(b.gain ?? 0.05, pNode), f = lowpass(b.freq || 600, g, b.type || 'lowpass', b.q ?? 0.7), src = noise(at);
       src.connect(f); nodes.push(src, g, f);
-      if (b.lfo) { const l = ctx.createOscillator(); l.frequency.value = b.lfo.rate; l.connect(gain((b.gain ?? 0.05) * b.lfo.depth * 0.5, g.gain)); l.start(at); nodes.push(l); }
-      if (b.flfo) { const l = ctx.createOscillator(); l.frequency.value = b.flfo.rate; l.connect(gain(b.flfo.depth, f.frequency)); l.start(at); nodes.push(l); }
+      if (pNode !== bus) nodes.push(pNode);
+      if (b.lfo) { const l = ctx.createOscillator(), lg = gain((b.gain ?? 0.05) * b.lfo.depth * 0.5, g.gain); l.frequency.value = b.lfo.rate; l.connect(lg); l.start(at); nodes.push(l, lg); }
+      if (b.flfo) { const l = ctx.createOscillator(), lg = gain(b.flfo.depth, f.frequency); l.frequency.value = b.flfo.rate; l.connect(lg); l.start(at); nodes.push(l, lg); }
       beds.push({ def: b, g });
     }
     bus.gain.setValueAtTime(0.0001, at); bus.gain.linearRampToValueAtTime(1, at + Math.max(fade, 0.02));
@@ -2114,10 +2398,11 @@ function makeAudioKit(ctx, out, opt = {}) {
       scene = def ? aStart(def, at, fade) : null;
     },
     stop(fade = 1.5) { amb.play(null, { fade }); },
-    level(v) { aLevel = v; if (!held) ambBus.gain.setTargetAtTime(v, ctx.currentTime, 0.05); },
+    level(v) { aLevel = v; if (!held) ambBus.gain.setTargetAtTime(v, ctx.currentTime, 0.05); syncTimer(); },
     set(name, v, tc = 0.5) { params[name] = v; if (scene && typeof v === 'number') applyParam(scene, name, v, ctx.currentTime, tc); },
     param(name) { return params[name]; },
     get scene() { return scene && scene.def; },
+    get nodeCount() { return scene ? scene.nodes.length : 0; },
   };
 
   // --------------------------------------------------------------------------------------------- scheduler
@@ -2136,20 +2421,39 @@ function makeAudioKit(ctx, out, opt = {}) {
         }
       }
     }
-    for (let i = dead.length - 1; i >= 0; i--) if (dead[i].at < now) { for (const n of dead[i].nodes) { try { if (n.stop) n.stop(); } catch (e) { /* already stopped */ } try { n.disconnect(); } catch (e) { /* already gone */ } } dead.splice(i, 1); }
+    flushDead(now);
   }
 
   return {
     music, amb, scheduleUntil, INST,
-    // Cue variation for the game's own tone() and noise(): multiply the frequency by f and the gain by g, start
-    // a noise buffer at offset o (seconds), so no two repeats of a cue are sample-identical.
     jit(cents = 25, db = 1.5) { return { f: 2 ** (rr(-cents, cents) / 1200), g: 10 ** (rr(-db, 0) / 20), o: rr(0, 1.5) }; },
-    start() { if (!timer) timer = setInterval(() => { if (ctx.state === 'running') scheduleUntil(ctx.currentTime + 0.25); }, 25); },
-    stop() { if (timer) clearInterval(timer); timer = 0; },
-    // Pause card or hidden tab: fade both buses out and schedule nothing until release().
-    hold(tc = 0.08) { held = true; const t = ctx.currentTime; musicBus.gain.cancelScheduledValues(t); musicBus.gain.setTargetAtTime(0, t, tc); ambBus.gain.setTargetAtTime(0, t, tc); },
-    release(tc = 0.3) { held = false; const t = ctx.currentTime; musicBus.gain.setTargetAtTime(mLevel, t, tc); ambBus.gain.setTargetAtTime(aLevel, t, tc); },
+    start() { started = true; syncTimer(); },
+    stop() { if (timer) { clearInterval(timer); timer = 0; } },
+    // Pause card or hidden tab: cancelScheduledValues on BOTH buses, fade out, flush expired nodes, and stop the 40 Hz scheduler (W6-S6-03).
+    hold(tc = 0.08) {
+      held = true;
+      const t = ctx.currentTime;
+      for (const b of [musicBus, ambBus]) {
+        b.gain.cancelScheduledValues(t);
+        b.gain.setValueAtTime(b.gain.value, t);
+        b.gain.setTargetAtTime(0, t, tc);
+      }
+      flushDead(t);
+      if (timer) { clearInterval(timer); timer = 0; }
+    },
+    release(tc = 0.3) {
+      held = false;
+      const t = ctx.currentTime;
+      musicBus.gain.cancelScheduledValues(t);
+      musicBus.gain.setValueAtTime(musicBus.gain.value, t);
+      musicBus.gain.setTargetAtTime(mLevel, t, tc);
+      ambBus.gain.cancelScheduledValues(t);
+      ambBus.gain.setValueAtTime(ambBus.gain.value, t);
+      ambBus.gain.setTargetAtTime(aLevel, t, tc);
+      syncTimer();
+    },
     get held() { return held; },
+    get running() { return !!timer; },
     get buses() { return { music: musicBus, amb: ambBus }; },
   };
 }
@@ -2184,60 +2488,68 @@ async function measureAudio(build, seconds, o = {}) {
 
 
 // ---------------------------------------------------------------- scores and scenes (this game's own)
-// One piece per era (key, tempo, scale and lead instrument move with the era), a title piece, and a win and a
-// game-over piece. Every score is AABA over 4 bars (6 in the waltz) and at least 45 s before it repeats.
+// All 10 scores normalized to -32.5 +/- 1.5 dBFS RMS (peak <= 0.145) with 0.55 s INST.pad, adaptive perc2 / L.lift,
+// period INST.brass, varied lead timbres, and S4-06 Trail calm inten=0 preservation (W6-S5-07 / CD-WF4-03).
 const SCORES = {
   title: { bpm: 66, key: 55, scale: [0, 2, 4, 5, 7, 9, 11], sevenths: [1, 3], form: 'AABA', sections: { A: [0, 5, 3, 4], B: [3, 1, 4, [4, 1]] },
-    pad: { inst: 'pad', gain: 0.05 }, bass: { inst: 'bass', pattern: 'root', gain: 0.1 }, comp: { inst: 'piano', at: [1, 3], gain: 0.03, oct: 1 },
-    lead: { inst: 'mallet', gain: 0.09, oct: 1, lo: -2, hi: 8, classes: [0, 1, 2, 4, 5], vary: 0.35, rest: 0.2 }, lp: 3800, delay: 0.2, delayBeats: 0.75 },
+    pad: { inst: 'pad', gain: 0.044 }, bass: { inst: 'bass', pattern: 'root', gain: 0.095 }, comp: { inst: 'piano', at: [1, 3], gain: 0.028, oct: 1 },
+    lead: { inst: 'mallet', gain: 0.085, oct: 1, lo: -2, hi: 8, classes: [0, 1, 2, 4, 5], vary: 0.35, rest: 0.18 }, lp: 3800, delay: 0.2, delayBeats: 0.75 },
   ancient: { bpm: 60, key: 57, scale: [0, 2, 3, 5, 7, 9, 10], sevenths: [0, 3], form: 'AABA', sections: { A: [0, 3, 5, 4], B: [2, 5, 3, [4, 1]] },
-    pad: { inst: 'pad', gain: 0.06 }, bass: { inst: 'bass', pattern: 'root', gain: 0.09 },
-    lead: { inst: 'flute', gain: 0.08, oct: 1, lo: -2, hi: 7, classes: [0, 2, 3, 4, 6], vary: 0.4, rest: 0.3 }, lp: 3000, delay: 0.25, delayBeats: 1 },
+    pad: { inst: 'pad', gain: 0.046 }, bass: { inst: 'bass', pattern: 'root', gain: 0.085 },
+    lead: { inst: 'flute', gain: 0.072, oct: 1, lo: -2, hi: 7, classes: [0, 2, 3, 4, 6], vary: 0.4, rest: 0.24, lift: true },
+    perc2: { b: [0, 2], h: [1, 3], gain: 0.26 }, lp: 3000, delay: 0.24, delayBeats: 1 },
   frontier: { bpm: 72, key: 59, scale: [0, 2, 4, 5, 7, 9, 10], sevenths: [4], form: 'AABA', sections: { A: [0, 0, 3, 0], B: [4, 3, 0, 4] },
-    pad: { inst: 'organ', gain: 0.025 }, bass: { inst: 'bass', pattern: 'two', gain: 0.1 }, comp: { inst: 'pluck', at: [1, 3], gain: 0.025, oct: 0, len: 0.3 },
-    lead: { inst: 'pluck', gain: 0.075, oct: 1, lo: -1, hi: 8, classes: [0, 1, 2, 4, 5], vary: 0.3, rest: 0.12 }, lp: 3600, delay: 0.14, delayBeats: 0.5 },
+    pad: { inst: 'organ', gain: 0.041 }, bass: { inst: 'bass', pattern: 'two', gain: 0.12 }, comp: { inst: 'pluck', at: [1, 3], gain: 0.038, oct: 0, len: 0.32 },
+    lead: { inst: 'pluck', gain: 0.094, oct: 1, lo: -1, hi: 8, classes: [0, 1, 2, 4, 5], vary: 0.3, rest: 0.12, lift: true },
+    perc2: { k: [0, 2], b: [1, 3], gain: 0.28 }, lp: 3600, delay: 0.14, delayBeats: 0.5 },
   'gilded-spa': { bpm: 84, beats: 3, key: 60, scale: [0, 2, 4, 5, 7, 9, 11], sevenths: [4], form: 'AABA', sections: { A: [0, 3, 0, 5, 1, 4], B: [5, 2, 3, 1, 4, 4] },
-    pad: { inst: 'organ', gain: 0.025 }, bass: { inst: 'bass', pattern: 'two', gain: 0.09 }, comp: { inst: 'piano', at: [1, 2], gain: 0.03, oct: 0 },
-    lead: { inst: 'piano', gain: 0.09, oct: 1, lo: -2, hi: 9, classes: [0, 1, 2, 3, 4, 5, 6], vary: 0.3, rest: 0.1 }, lp: 4200, delay: 0.1, delayBeats: 0.5 },
+    pad: { inst: 'organ', gain: 0.036 }, bass: { inst: 'bass', pattern: 'two', gain: 0.112 }, comp: { inst: 'piano', at: [1, 2], gain: 0.038, oct: 0 },
+    lead: { inst: 'piano', gain: 0.104, oct: 1, lo: -2, hi: 9, classes: [0, 1, 2, 3, 4, 5, 6], vary: 0.3, rest: 0.1, lift: true },
+    perc2: { b: [1, 2], h: [0.5, 1.5, 2.5], gain: 0.25 }, lp: 4200, delay: 0.1, delayBeats: 0.5 },
   roaring: { bpm: 78, swing: 0.28, key: 58, scale: [0, 2, 4, 5, 7, 9, 11], sevenths: [0, 1, 3, 4, 5], form: 'AABA', sections: { A: [0, 5, 1, 4], B: [3, 3, 2, 5] },
-    pad: { inst: 'organ', gain: 0.02 }, bass: { inst: 'bass', pattern: 'walk', gain: 0.1 }, comp: { inst: 'piano', at: [0.5, 2.5], gain: 0.032, oct: 0, len: 0.3 },
-    lead: { inst: 'piano', gain: 0.09, oct: 1, lo: -3, hi: 10, classes: [0, 1, 2, 3, 4, 5, 6], vary: 0.4, rest: 0.05 }, perc: { b: [1, 3], h: [0.5, 1.5, 2.5, 3.5], gain: 0.4 }, lp: 4200, delay: 0.1, delayBeats: 0.5 },
+    pad: { inst: 'organ', gain: 0.028 }, bass: { inst: 'bass', pattern: 'walk', gain: 0.128 }, comp: { inst: 'brass', at: [0.5, 2.5], gain: 0.034, oct: 0, len: 0.32 },
+    lead: { inst: 'piano', gain: 0.11, oct: 1, lo: -3, hi: 10, classes: [0, 1, 2, 3, 4, 5, 6], vary: 0.4, rest: 0.08, lift: true,
+      rhythms: [[0, 2, 3, 5, 6], [0, 1, 3, 4, 6], [0, 2, 4, 5, 7], [1, 2, 4, 6, 7], [0, 3, 4, 6]] },
+    perc: { b: [1, 3], h: [0.5, 1.5, 2.5, 3.5], gain: 0.42 }, perc2: { k: [0, 2], s: [1, 3], gain: 0.32 }, lp: 4200, delay: 0.1, delayBeats: 0.5 },
   midcentury: { bpm: 70, key: 65, scale: [0, 2, 4, 6, 7, 9, 11], sevenths: [0, 1, 3, 4], form: 'AABA', sections: { A: [0, 1, 0, 4], B: [3, 2, 1, 4] },
-    pad: { inst: 'pad', gain: 0.045 }, bass: { inst: 'bass', pattern: 'two', gain: 0.1 }, comp: { inst: 'mallet', at: [1.5, 3.5], gain: 0.04, oct: 0 },
-    lead: { inst: 'mallet', gain: 0.09, oct: 1, lo: -3, hi: 10, classes: [0, 1, 2, 3, 4, 5, 6], vary: 0.4, rest: 0.08 }, perc: { h: [0.5, 1.5, 2.5, 3.5], gain: 0.3 }, lp: 3800, delay: 0.22, delayBeats: 0.75 },
+    pad: { inst: 'pad', gain: 0.042 }, bass: { inst: 'bass', pattern: 'two', gain: 0.098 }, comp: { inst: 'brass', at: [1.5, 3.5], gain: 0.022, oct: 0, len: 0.38 },
+    lead: { inst: 'mallet', gain: 0.088, oct: 1, lo: -3, hi: 10, classes: [0, 1, 2, 3, 4, 5, 6], vary: 0.4, rest: 0.08, lift: true },
+    perc: { h: [0.5, 1.5, 2.5, 3.5], gain: 0.28 }, perc2: { k: [0, 2], b: [1, 3], gain: 0.3 }, lp: 3800, delay: 0.22, delayBeats: 0.75 },
   revival: { bpm: 76, key: 62, scale: [0, 2, 4, 5, 7, 9, 11], sevenths: [4], form: 'AABA', sections: { A: [0, 4, 5, 3], B: [1, 4, 0, [4, 1]] },
-    pad: { inst: 'pad', gain: 0.05 }, bass: { inst: 'bass', pattern: 'two', gain: 0.09 }, comp: { inst: 'pluck', at: [0, 1, 2, 3], gain: 0.02, oct: 0, len: 0.4 },
-    lead: { inst: 'flute', gain: 0.08, oct: 1, lo: -1, hi: 8, classes: [0, 1, 2, 4, 5], vary: 0.35, rest: 0.15 }, lp: 3600, delay: 0.16, delayBeats: 0.75 },
+    pad: { inst: 'pad', gain: 0.046 }, bass: { inst: 'bass', pattern: 'two', gain: 0.095 }, comp: { inst: 'pluck', at: [0, 1, 2, 3], gain: 0.022, oct: 0, len: 0.4 },
+    lead: { inst: 'flute', gain: 0.078, oct: 1, lo: -1, hi: 8, classes: [0, 1, 2, 4, 5], vary: 0.35, rest: 0.14, lift: true },
+    perc2: { k: [0, 2], h: [0.5, 1.5, 2.5, 3.5], gain: 0.28 }, lp: 3600, delay: 0.16, delayBeats: 0.75 },
   modern: { bpm: 80, key: 60, scale: [0, 2, 4, 6, 7, 9, 11], sevenths: [0, 1], form: 'AABA', sections: { A: [0, 4, 5, 1], B: [3, 0, 1, [4, 1]] },
-    pad: { inst: 'pad', gain: 0.05 }, bass: { inst: 'bass', pattern: 'two', gain: 0.1 }, comp: { inst: 'piano', at: [1, 3], gain: 0.03, oct: 1 },
-    lead: { inst: 'mallet', gain: 0.09, oct: 1, lo: -2, hi: 9, classes: [0, 1, 2, 4, 5], vary: 0.35, rest: 0.12 }, perc: { k: [0], h: [0.5, 1.5, 2.5, 3.5], gain: 0.3 }, lp: 4200, delay: 0.2, delayBeats: 0.75 },
+    pad: { inst: 'pad', gain: 0.044 }, bass: { inst: 'bass', pattern: 'two', gain: 0.098 }, comp: { inst: 'mallet', at: [1, 3], gain: 0.032, oct: 1 },
+    lead: { inst: 'piano', gain: 0.092, oct: 1, lo: -2, hi: 9, classes: [0, 1, 2, 4, 5], vary: 0.35, rest: 0.12, lift: true },
+    perc: { k: [0], h: [0.5, 1.5, 2.5, 3.5], gain: 0.28 }, perc2: { k: [0, 2], s: [1, 3], gain: 0.32 }, lp: 4200, delay: 0.2, delayBeats: 0.75 },
   win: { bpm: 72, key: 60, scale: [0, 2, 4, 5, 7, 9, 11], sevenths: [4], form: 'AABA', sections: { A: [0, 3, 4, 0], B: [5, 3, 1, [4, 1]] },
-    pad: { inst: 'pad', gain: 0.05 }, bass: { inst: 'bass', pattern: 'two', gain: 0.1 }, comp: { inst: 'piano', at: [1, 3], gain: 0.03, oct: 1 },
-    lead: { inst: 'mallet', gain: 0.1, oct: 1, lo: -1, hi: 9, classes: [0, 1, 2, 4, 5], vary: 0.3, rest: 0.1 }, lp: 4400, delay: 0.2, delayBeats: 0.75 },
+    pad: { inst: 'pad', gain: 0.044 }, bass: { inst: 'bass', pattern: 'two', gain: 0.096 }, comp: { inst: 'piano', at: [1, 3], gain: 0.03, oct: 1 },
+    lead: { inst: 'mallet', gain: 0.095, oct: 1, lo: -1, hi: 9, classes: [0, 1, 2, 4, 5], vary: 0.3, rest: 0.1 }, lp: 4400, delay: 0.2, delayBeats: 0.75 },
   over: { bpm: 60, key: 57, scale: [0, 2, 3, 5, 7, 8, 10], sevenths: [0, 3], form: 'AABA', sections: { A: [0, 5, 3, 4], B: [2, 5, 3, [4, 1]] },
-    pad: { inst: 'pad', gain: 0.06 }, bass: { inst: 'bass', pattern: 'root', gain: 0.09 },
-    lead: { inst: 'mallet', gain: 0.08, oct: 1, lo: -3, hi: 8, classes: [0, 2, 3, 4, 5, 6], vary: 0.4, rest: 0.1 }, lp: 3000, delay: 0.25, delayBeats: 1 },
+    pad: { inst: 'pad', gain: 0.048 }, bass: { inst: 'bass', pattern: 'root', gain: 0.088 },
+    lead: { inst: 'piano', gain: 0.082, oct: 1, lo: -3, hi: 8, classes: [0, 2, 3, 4, 5, 6], vary: 0.4, rest: 0.12 }, lp: 3000, delay: 0.25, delayBeats: 1 },
 };
-// Ambience: a water wash and a quiet vent hiss under sparse drips and one-shots; the era changes the place.
-// 'heat' (0 to 1, from the water temperature) opens the vent bed.
-const bedWash = (g, f) => ({ type: 'lowpass', freq: f, q: 0.7, gain: g, lfo: { rate: 0.11, depth: 0.6 }, flfo: { rate: 0.06, depth: f * 0.25 } });
-const bedRipple = (g, f) => ({ type: 'bandpass', freq: f, q: 0.8, gain: g, pan: 0.3, lfo: { rate: 0.19, depth: 0.8 }, flfo: { rate: 0.09, depth: f * 0.2 } });
-const bedVent = (g, f) => ({ type: 'highpass', freq: f, q: 0.6, gain: g, pan: -0.3, lfo: { rate: 0.07, depth: 0.5 }, param: 'heat', range: [0.3, 1.5] });
+// Ambience: 7 scenes normalized strictly into -41.0..-39.5 dBFS RMS (peak < 0.06, inside S5-02 / CD-WF4-04),
+// widened stereo & Boiling vent contrast, SPOT.swell thermal plumes, and winter Title bird-suppression on bath-ancient.
+const bedWash = (g, f) => ({ type: 'lowpass', freq: f, q: 0.7, gain: g, pan: -0.22, lfo: { rate: 0.11, depth: 0.55 }, flfo: { rate: 0.06, depth: f * 0.25 } });
+const bedRipple = (g, f) => ({ type: 'bandpass', freq: f, q: 0.8, gain: g, pan: 0.38, lfo: { rate: 0.19, depth: 0.75 }, flfo: { rate: 0.09, depth: f * 0.2 } });
+const bedVent = (g, f) => ({ type: 'highpass', freq: f, q: 0.6, gain: g, pan: -0.42, lfo: { rate: 0.07, depth: 0.45 }, param: 'heat', range: [0.22, 2.2] });
 const SCENES = {
-  'bath-ancient': { beds: [bedWash(0.05, 520), bedRipple(0.014, 1300), bedVent(0.007, 5200), { type: 'bandpass', freq: 380, q: 0.5, gain: 0.03, lfo: { rate: 0.05, depth: 0.9 } }],
-    spots: [{ make: 'drip', every: [3, 8], gain: 0.04 }, { make: 'bird', every: [9, 22], gain: 0.03, pan: [-0.7, 0.7], noWinter: true }, { make: 'hiss', every: [14, 28], gain: 0.03 }] },
-  'bath-frontier': { beds: [bedWash(0.05, 560), bedRipple(0.014, 1400), bedVent(0.007, 5000), { type: 'bandpass', freq: 300, q: 0.5, gain: 0.026, lfo: { rate: 0.04, depth: 0.9 } }],
-    spots: [{ make: 'drip', every: [3, 8], gain: 0.04 }, { make: 'cricket', every: [10, 24], gain: 0.03, pan: [-0.7, 0.7] }, { make: 'hiss', every: [14, 28], gain: 0.03 }] },
-  'bath-gilded-spa': { beds: [bedWash(0.05, 640), bedRipple(0.016, 1500), bedVent(0.009, 4800)],
-    spots: [{ make: 'drip', every: [2.5, 7], gain: 0.04 }, { make: 'bell', every: [25, 50], gain: 0.03, pan: [-0.5, 0.5] }, { make: 'hiss', every: [10, 22], gain: 0.032 }] },
-  'bath-roaring': { beds: [bedWash(0.05, 700), bedRipple(0.016, 1600), bedVent(0.011, 4500)],
-    spots: [{ make: 'drip', every: [2.5, 7], gain: 0.04 }, { make: 'hiss', every: [8, 18], gain: 0.034 }, { make: 'bell', every: [30, 60], gain: 0.025, pan: [-0.6, 0.6] }] },
-  'bath-midcentury': { beds: [bedWash(0.05, 640), bedRipple(0.015, 1500), bedVent(0.013, 4200), { type: 'bandpass', freq: 120, q: 2, gain: 0.012, lfo: { rate: 0.03, depth: 0.5 } }],
-    spots: [{ make: 'drip', every: [3, 8], gain: 0.04 }, { make: 'hiss', every: [7, 15], gain: 0.036 }] },
-  'bath-revival': { beds: [bedWash(0.05, 580), bedRipple(0.014, 1400), bedVent(0.008, 5000), { type: 'bandpass', freq: 420, q: 0.5, gain: 0.026, lfo: { rate: 0.05, depth: 0.9 } }],
-    spots: [{ make: 'drip', every: [3, 8], gain: 0.04 }, { make: 'bird', every: [8, 20], gain: 0.03, pan: [-0.7, 0.7] }, { make: 'hiss', every: [14, 28], gain: 0.03 }] },
-  'bath-modern': { beds: [bedWash(0.05, 620), bedRipple(0.016, 1500), bedVent(0.009, 4800)],
-    spots: [{ make: 'drip', every: [2.5, 7], gain: 0.04 }, { make: 'bird', every: [12, 28], gain: 0.026, pan: [-0.7, 0.7] }, { make: 'hiss', every: [10, 22], gain: 0.032 }] },
+  'bath-ancient': { beds: [bedWash(0.104, 520), bedRipple(0.031, 1300), bedVent(0.010, 5200), { type: 'bandpass', freq: 380, q: 0.5, gain: 0.052, pan: 0.15, lfo: { rate: 0.05, depth: 0.8 } }],
+    spots: [{ make: 'drip', every: [3, 8], gain: 0.038 }, { make: 'bird', every: [9, 22], gain: 0.032, pan: [-0.7, 0.7], noWinter: true }, { make: 'swell', every: [13, 25], gain: 0.032, pan: [-0.45, 0.45] }, { make: 'hiss', every: [14, 28], gain: 0.030 }] },
+  'bath-frontier': { beds: [bedWash(0.105, 560), bedRipple(0.031, 1400), bedVent(0.010, 5000), { type: 'bandpass', freq: 300, q: 0.5, gain: 0.048, pan: 0.15, lfo: { rate: 0.04, depth: 0.8 } }],
+    spots: [{ make: 'drip', every: [3, 8], gain: 0.038 }, { make: 'cricket', every: [10, 24], gain: 0.032, pan: [-0.7, 0.7] }, { make: 'hiss', every: [14, 28], gain: 0.030 }] },
+  'bath-gilded-spa': { beds: [bedWash(0.108, 640), bedRipple(0.032, 1500), bedVent(0.0115, 4800)],
+    spots: [{ make: 'drip', every: [2.5, 7], gain: 0.038 }, { make: 'bell', every: [25, 50], gain: 0.032, pan: [-0.5, 0.5] }, { make: 'swell', every: [14, 26], gain: 0.030, pan: [-0.4, 0.4] }, { make: 'hiss', every: [10, 22], gain: 0.031 }] },
+  'bath-roaring': { beds: [bedWash(0.104, 700), bedRipple(0.032, 1600), bedVent(0.0125, 4500)],
+    spots: [{ make: 'drip', every: [2.5, 7], gain: 0.038 }, { make: 'hiss', every: [8, 18], gain: 0.031 }, { make: 'swell', every: [14, 26], gain: 0.028, pan: [-0.45, 0.45] }, { make: 'bell', every: [30, 60], gain: 0.028, pan: [-0.6, 0.6] }] },
+  'bath-midcentury': { beds: [bedWash(0.102, 640), bedRipple(0.030, 1500), bedVent(0.0130, 4200), { type: 'bandpass', freq: 145, q: 1.8, gain: 0.020, pan: 0.1, lfo: { rate: 0.03, depth: 0.5 } }],
+    spots: [{ make: 'drip', every: [3, 8], gain: 0.038 }, { make: 'swell', every: [12, 24], gain: 0.030, pan: [-0.4, 0.4] }, { make: 'hiss', every: [7, 15], gain: 0.031 }] },
+  'bath-revival': { beds: [bedWash(0.102, 580), bedRipple(0.031, 1400), bedVent(0.0105, 5000), { type: 'bandpass', freq: 420, q: 0.5, gain: 0.048, pan: 0.15, lfo: { rate: 0.05, depth: 0.8 } }],
+    spots: [{ make: 'drip', every: [3, 8], gain: 0.038 }, { make: 'bird', every: [8, 20], gain: 0.032, pan: [-0.7, 0.7] }, { make: 'hiss', every: [14, 28], gain: 0.030 }] },
+  'bath-modern': { beds: [bedWash(0.108, 620), bedRipple(0.032, 1500), bedVent(0.0115, 4800)],
+    spots: [{ make: 'drip', every: [2.5, 7], gain: 0.038 }, { make: 'bird', every: [12, 28], gain: 0.028, pan: [-0.7, 0.7] }, { make: 'swell', every: [13, 25], gain: 0.030, pan: [-0.4, 0.4] }, { make: 'hiss', every: [10, 22], gain: 0.031 }] },
 };
 
 // ---------------------------------------------------------------- test hooks for sound (offline, not the live audio)
@@ -2249,15 +2561,15 @@ function audioList() {
   const seconds = {}; for (const [k, v] of Object.entries(SCORES)) seconds[k] = formSeconds(v);
   return { music: Object.keys(SCORES), ambience: Object.keys(SCENES), cues: CUES.slice(), mix: ERAS.map(e => e.id), formSeconds: seconds };
 }
-function cueAt(name, o, t, jit) {   // schedules one cue on whatever AU holds right now
+function cueAt(name, o, t, jit) {   // schedules one cue on whatever AU holds right now (<=1 panner + optional bathhouse reverb)
   JIT = jit || jitter(o.pan || 0);
-  playCue(name, o, t);
+  const bus = makeCueBus(AU.ctx, name, JIT.pan, dryOutput(), AU.reverbSend);
+  const prevBus = CUE_BUS;
+  CUE_BUS = bus.inNode;
+  try { playCue(name, o, t); } finally { CUE_BUS = prevBus; }
 }
-// Renders one piece, one scene, one cue ('cue:place'), or a full mix ('mix:<era id>': that era's music and ambience
-// with a four-group clear every few seconds and the win cue) through the chain the player hears (the master gain at
-// Volume x MASTER_SCALE, then the limiter), and measures it. `opt` overrides the saved defaults: { volume, musicVol,
-// ambVol }, { cue: {...} } to change the cue's arguments (groups, heat, run, piece size) and, for a probe of small speakers,
-// { highpass: Hz } before the output.
+// Renders one piece, one scene, one cue ('cue:place'), or a full staggered 6-cue climax mix ('mix:<era id>') through the
+// full master + reverb + limiter + soft ceiling chain as heard by the player.
 async function audioRender(name, seconds = 30, wantWav = false, opt = {}) {
   const lv = { ...defaultSave().settings, ...opt };
   const chain = (oc, dest) => {   // master gain, then the limiter, then (for a probe) a high-pass standing in for a small speaker
@@ -2266,9 +2578,10 @@ async function audioRender(name, seconds = 30, wantWav = false, opt = {}) {
     if (lv.highpass) { const hp = oc.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = lv.highpass; hp.Q.value = 0.7; lim.output.connect(hp); hp.connect(dest); } else lim.output.connect(dest);
     return m;
   };
-  const withAU = (oc, master, fn) => {   // cues read the AU globals: point them at the offline graph for one synchronous call
+  const withAU = (oc, master, fn, withReverb = true) => {   // cues read the AU globals: point them at the offline graph for one synchronous call
     const keep = { ...AU }, keepJ = JIT;
-    Object.assign(AU, { ctx: oc, master, noise: makeNoiseBuffer(oc), kit: null });
+    const rev = withReverb ? makeBathhouseReverb(oc, master, 0.12) : null;
+    Object.assign(AU, { ctx: oc, master, sum: master, noise: makeNoiseBuffer(oc), kit: null, reverb: rev ? rev.conv : null, reverbSend: rev ? rev.send : null, reverbHP: rev ? rev.hp : null });
     try { return fn(); } finally { Object.assign(AU, keep); JIT = keepJ; }
   };
   if (SCORES[name]) return measureAudio((oc, dest) => {
@@ -2290,8 +2603,23 @@ async function audioRender(name, seconds = 30, wantWav = false, opt = {}) {
     return measureAudio((oc, dest) => {
       const mix = chain(oc, dest), still = { f: 1, g: 1, o: 0, pan: 0 };
       const kit2 = makeAudioKit(oc, mix, { seed: 11, music: lv.musicVol, ambience: lv.ambVol });
+      kit2.music.intensity(1);
       kit2.music.play(SCORES[id], { at: 0, fade: 0.05 }); kit2.amb.set('heat', 1); kit2.amb.play(SCENES['bath-' + id], { at: 0, fade: 0.05 }); kit2.scheduleUntil(seconds);
-      withAU(oc, mix, () => { for (let t = 2; t < seconds - 2; t += 3) cueAt('clear', { G: 4, heat: 12, run: 3 }, t, still); cueAt('win', {}, seconds / 2, still); cueAt('place', { n: 4 }, seconds / 2, still); });
+      withAU(oc, mix, () => {
+        // Real staggered 6-cue milestone stress burst (place 0 -> clear +40 -> vent+tufa +140 -> heat+bonus +280 -> era+ach +480 ms, W6-S5-02 / W6-S6-03)
+        for (let t = 2; t < seconds - 2; t += 3) {
+          cueAt('place', { n: 9 }, t, still);
+          cueAt('clear', { G: 4, heat: 12, run: 3 }, t + 0.04, still);
+          cueAt('vent', {}, t + 0.14, still);
+          cueAt('tufa', {}, t + 0.14, still);
+          cueAt('heat', { tier: 4 }, t + 0.28, still);
+          cueAt('bonus', {}, t + 0.28, still);
+          cueAt('era', {}, t + 0.48, still);
+          cueAt('ach', {}, t + 0.48, still);
+        }
+        cueAt('win', {}, seconds / 2, still);
+        cueAt('place', { n: 4 }, seconds / 2, still);
+      });
       return () => kit2.music.info();
     }, seconds, { wav: wantWav });
   }
@@ -3458,20 +3786,29 @@ function drawTray(now) {
   }
 }
 const GHOST_CLEAR_CACHE = { h1: -1, h2: -1, id: '', r: -1, c: -1, groups: [] };
+function ghostClearGroups(id, r, c) {
+  const p = PIECES[id];
+  if (!p) return [];
+  const [h1, h2] = boardOccHash(S.board);
+  if (GHOST_CLEAR_CACHE.h1 === h1 && GHOST_CLEAR_CACHE.h2 === h2 && GHOST_CLEAR_CACHE.id === id && GHOST_CLEAR_CACHE.r === r && GHOST_CLEAR_CACHE.c === c) {
+    return GHOST_CLEAR_CACHE.groups;
+  }
+  const tmp = S.board.slice();
+  for (const [dr, dc] of p.cells) tmp[(r + dr) * 9 + c + dc] = p.color;
+  const groups = findClears(tmp);
+  GHOST_CLEAR_CACHE.h1 = h1; GHOST_CLEAR_CACHE.h2 = h2; GHOST_CLEAR_CACHE.id = id; GHOST_CLEAR_CACHE.r = r; GHOST_CLEAR_CACHE.c = c; GHOST_CLEAR_CACHE.groups = groups;
+  return groups;
+}
+function checkClearLock(gh, pan = 0) {
+  const t = gh && gh.valid && S.tray[gh.slot];
+  const nowClears = !!(t && ghostClearGroups(t.id, gh.r, gh.c).length > 0);
+  if (nowClears && !UI.ghostCleared) sfx('clearLock', { pan });
+  UI.ghostCleared = nowClears;
+}
 function drawClearPreview(id, r, c, now) {
   // Shared pulsing-gold would-clear preview + pulsing cyan-gold target corona on opening Spring Vents (wf-2:67,81,85)
-  const b = LAY.board, p = PIECES[id], cell = b.cell;
-  if (!p) return;
-  const [h1, h2] = boardOccHash(S.board);
-  let groups;
-  if (GHOST_CLEAR_CACHE.h1 === h1 && GHOST_CLEAR_CACHE.h2 === h2 && GHOST_CLEAR_CACHE.id === id && GHOST_CLEAR_CACHE.r === r && GHOST_CLEAR_CACHE.c === c) {
-    groups = GHOST_CLEAR_CACHE.groups;
-  } else {
-    const tmp = S.board.slice();
-    for (const [dr, dc] of p.cells) tmp[(r + dr) * 9 + c + dc] = p.color;
-    groups = findClears(tmp);
-    GHOST_CLEAR_CACHE.h1 = h1; GHOST_CLEAR_CACHE.h2 = h2; GHOST_CLEAR_CACHE.id = id; GHOST_CLEAR_CACHE.r = r; GHOST_CLEAR_CACHE.c = c; GHOST_CLEAR_CACHE.groups = groups;
-  }
+  const b = LAY.board, cell = b.cell;
+  const groups = ghostClearGroups(id, r, c);
   if (!groups.length) return;
   const pulse = reducedMotion() ? 0.5 : 0.5 + 0.5 * Math.sin(fxNow(now) / 140);
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
@@ -4678,13 +5015,15 @@ function doPlace(slot, r, c) {
   UI.hint = null;
   if (S.undoStack.length > (S.mode === 'trail' ? 60 : 3)) S.undoStack.shift();
   if (res.newRound && S.mode !== 'trail' && S.round > (S.refilledRound || 1)) { S.undoLeft = S.mode === 'daily' ? 1 : SAVE.settings.undo; S.refilledRound = S.round; }
-  UI.sel = -1; UI.ghost = null; UI.cur = null;
+  UI.sel = -1; UI.ghost = null; UI.ghostCleared = false; UI.cur = null;
   const b = LAY.board, cell = b.cell;
   const cx = b.gx + (c + PIECES[res.id].wd / 2) * cell, cy = b.gy + (r + PIECES[res.id].h / 2) * cell;
   res.at = [r + (PIECES[res.id].h - 1) / 2, c + (PIECES[res.id].wd - 1) / 2];
   const pn = PIECES[res.id];
   const pan = (c + pn.wd / 2 - 4.5) / 4.5 * 0.6;
-  sfx('place', { n: pn.n, pan });
+  // Sample-accurate turn cue choreography via WebAudio o.at offsets (W6-S5-02 / wf-4 §4C) + unified clearing haptic (OQ-WF4-01 / OQ-WF6-03):
+  // place 0 -> clear 0 (G=1) / +40 ms (G>=2 or Clear Spring) -> vent/tufa/ventSpawn +140 -> heat/boil/bonus +280 -> era/ach +480 ms
+  sfx('place', { n: pn.n, pan, clearingG: res.G });
   CLEAR_RUN.set(S, S.clearRun || 0);
   S.bestG = Math.max(S.bestG || 0, res.G);
   landFx(res.id, r, c, res.cleared);
@@ -4693,53 +5032,60 @@ function doPlace(slot, r, c) {
   }
   if (res.G) {
     spawnClearFx(res);
-    sfx('clear', { G: res.G, heat: S.heat, pan, run: CLEAR_RUN.get(S) });
+    const clearAt = (res.G >= 2 || res.bonus) ? 0.04 : 0;
+    sfx('clear', { G: res.G, heat: S.heat, pan, run: CLEAR_RUN.get(S), at: clearAt, skipHaptic: true });
     clearFeedback(res, cx, cy, snap.heat);
-    if (!S.over && heatTier(S.heat) > heatTier(snap.heat)) {
-      const hTier = heatTier(S.heat);
-      UI.turnTimers.push(setTimeout(() => { if (S.scene === 'game' && !S.over) sfx('heat', { tier: hTier }); }, 180));
+    if (res.vents) sfx('vent', { pan, at: 0.14 });
+    if (res.stones) sfx('tufa', { pan, at: 0.14 });
+    if (!S.over && S.mode !== 'trail' && heatTier(S.heat) > heatTier(snap.heat)) {
+      sfx('heat', { tier: heatTier(S.heat), at: 0.28 });
     }
-    if (res.vents) sfx('vent');
-    if (res.bonus || res.tufaSweep) sfx('bonus');
+    if (!S.over && S.mode !== 'trail' && S.heat >= 12 && snap.heat < 12) {
+      sfx('boil', { at: 0.34 });
+    }
+    if (res.bonus || res.tufaSweep) sfx('bonus', { at: 0.28 });
+  } else if (!S.over && S.mode !== 'trail' && heatTier(S.heat) < heatTier(snap.heat)) {
+    sfx('cool', { at: 0.08 });
   }
   if (res.ventsSpawned && res.ventsSpawned.length) {
     const red = reducedMotion();
-    for (const vi of res.ventsSpawned) {
-      const vc = vi % 9, vr = Math.floor(vi / 9);
+    for (let idx = 0; idx < res.ventsSpawned.length; idx++) {
+      const vi = res.ventsSpawned[idx], vc = vi % 9, vr = Math.floor(vi / 9);
       if (!red) addFx({ type: 'vent-pop', i: vi, dur: 240 });
       if (WATER.on) WATER.ripple((vc + 0.5) / 9, (vr + 0.5) / 9, red ? 0.35 : 0.75);
       if (!red && !liteFx()) addFx({ type: 'steam', x: b.gx + (vc + 0.5) * cell, y: b.gy + (vr + 0.5) * cell, dur: 820, h: cell * 1.15, ph: vi * 0.7, w: cell * 0.55, delay: 40 });
+      if (!S.over) sfx('ventSpawn', { pan: (vc - 4) / 4.5 * 0.6, at: 0.14 + idx * 0.07 });
     }
   }
   if (res.newRound) {
     const red = reducedMotion();
     [0, 1, 2].forEach(k => addFx({ type: 'deal', slot: k, delay: red ? 0 : k * 45, dur: red ? 1 : 170 }));
-    if (!S.over) sfx('deal'); // synced 1:1 to 0/45/90 ms staggered deals (CD-WF4-01 / W6-S5-03)
+    if (!S.over) sfx('deal', { pan: 0 }); // synced 1:1 to 0/45/90 ms staggered deals (CD-WF4-01 / W6-S5-03)
   }
   if (S.mode === 'classic') {
     S.era = Math.max(S.era, eraFor(S.score));
     if (S.era !== prevEra) {
       const e = ERAS[S.era], fresh = noteEra(S.era);
       toast(e.name + ' · ' + e.years, (hintOnce('era') ? 'Your score moved the town forward; higher scores also bring trickier pieces. ' : '') + (e.cue || e.cap) + (fresh ? ' Postcard added to Fact cards.' : ''), 5500);
-      sfx('era', { score: SCORES[e.id] }); bgKey = ''; loadArt('era-' + e.id); audioMood();
+      sfx('era', { score: SCORES[e.id], at: 0.48 }); bgKey = ''; loadArt('era-' + e.id); audioMood();
     }
   } else if (S.mode === 'springs' && !S.won) {
     const actNow = springsAct(S.springs), actPrev = springsAct(snap.springs);
     if (actNow > actPrev) {
       const info = SPRINGS_ACTS[actNow];
       toast(info.name + ' · Act ' + ['', 'I', 'II', 'III'][actNow], actNow === 3 ? 'Final 10 surge: vents rise faster across the valley.' : 'Valley pressure rises; two vents surface each round.', 4800);
-      sfx('heat', { tier: actNow + 2 }); bgKey = ''; boardKey = ''; audioMood();
+      sfx('heat', { tier: actNow + 2, at: 0.28 }); bgKey = ''; boardKey = ''; audioMood();
     }
   }
   audioPressure();
   if (AU.kit) {
     const spFloor = S.mode === 'springs' ? (springsAct(S.springs) === 3 ? 0.55 : springsAct(S.springs) === 2 ? 0.25 : 0) : 0;
-    AU.kit.amb.set('heat', S.mode === 'trail' ? 0 : Math.max(spFloor, Math.min(1, S.heat / 12)));
+    AU.kit.amb.set('heat', (S.mode === 'trail' || S.over) ? 0 : Math.max(spFloor, Math.min(1, S.heat / 12)));
   }
   const deadNow = S.tray.filter(x => x && !fitsAnywhere(S.board, x.id)).length;
   const deadBefore = res.newRound ? 0 : snap.tray.filter((x, k) => x && k !== slot && !fitsAnywhere(snap.board, x.id)).length;
   const newlyDoomed = !UI.doomed && trayDoomed();
-  if (!S.over && (deadNow > deadBefore || newlyDoomed)) UI.turnTimers.push(setTimeout(() => { if (S.scene === 'game' && !S.over) sfx('warn'); }, res.G ? 650 : 160));
+  if (!S.over && (deadNow > deadBefore || newlyDoomed)) sfx('warn', { at: res.G ? 0.62 : 0.16 });
   if (S.mode !== 'trail' && !res.G && S.heat < snap.heat && hintOnce('cool')) toast('The water cooled', 'A piece that clears nothing cools the water, and cooler water scores less. Clear a group to heat it up.', 5000);
   goalsOnPlace(res); tipAfterPlace(res);
   let msg = 'Placed. ';
@@ -4803,12 +5149,12 @@ function hintAvail() { return S.scene === 'game' && !S.over && S.mode !== 'trail
 function useHint() {
   if (S.mode === 'trail' || S.scene !== 'game' || S.over) return { ok: false };
   cancelDrag({ animate: false });
-  if (!hintAvail()) { sfx('invalid'); announce(currentHintRound() >= S.round ? 'You have used the hint for this tray.' : 'No piece has room for a hint.'); return { ok: false }; }
+  if (!hintAvail()) { sfx('invalid', { src: 'hint' }); announce(currentHintRound() >= S.round ? 'You have used the hint for this tray.' : 'No piece has room for a hint.'); return { ok: false }; }
   const h = findHint(S);
-  if (!h) { sfx('invalid'); return { ok: false }; }
-  UI.hint = h; S.hintRound = Math.max(currentHintRound(), S.round); S.hintsUsed = (S.hintsUsed | 0) + 1; UI.hintRound = S.hintRound; UI.sel = -1; UI.ghost = null; UI.lastInput = performance.now();
+  if (!h) { sfx('invalid', { src: 'hint' }); return { ok: false }; }
+  UI.hint = h; S.hintRound = Math.max(currentHintRound(), S.round); S.hintsUsed = (S.hintsUsed | 0) + 1; UI.hintRound = S.hintRound; UI.sel = -1; UI.ghost = null; UI.ghostCleared = false; UI.lastInput = performance.now();
   if (S.placed > 0) saveResume();
-  sfx('pick'); announce('Hint: piece ' + (h.slot + 1) + ' goes at row ' + (h.r + 1) + ', column ' + (h.c + 1) + '.');
+  sfx('hint'); announce('Hint: piece ' + (h.slot + 1) + ' goes at row ' + (h.r + 1) + ', column ' + (h.c + 1) + '.');
   updateHud(); dirty = true;
   return { ok: true, ...h };
 }
@@ -4824,7 +5170,7 @@ function undoCount() {
   return undoAvail() ? S.undoLeft : 0;
 }
 function doUndo() {
-  if (!canUndo()) { sfx('invalid'); return { ok: false }; }
+  if (!canUndo()) { sfx('invalid', { src: 'undo' }); return { ok: false }; }
   cancelDrag({ animate: false });
   cancelEndCues();
   cancelTurnTimers();
@@ -4925,7 +5271,7 @@ function showGoalToast() {
   clearTimeout(goalTimer);
   goalTimer = setTimeout(showGoalToast, GOAL_TOAST_MS);
 }
-function earn(id) {
+function earn(id, at = 0) {
   if (SAVE.ach[id]) return false;
   const g = GOALS.find(x => x[0] === id);
   if (!g) return false;
@@ -4935,34 +5281,34 @@ function earn(id) {
     goalQueue.push(g);
     if (!goalBusy) showGoalToast();
   }
-  sfx('ach');
+  sfx('ach', at > 0 ? { at } : {});
   return true;
 }
 function goalsOnPlace(res) {
-  if (res.G >= 1) earn('first-soak');
+  if (res.G >= 1) earn('first-soak', 0.48);
   if (S.mode !== 'trail') {
-    if (res.G >= 4) earn('four-at-once');
-    if (S.heat >= 12) earn('boiling');
-    if (res.bonus) earn('clear-spring');
+    if (res.G >= 4) earn('four-at-once', 0.48);
+    if (S.heat >= 12) earn('boiling', 0.48);
+    if (res.bonus) earn('clear-spring', 0.48);
   }
   if (S.mode === 'classic') {
-    if (S.era >= 2) earn('gilded-spa');
-    if (S.era >= 6) earn('modern-spa-city');
+    if (S.era >= 2) earn('gilded-spa', 0.48);
+    if (S.era >= 6) earn('modern-spa-city', 0.48);
   }
 }
 function goalsOnEnd(boiledNow = false) {
-  if (boiledNow && S.mode !== 'trail') { SAVE.goals.boiled++; if (SAVE.goals.boiled >= 10) earn('bathhouse-regular'); }
-  if (S.mode === 'springs' && S.won) earn('every-spring');
-  if (S.mode === 'trail' && S.won && trailStars(S.undosUsed || 0) === 3) earn('steady-hand');
+  if (boiledNow && S.mode !== 'trail') { SAVE.goals.boiled++; if (SAVE.goals.boiled >= 10) earn('bathhouse-regular', 0.9); }
+  if (S.mode === 'springs' && S.won) earn('every-spring', 0.9);
+  if (S.mode === 'trail' && S.won && trailStars(S.undosUsed || 0) === 3) earn('steady-hand', 0.9);
   if (S.mode === 'daily' && S.daily) {
     const d = SAVE.daily;
     d.played = [...new Set([...d.played, S.daily])].sort().slice(-120);
     const run = dailyStreak(S.daily);
     d.longest = Math.max(d.longest, run);
-    if (run >= 3) earn('three-days');
-    if (run >= 7) earn('week-at-springs');
+    if (run >= 3) earn('three-days', 0.9);
+    if (run >= 7) earn('week-at-springs', 0.9);
   }
-  if (S.mode !== 'trail' && SAVE.stats.lines >= 440) earn('four-thousand-years');
+  if (S.mode !== 'trail' && SAVE.stats.lines >= 440) earn('four-thousand-years', 0.9);
 }
 function addDays(day, n) { const [y, m, d] = day.split('-').map(Number); return todayStr(new Date(y, m - 1, d + n)); }
 function dailyDays() { return new Set([...SAVE.daily.played, ...Object.keys(SAVE.best.daily)]); }
@@ -5126,8 +5472,11 @@ function endGame(res) {
   UI.overAt = performance.now() + waitMs;   // calibrated wait durations (never stalling on trailing steam FX, W6-S5-01)
   sfx(S.won ? 'win' : 'over', { at: 0.3 });
   if (S.won && S.mode === 'springs') winSteam();
-  if (UI.newBest) UI.endTimers.push(setTimeout(() => { if (S.over) sfx('best'); }, 1500));
-  if ((UI.trailWin && UI.trailWin.first && CARDS[S.level]) || UI.newCards.length) UI.endTimers.push(setTimeout(() => { if (S.over) sfx('card'); }, 1400));
+  const endTok = AU.runToken;
+  const wantBest = !!UI.newBest;
+  const wantCard = !!((UI.trailWin && UI.trailWin.first && CARDS[S.level]) || UI.newCards.length);
+  if (wantBest) UI.endTimers.push(setTimeout(() => { if (S.over && AU.runToken === endTok) sfx('best'); }, 1300));
+  if (wantCard) UI.endTimers.push(setTimeout(() => { if (S.over && AU.runToken === endTok) sfx('card'); }, wantBest ? 2300 : 1400));
 }
 // The Springs win (S4-04): steam rises across the whole floor for about three seconds and "Valley of Vapors" (the valley's old
 // nickname, from the first era's caption) hangs over the board before the card. Reduced motion gets the banner only, and shorter.
@@ -5271,7 +5620,10 @@ function showWinTrail() {
     const sp = document.createElement('span');
     sp.className = k < w.stars ? 'star lit' : 'star';
     sp.textContent = k < w.stars ? '★' : '☆';
-    if (k < w.stars) sp.style.animationDelay = redSt ? '0ms' : (k * 120) + 'ms';
+    if (k < w.stars) {
+      sp.style.animationDelay = redSt ? '0ms' : (k * 120) + 'ms';
+      sfx('trailStar', { star: k, at: redSt ? 0 : 0.16 + k * 0.12 });
+    }
     stEl.appendChild(sp);
   }
   sb.appendChild(stEl);
@@ -5321,8 +5673,8 @@ function showScene(name) {
   }
   S.scene = name;
   if (name === 'game') resumePauseClocks();
-  else if (name === 'pause') { if (UI.pausedAt == null) UI.pausedAt = performance.now(); UI.sel = -1; UI.ghost = null; PERF.n = 0; PERF.sum = 0; }
-  else if (name === 'title' || name === 'over' || name === 'win') UI.pausedAt = null;
+  else if (name === 'pause') { if (UI.pausedAt == null) UI.pausedAt = performance.now(); UI.sel = -1; UI.ghost = null; UI.ghostCleared = false; cancelTurnTimers(); AU.runToken++; PERF.n = 0; PERF.sum = 0; }
+  else if (name === 'title' || name === 'over' || name === 'win') { UI.pausedAt = null; if (name === 'title') { cancelTurnTimers(); AU.runToken++; } }
   for (const [k, id] of Object.entries(SCREENS)) $(id).classList.toggle('on', k === name);
   const pb = SCREENS[name] && $(SCREENS[name]).querySelector('.panel-body');
   if (pb) pb.scrollTop = 0;
@@ -5567,6 +5919,16 @@ function fillGoals() {
   }
   $('rec-goals-h').textContent = 'Goals · ' + got + ' of ' + GOALS.length;
 }
+function syncAudioControlDim() {
+  const s = SAVE.settings;
+  const dimVol = !s.sound, dimMusic = !s.sound || !s.music, dimAmb = !s.sound || !s.ambience;
+  for (const [id, dim] of [['s-volume', dimVol], ['s-musicvol', dimMusic], ['s-ambvol', dimAmb]]) {
+    const el = $(id);
+    if (!el) continue;
+    el.classList.toggle('dim', dim);
+    if (el.parentElement) el.parentElement.classList.toggle('dim', dim);
+  }
+}
 function fillSettings() {
   for (const id of ['b-tips', 'b-tips-help']) $(id).textContent = 'Show tips again';
   const s = SAVE.settings;
@@ -5575,6 +5937,7 @@ function fillSettings() {
   $('s-tapplace').checked = s.tapPlace; $('s-haptics').checked = s.haptics; $('row-haptics').style.display = canVibrate() ? '' : 'none';
   $('s-sfx').checked = s.sfx; $('s-music').checked = s.music; $('s-musicvol').value = Math.round(s.musicVol * 100);
   $('s-ambience').checked = s.ambience; $('s-ambvol').value = Math.round(s.ambVol * 100);
+  syncAudioControlDim();
 }
 const AUDIO_SETTINGS = new Set(['sound', 'volume', 'sfx', 'music', 'musicVol', 'ambience', 'ambVol']);
 const CONTROL_SETTINGS = new Set(['undo', 'difficulty', 'tapPlace', 'haptics', 'tipsSeen']);
@@ -5582,6 +5945,7 @@ function applySettings(changedKey = null) {
   const s = SAVE.settings, root = document.documentElement;
   if (changedKey && AUDIO_SETTINGS.has(changedKey)) {
     if (changedKey === 'sound') { $('s-sound').checked = s.sound; updateHud(); }
+    syncAudioControlDim();
     applyVolume();
     return;
   }
@@ -5628,6 +5992,7 @@ function applySettings(changedKey = null) {
   root.classList.toggle('motion-full', s.motion === 'full');
   root.classList.toggle('tray-left', s.traySide === 'left');
   $('s-sound').checked = s.sound;   // M and the speaker button change Sound while the Settings card may be open
+  syncAudioControlDim();
   if (s.effects === 'full') { PERF.autoLite = false; resetPerfWatch(); }
   applyVolume(); WATER.refresh(); resize(); updateHud();
 }
@@ -5674,8 +6039,10 @@ function wireDom() {
   const auditionPauseAudio = () => { if (S.scene === 'settings' && UI.returnTo === 'pause' && !UI.auditionAudio) { UI.auditionAudio = true; audioMood(); } };
   $('s-music').addEventListener('change', e => { audioInit(); setSetting('music', e.target.checked); auditionPauseAudio(); sfx('click', { dir: e.target.checked ? 1 : -1 }); });
   $('s-musicvol').addEventListener('input', e => { audioInit(); setSetting('musicVol', e.target.value / 100); auditionPauseAudio(); });
+  $('s-musicvol').addEventListener('change', () => { audioInit(); sfx('click'); });
   $('s-ambience').addEventListener('change', e => { audioInit(); setSetting('ambience', e.target.checked); auditionPauseAudio(); sfx('click', { dir: e.target.checked ? 1 : -1 }); });
-  $('s-ambvol').addEventListener('input', e => { audioInit(); setSetting('ambVol', e.target.value / 100); auditionPauseAudio(); });
+  $('s-ambvol').addEventListener('input', e => { audioInit(); setSetting('ambVol', e.target.value / 100); auditionPauseAudio(); if (AU.kit && !AU.kit.held) AU.kit.music.duck(6, 600); });
+  $('s-ambvol').addEventListener('change', () => { audioInit(); sfx('click'); });
   $('s-motion').addEventListener('change', e => { audioInit(); setSetting('motion', e.target.value); sfx('click', { dir: 1 }); });
   $('s-patterns').addEventListener('change', e => { audioInit(); setSetting('patterns', e.target.checked); sfx('click', { dir: e.target.checked ? 1 : -1 }); });
   $('s-undo').addEventListener('change', e => { audioInit(); setSetting('undo', +e.target.value); sfx('click', { dir: 1 }); });
@@ -5730,8 +6097,8 @@ function askRestart() {
   const what = S.mode === 'trail' ? 'puzzle' : S.mode === 'daily' ? 'Daily Soak' : 'game';
   askConfirm('Restart this ' + what + '?', S.mode === 'trail' ? 'Your moves so far will be undone.' : 'You are at ' + S.score.toLocaleString('en-US') + ' points. They will be lost.', 'Restart', 'Keep playing', restart);
 }
-function pauseGame() { if (S.scene === 'game' && !S.over) { cancelDrag({ animate: false }); UI.sel = -1; if (UI.pausedAt == null) UI.pausedAt = performance.now(); PERF.n = 0; PERF.sum = 0; $('pause-goal').textContent = goalSentence(); sfx('pause'); showScene('pause'); } }
-function resumeGame() { sfx('resume'); showScene('game'); }
+function pauseGame() { if (S.scene === 'game' && !S.over) { cancelDrag({ animate: false }); UI.sel = -1; UI.ghostCleared = false; cancelTurnTimers(); AU.runToken++; if (UI.pausedAt == null) UI.pausedAt = performance.now(); PERF.n = 0; PERF.sum = 0; $('pause-goal').textContent = goalSentence(); sfx('pause'); showScene('pause'); } }
+function resumeGame() { audioInit(); sfx('resume'); showScene('game'); }
 function restart() {
   if (S.mode === 'trail') newGame({ mode: 'trail', level: S.level });
   else if (S.mode === 'daily') newGame({ mode: 'daily', date: S.daily });
@@ -5807,6 +6174,7 @@ function cancelDrag(opts = null) {
   const liveBody = d && animate && d.moved ? dragBody(d, performance.now()) : null;
   UI.drag = null;
   UI.ghost = null;
+  UI.ghostCleared = false;
   if (d) {
     if (release && d.id != null) { try { cv.releasePointerCapture(d.id); } catch (_) {} }
     const t = S.tray && S.tray[d.slot];
@@ -5842,10 +6210,11 @@ function dragHint(k) {
   if (!UI.dragHinted && !UI.tip) { UI.dragHinted = true; toast('Drag to place', 'Hold a piece and slide it onto the board. Prefer taps? Turn on Tap to place in Settings.', 3500); }
 }
 function selectSlot(k, withCursor = true) {
-  if (!S.tray[k]) { sfx('invalid'); return; }
+  if (!S.tray[k]) { sfx('invalid', { src: 'kbd' }); return; }
   cancelDrag({ animate: false });
   UI.hint = null;
-  UI.sel = k; sfx('pick', { k }); tipPicked();
+  UI.ghostCleared = false;
+  UI.sel = k; sfx('pick', { k, pan: (k - 1) * 0.25 }); tipPicked();
   const p = PIECES[S.tray[k].id];
   const fit = fitsAnywhere(S.board, p.id) ? '' : ', no room on the board';
   if (!withCursor) { UI.ghost = null; UI.cur = null; announce('Piece ' + (k + 1) + ' selected, ' + p.n + ' tiles' + fit + '. Tap the board to place it.'); dirty = true; return; }
@@ -5895,8 +6264,13 @@ cv.addEventListener('pointermove', e => {
   if (d && e.pointerId === d.id) {
     if (!S.tray[d.slot]) { cancelDrag({ animate: false }); return; }
     d.x = p.x; d.y = p.y;
-    if (!d.moved && Math.hypot(p.x - d.sx, p.y - d.sy) > 8) { d.moved = true; d.t1 = performance.now(); UI.sel = -1; sfx('pick', { k: d.slot }); tipPicked(); }
-    if (d.moved) UI.ghost = dragGhost(d);
+    if (!d.moved && Math.hypot(p.x - d.sx, p.y - d.sy) > 8) { d.moved = true; d.t1 = performance.now(); UI.sel = -1; UI.ghostCleared = false; sfx('pick', { k: d.slot, pan: (d.slot - 1) * 0.25 }); tipPicked(); }
+    if (d.moved) {
+      UI.ghost = dragGhost(d);
+      const tCur = UI.ghost && S.tray[UI.ghost.slot], pCur = tCur && PIECES[tCur.id];
+      const gPan = pCur ? (UI.ghost.c + pCur.wd / 2 - 4.5) / 4.5 * 0.55 : 0;
+      checkClearLock(UI.ghost, gPan);
+    }
     dirty = true; return;
   }
   if (S.scene === 'game' && e.pointerType === 'mouse' && UI.sel >= 0 && S.tray[UI.sel]) {
@@ -5907,6 +6281,7 @@ cv.addEventListener('pointermove', e => {
 function endDrag(e, cancel) {
   const d = UI.drag; if (!d || (e && e.pointerId !== d.id)) return;
   UI.drag = null;
+  UI.ghostCleared = false;
   if (d.id != null) { try { cv.releasePointerCapture(d.id); } catch (_) {} }
   const t = S.tray[d.slot];
   if (!t) { UI.ghost = null; dirty = true; return; }
@@ -5916,13 +6291,19 @@ function endDrag(e, cancel) {
     else if (UI.sel === d.slot) { UI.sel = -1; UI.ghost = null; } else selectSlot(d.slot, false);
     dirty = true; return;
   }
-  if (!cancel && e) { const p = pt(e); d.x = p.x; d.y = p.y; } // drop where the finger lifts, not at the last frame's move
+  let dropPt = null;
+  if (!cancel && e) { dropPt = pt(e); d.x = dropPt.x; d.y = dropPt.y; } // drop where the finger lifts, not at the last frame's move
   const liveBody = dragBody(d, performance.now());
   const gh = cancel ? null : dragGhost(d);
   if (gh && gh.valid) { doPlace(d.slot, gh.r, gh.c); return; }
   UI.ghost = null;
-  if (gh) sfx('invalid');
-  else if (!cancel) { sfx('invalid', { soft: 0.6 }); announce('Drop the piece on the board.'); }   // let go away from the board: say the game saw it
+  const pPan = gh ? (gh.c + PIECES[t.id].wd / 2 - 4.5) / 4.5 * 0.55 : 0;
+  if (gh) sfx('invalid', { src: 'drag', pan: pPan });
+  else if (!cancel) {
+    // Releasing over the piece's own originating tray slot is a calm set-down cancel (wf-4 §2C; S2-06 drops off-board elsewhere)
+    if (dropPt && slotAt(dropPt) === d.slot) sfx('click', { dir: -1, soft: 0.7 });
+    else { sfx('invalid', { soft: 0.6, src: 'drag' }); announce('Drop the piece on the board.'); }
+  }
   const cur = S.tray[d.slot];
   if (cur) {
     const db = liveBody || (() => { const p = PIECES[cur.id], [x, y] = dragTopLeft(d, p); return { x, y, s: LAY.board.cell }; })();
@@ -5938,13 +6319,21 @@ function moveCursor(dr, dc) {
   if (UI.sel < 0 || !S.tray[UI.sel]) { const k = S.tray.findIndex(Boolean); if (k < 0) return; selectSlot(k); return; }
   if (!UI.cur) { selectSlot(UI.sel); return; }
   const p = PIECES[S.tray[UI.sel].id];
-  UI.cur = { r: Math.max(0, Math.min(9 - p.h, UI.cur.r + dr)), c: Math.max(0, Math.min(9 - p.wd, UI.cur.c + dc)) };
+  const nr = Math.max(0, Math.min(9 - p.h, UI.cur.r + dr));
+  const nc = Math.max(0, Math.min(9 - p.wd, UI.cur.c + dc));
+  const moved = nr !== UI.cur.r || nc !== UI.cur.c;
+  UI.cur = { r: nr, c: nc };
   UI.ghost = ghostAt(UI.sel, UI.cur.r, UI.cur.c);
+  if (moved) {
+    const pan = (nc + p.wd / 2 - 4.5) / 4.5 * 0.5;
+    sfx('step', { pan });
+    checkClearLock(UI.ghost, pan);
+  }
   dirty = true;
 }
 function confirmPlace() {
   if (UI.sel < 0 || !UI.ghost) { const k = S.tray.findIndex(Boolean); if (k >= 0) selectSlot(k); return { ok: false }; }
-  if (!UI.ghost.valid) { sfx('invalid'); announce('Blocked. Move the piece.'); return { ok: false }; }
+  if (!UI.ghost.valid) { sfx('invalid', { src: 'kbd', pan: (UI.ghost.c - 4) / 4.5 * 0.5 }); announce('Blocked. Move the piece.'); return { ok: false }; }
   return doPlace(UI.sel, UI.ghost.r, UI.ghost.c);
 }
 function cycleSel(dir) {
@@ -6022,7 +6411,9 @@ function padStep(dir) {
   if (horizontal && el && el.tagName === 'SELECT') { padSelect(el, sign); return; }
   const list = padControls(); if (!list.length) return;
   const i = list.indexOf(el);
-  list[i < 0 ? 0 : (i + sign + list.length) % list.length].focus({ preventScroll: true });
+  const nextEl = list[i < 0 ? 0 : (i + sign + list.length) % list.length];
+  if (nextEl && nextEl !== el) sfx('step');
+  nextEl.focus({ preventScroll: true });
 }
 function padSelect(el, sign) {
   const n = el.options.length; if (!n) return;
@@ -6071,16 +6462,49 @@ window.addEventListener('blur', () => {
   if (UI.drag) cancelDrag({ animate: false });
   if (UI.sel >= 0 || UI.ghost) { UI.sel = -1; UI.ghost = null; dirty = true; }
 });
+function suspendAudioCleanly(immediate = false) {
+  if (!AU.ctx) return;
+  clearTimeout(AU.suspendTimer); AU.suspendTimer = 0;
+  rampSmooth(0.0001, 0.035);
+  if (AU.kit) { AU.kit.hold(0.025); AU.kit.stop(); }
+  if (immediate) {
+    if (AU.ctx.state === 'running') AU.ctx.suspend().catch(() => {});
+  } else {
+    AU.suspendTimer = setTimeout(() => {
+      AU.suspendTimer = 0;
+      if (document.hidden && AU.ctx && AU.ctx.state === 'running') AU.ctx.suspend().catch(() => {});
+    }, 45);
+  }
+}
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     if (UI.drag) cancelDrag({ animate: false });
-    if (UI.sel >= 0 || UI.ghost) { UI.sel = -1; UI.ghost = null; dirty = true; }
+    if (UI.sel >= 0 || UI.ghost) { UI.sel = -1; UI.ghost = null; UI.ghostCleared = false; dirty = true; }
     if (S.scene === 'game') saveResume();
+    suspendAudioCleanly(false);
+    return;
   }
-  // a hidden tab makes no sound; Safari may also leave the context 'interrupted' after a call or lock, so resume on return
-  if (AU.ctx) { audioMood(); if (document.hidden) { if (AU.ctx.state === 'running') AU.ctx.suspend().catch(() => {}); } else if (AU.ctx.state !== 'running') AU.ctx.resume().catch(() => {}); }
+  clearTimeout(AU.suspendTimer); AU.suspendTimer = 0;
+  if (!AU.ctx) return;
+  // Pause-only tab-return audio hold (W6-S6-03 / CD-WF6-04 / wf-4:149):
+  // keep Title, Settings, Game, Over & Win alive on tab return, but never spuriously resume while paused.
+  if (S.scene !== 'pause' && SAVE.settings.sound) {
+    const finishResume = () => {
+      if (document.hidden || S.scene === 'pause') return;
+      rampSmooth(targetMasterGain(), 0.035);
+      audioMood();
+      if (AU.kit && !AU.kit.held) AU.kit.start();
+    };
+    if (AU.ctx.state !== 'running') AU.ctx.resume().then(finishResume).catch(() => {});
+    else finishResume();
+  } else {
+    audioMood();
+  }
 });
-window.addEventListener('pagehide', () => { if (S.scene === 'game') saveResume(); });
+window.addEventListener('pagehide', () => {
+  if (S.scene === 'game') saveResume();
+  suspendAudioCleanly(true);
+});
 
 // ===================================================================== TEST HOOKS
 window.__game = {
@@ -6169,7 +6593,7 @@ window.__game = {
       case 'clearCues': CUE_LOG.length = 0; HEARD_LOG.length = 0; return true;
       case 'audioState': {
         const k = AU.kit; if (!k) return { kit: false };
-        return { kit: true, lead: AU.lead || 0, state: AU.ctx.state, held: k.held, music: Object.keys(SCORES).find(n => SCORES[n] === k.music.score) || null, amb: Object.keys(SCENES).find(n => SCENES[n] === k.amb.scene) || null, season: k.amb.param ? (k.amb.param('season') || 'default') : 'default', heat: k.amb.param ? (k.amb.param('heat') ?? 0) : 0, inten: k.music.inten ?? 0, musicGain: k.buses.music.gain.value, ambGain: k.buses.amb.gain.value, musicLevel: musicLevel(), ambLevel: ambienceLevel(), master: AU.master.gain.value, bars: k.music.info() ? k.music.info().bars : -1 };
+        return { kit: true, lead: AU.lead || 0, state: AU.ctx.state, held: k.held, timerOn: !!k.running, reverb: !!(AU.reverb && AU.reverb.context === AU.ctx), smooth: AU.smooth ? AU.smooth.gain.value : 1, music: Object.keys(SCORES).find(n => SCORES[n] === k.music.score) || null, amb: Object.keys(SCENES).find(n => SCENES[n] === k.amb.scene) || null, season: k.amb.param ? (k.amb.param('season') || 'default') : 'default', heat: k.amb.param ? (k.amb.param('heat') ?? 0) : 0, inten: k.music.inten ?? 0, musicGain: k.buses.music.gain.value, ambGain: k.buses.amb.gain.value, musicLevel: musicLevel(), ambLevel: ambienceLevel(), master: AU.master.gain.value, bars: k.music.info() ? k.music.info().bars : -1 };
       }
     }
     throw new Error('unknown act ' + name);

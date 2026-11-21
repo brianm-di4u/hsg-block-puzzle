@@ -225,20 +225,48 @@ export const tests = [
     },
   },
   {
-    name: 'S4-23 audio is suspended while the tab is hidden and resumed on return',
+    name: 'S4-23 W6-S6-03 audio suspends cleanly on hidden/pagehide, resumes on visible non-pause scenes, and stays suspended on Pause return',
     viewports: ['desktop'],
     async run(t) {
-      await t.game('act', 'audio', 'click');
-      await t.page.waitForTimeout(300);
+      // Real user gesture unlocks WebAudio cleanly — never silently skip when suspended (W6-S6-03 / wf-6 §6 #7).
+      await t.page.mouse.click(4, 4);
+      await t.page.waitForFunction(() => AU.ctx && AU.ctx.state === 'running', null, { timeout: 5000 });
       const state = () => t.page.evaluate(() => AU.ctx && AU.ctx.state);
-      if ((await state()) !== 'running') { t.log('audio context not running in this browser (' + (await state()) + '); skipped'); return; }
+      t.equal(await state(), 'running', 'AudioContext running on Title after gesture');
       const setHidden = h => t.page.evaluate(h => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => h }); document.dispatchEvent(new Event('visibilitychange')); }, h);
+      // 1. Hide on Title -> stops 40 Hz scheduler & suspends after ramp; visible on Title -> resumes cleanly (CD-WF6-04).
       await setHidden(true);
-      await t.page.waitForFunction(() => AU.ctx.state === 'suspended', null, { timeout: 3000 }).catch(() => {});
-      t.equal(await state(), 'suspended', 'suspended while hidden');
+      await t.page.waitForFunction(() => AU.ctx.state === 'suspended', null, { timeout: 3000 });
+      const hiddenSt = await t.game('act', 'audioState');
+      t.equal(hiddenSt.state, 'suspended', 'suspended while hidden');
+      t.equal(hiddenSt.timerOn, false, '40 Hz scheduler stopped while hidden');
       await setHidden(false);
-      await t.page.waitForFunction(() => AU.ctx.state === 'running', null, { timeout: 3000 }).catch(() => {});
-      t.equal(await state(), 'running', 'running again when visible');
+      await t.page.waitForFunction(() => AU.ctx.state === 'running', null, { timeout: 3000 });
+      const titleBack = await t.game('act', 'audioState');
+      t.equal(titleBack.state, 'running', 'Title audio resumes cleanly when tab returns');
+      t.equal(titleBack.held, false, 'Title kit released on return');
+      // 2. Pause-only tab-return hold: returning to tab while S.scene === "pause" MUST NOT spuriously resume AU.ctx (CD-WF6-04).
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('act', 'pause');
+      t.equal((await t.game('act', 'audioState')).timerOn, false, '40 Hz scheduler stopped while paused');
+      await setHidden(true);
+      await t.page.waitForFunction(() => AU.ctx.state === 'suspended', null, { timeout: 3000 });
+      await setHidden(false);
+      await t.page.waitForTimeout(250);
+      t.equal(await state(), 'suspended', 'stays suspended when returning to tab while paused');
+      t.equal((await t.game('act', 'audioState')).held, true, 'kit stays held on pause return');
+      // 3. Resuming from Pause wakes AudioContext and scheduler cleanly.
+      await t.page.click('#b-resume');
+      await t.page.waitForFunction(() => AU.ctx.state === 'running', null, { timeout: 3000 });
+      const resumedSt = await t.game('act', 'audioState');
+      t.equal(resumedSt.state, 'running', 'resuming from Pause wakes AudioContext');
+      t.equal(resumedSt.held, false, 'kit released after resume');
+      t.equal(resumedSt.timerOn, true, 'scheduler restarted after resume');
+      // 4. pagehide cleanly holds and suspends audio (iOS bfcache hygiene).
+      await t.page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
+      await t.page.waitForFunction(() => AU.ctx.state === 'suspended', null, { timeout: 3000 });
+      t.equal((await t.game('act', 'audioState')).timerOn, false, 'pagehide stops scheduler and suspends audio');
     },
   },
   {

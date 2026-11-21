@@ -316,3 +316,126 @@ tests.push({
     await t.page.setViewportSize({ width: 390, height: 844 });
   },
 });
+
+tests.push(
+  {
+    name: 'W6-P-N01 Title & Over reset Era 4 Boiling crisis audio (amb: bath-ancient, heat: 0, inten: 0) with zero HVAC/vent leak',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.page.mouse.click(4, 4);
+      await t.page.waitForFunction(() => AU.ctx && AU.ctx.state === 'running', null, { timeout: 5000 });
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      // Construct an Era 4 (midcentury) Boiling (heat=12) board with 65/81 cells filled (boardFill=0.802 -> inten=1.0).
+      const b = EMPTY();
+      let n = 0;
+      for (let r = 0; r < 9 && n < 65; r++) for (let c = 0; c < 9 && n < 65; c++) {
+        if ((r === 8 && c >= 4) || (r === 7 && c >= 5)) continue;
+        if (r === 0 && c === 0) continue; // leave hole so rows/cols don't pre-clear
+        b[r * 9 + c] = 1 + ((r + c) % 6); n++;
+      }
+      await t.game('setState', { board: b, tray: [{ id: 'o1' }, { id: 'o4' }, { id: 'o4' }], era: 4, score: 1700, heat: 12, placed: 35 });
+      await t.game('scene', 'game');
+      const crisis = await t.game('act', 'audioState');
+      t.equal([crisis.music, crisis.amb], ['midcentury', 'bath-midcentury'], 'active crisis plays Era 4 midcentury + bath-midcentury');
+      t.equal(crisis.heat, 1, 'active crisis sets Boiling ambience heat=1');
+      t.expect(crisis.inten >= 0.9, 'active crisis drives high adaptive intensity (' + crisis.inten + ')');
+      // Transition to Game Over: calm bath-ancient, heat=0, inten=0 (zero 120 Hz HVAC hum / Boiling hiss / perc2 panic).
+      await t.game('scene', 'over');
+      const overSt = await t.game('act', 'audioState');
+      t.equal([overSt.music, overSt.amb, overSt.season, overSt.heat, overSt.inten], ['over', 'bath-ancient', 'winter', 0, 0], 'Game Over forces serene bath-ancient winter, heat=0, inten=0');
+      // Return to Title via #b-menu1 without resetting S: Title stays calm winter bath-ancient, heat=0, inten=0.
+      await t.page.click('#b-menu1');
+      await waitScene(t, 'title');
+      const titleSt = await t.game('act', 'audioState');
+      t.equal([titleSt.music, titleSt.amb, titleSt.season, titleSt.heat, titleSt.inten], ['title', 'bath-ancient', 'winter', 0, 0], 'Title resets to calm winter bath-ancient, heat=0, inten=0');
+    },
+  },
+  {
+    name: 'W6-S5-02 W6-S5-07 W6-S6-03 bathhouse ConvolverNode, 0.55s INST.pad, normalized SCORES/SCENES, place>invalid, phone warn>=0.20, staggered 6-cue mix<0.90 & Foley hooks',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.page.mouse.click(4, 4);
+      await t.page.waitForFunction(() => AU.ctx && AU.ctx.state === 'running', null, { timeout: 5000 });
+      // 1. Live DSP topology: 0-KB ConvolverNode (>=320 Hz HPF), AU.smooth GainNode, INST.pad.r === 0.55, aStart() node tracking.
+      const dsp = await t.page.evaluate(() => ({
+        reverb: AU.reverb instanceof ConvolverNode,
+        reverbHp: AU.reverbHP ? AU.reverbHP.frequency.value : 0,
+        smooth: AU.smooth instanceof GainNode,
+        padR: AU.kit.INST.pad.r,
+        padHp: AU.kit.INST.pad.hp,
+        ambNodes: AU.kit.amb.nodeCount,
+        roaringBrass: SCORES.roaring.comp && SCORES.roaring.comp.inst === 'brass',
+        hasPerc2: ['ancient', 'frontier', 'gilded-spa', 'roaring', 'midcentury', 'revival', 'modern'].every(k => !!SCORES[k].perc2 && !!SCORES[k].lead.lift),
+        hasSwell: Object.values(SCENES).some(sc => sc.spots.some(sp => sp.make === 'swell')),
+      }));
+      t.equal(dsp.reverb, true, '0-KB tiled-bathhouse ConvolverNode active');
+      t.expect(dsp.reverbHp >= 320, 'reverb HPF >= 320 Hz (' + dsp.reverbHp + ')');
+      t.equal(dsp.smooth, true, 'downstream AU.smooth GainNode active');
+      t.equal(dsp.padR, 0.55, 'INST.pad release trimmed to 0.55 s');
+      t.expect(dsp.padHp >= 160, 'INST.pad HPF >= 160 Hz (' + dsp.padHp + ')');
+      t.expect(dsp.ambNodes >= 16, 'aStart() tracks inline panner + LFO/FLFO GainNodes for disconnect (' + dsp.ambNodes + ')');
+      t.equal(dsp.roaringBrass, true, 'roaring wires INST.brass');
+      t.equal(dsp.hasPerc2, true, 'all 7 gameplay era scores wire adaptive perc2 and L.lift');
+      t.equal(dsp.hasSwell, true, 'thermal ambience scenes weave SPOT.swell');
+      // 2. All 10 SCORES normalized to -32.5 +/- 1.5 dBFS (peak <= 0.145) & all 7 SCENES in -41.0..-39.5 dBFS (peak < 0.06).
+      const list = await t.game('audioList');
+      for (const name of list.music) {
+        const r = await t.page.evaluate(n => window.__game.audioRender(n, 60, false), name);
+        t.expect(r.rmsDb >= -34.0 && r.rmsDb <= -31.0, 'score ' + name + ' RMS ' + r.rmsDb + ' dBFS in -34.0..-31.0');
+        t.expect(r.peak <= 0.145 && r.peak >= 0.06, 'score ' + name + ' peak ' + r.peak + ' <= 0.145');
+        if (name === 'roaring') t.expect(r.built && r.built.notes >= 40, 'roaring density lifted (' + (r.built && r.built.notes) + ' notes/60s)');
+      }
+      for (const name of list.ambience) {
+        const r = await t.page.evaluate(n => window.__game.audioRender(n, 30, false), name);
+        t.expect(r.rmsDb >= -41.0 && r.rmsDb <= -39.5, 'scene ' + name + ' RMS ' + r.rmsDb + ' dBFS in -41.0..-39.5');
+        t.expect(r.peak < 0.06, 'scene ' + name + ' peak ' + r.peak + ' < 0.06');
+      }
+      // 3. place > invalid median peak, warn 250 Hz HPF >= 0.20, quiet step <= 0.06 & clearLock <= 0.04.
+      const med = async (cue, opt = {}) => {
+        const ps = [];
+        for (let i = 0; i < 7; i++) ps.push((await t.page.evaluate(([c, o]) => window.__game.audioRender('cue:' + c, 2, false, o), [cue, opt])).peak);
+        ps.sort((a, b) => a - b); return ps[3];
+      };
+      const placeMed = await med('place'), invMed = await med('invalid'), warnHp = await med('warn', { highpass: 250 });
+      const stepMed = await med('step'), lockMed = await med('clearLock');
+      t.expect(placeMed > invMed, 'ceramic place (' + placeMed + ') > invalid (' + invMed + ')');
+      t.expect(warnHp >= 0.20, 'phone-audible warn 250 Hz HPF peak >= 0.20 (' + warnHp + ')');
+      t.expect(stepMed > 0 && stepMed <= 0.06, 'whisper-quiet step <= 0.06 (' + stepMed + ')');
+      t.expect(lockMed > 0 && lockMed <= 0.04, 'whisper-quiet clearLock <= 0.04 (' + lockMed + ')');
+      // 4. Staggered 6-cue mix:* at 100% full volume stays strictly < 0.90 across all 7 eras.
+      for (const id of list.mix) {
+        const r = await t.page.evaluate(n => window.__game.audioRender('mix:' + n, 12, false, { volume: 1, musicVol: 1, ambVol: 1 }), id);
+        t.expect(r.peak < 0.90, 'staggered 6-cue mix:' + id + ' at 100% volume peak ' + r.peak + ' < 0.90');
+      }
+      // 5. Suspended AudioContext guard: sfx() logs CUE_LOG without piling heard cues onto frozen currentTime.
+      await t.page.evaluate(() => AU.ctx.suspend());
+      await t.page.waitForFunction(() => AU.ctx.state === 'suspended', null, { timeout: 3000 });
+      await t.game('act', 'clearCues');
+      await t.page.evaluate(() => { sfx('place', { n: 4 }); sfx('place', { n: 4 }); });
+      const susp = await t.page.evaluate(() => ({ cues: window.__game.act('cues'), heard: window.__game.act('heardCues') }));
+      t.equal(susp.cues, ['place', 'place'], 'CUE_LOG still records requested cues while suspended');
+      t.equal(susp.heard, [], 'zero cues scheduled onto frozen suspended currentTime');
+      await t.page.evaluate(() => AU.ctx.resume());
+      await t.page.waitForFunction(() => AU.ctx.state === 'running', null, { timeout: 3000 });
+      // 6. Operational Foley hooks: hint, step, clearLock, tufa, cool, boil.
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      const b = EMPTY(); for (let c = 1; c < 8; c++) b[c] = 1; b[8] = 7; b[80] = 1;
+      await t.game('setState', { board: b, tray: [{ id: 'o1' }, { id: 'o1' }, { id: 'o1' }], heat: 11, placed: 5 });
+      await t.game('act', 'clearCues');
+      await t.game('act', 'hint');
+      t.expect((await t.game('act', 'cues')).includes('hint'), 'useHint() emits distinct hint chime');
+      await t.game('act', 'select', 0);
+      await t.game('act', 'move', -4, -4); // moves to (0,0) which would clear row 0 -> step + clearLock
+      const moveCues = await t.game('act', 'cues');
+      t.expect(moveCues.includes('step'), 'keyboard cursor move emits step tick');
+      t.expect(moveCues.includes('clearLock'), '0 -> >=1 would-clear entry emits clearLock detent');
+      await t.game('act', 'clearCues');
+      await t.game('act', 'place', 0, 0, 0); // clears row 0 with tufa stone + crosses heat 11 -> 12 Boiling
+      const clearCues = await t.game('act', 'cues');
+      t.expect(clearCues.includes('tufa'), 'clearing tufa stone emits tufa crumble');
+      t.expect(clearCues.includes('boil'), 'reaching 143F Boiling emits boil shimmer bell');
+    },
+  },
+);
