@@ -3,6 +3,7 @@
  "items": [
   {
    "name": "tile-1",
+   "group": "tiles",
    "src": "tile-1.png",
    "w": 160,
    "h": 160,
@@ -10,6 +11,7 @@
   },
   {
    "name": "tile-2",
+   "group": "tiles",
    "src": "tile-2.png",
    "w": 160,
    "h": 160,
@@ -17,6 +19,7 @@
   },
   {
    "name": "tile-3",
+   "group": "tiles",
    "src": "tile-3.png",
    "w": 160,
    "h": 160,
@@ -24,6 +27,7 @@
   },
   {
    "name": "tile-4",
+   "group": "tiles",
    "src": "tile-4.png",
    "w": 160,
    "h": 160,
@@ -31,6 +35,7 @@
   },
   {
    "name": "tile-5",
+   "group": "tiles",
    "src": "tile-5.png",
    "w": 160,
    "h": 160,
@@ -38,6 +43,7 @@
   },
   {
    "name": "tile-6",
+   "group": "tiles",
    "src": "tile-6.png",
    "w": 160,
    "h": 160,
@@ -45,6 +51,7 @@
   },
   {
    "name": "tile-7",
+   "group": "tiles",
    "src": "tile-7.png",
    "w": 160,
    "h": 160,
@@ -52,6 +59,7 @@
   },
   {
    "name": "tile-8",
+   "group": "tiles",
    "src": "tile-8.png",
    "w": 160,
    "h": 160,
@@ -59,6 +67,8 @@
   },
   {
    "name": "era-ancient",
+   "group": "backdrops",
+   "prebuilt": true,
    "src": "era-ancient.png",
    "w": 1600,
    "h": 1000,
@@ -66,6 +76,8 @@
   },
   {
    "name": "era-frontier",
+   "group": "backdrops",
+   "prebuilt": true,
    "src": "era-frontier.png",
    "w": 1600,
    "h": 1000,
@@ -73,6 +85,8 @@
   },
   {
    "name": "era-gilded-spa",
+   "group": "backdrops",
+   "prebuilt": true,
    "src": "era-gilded-spa.png",
    "w": 1600,
    "h": 1000,
@@ -80,6 +94,8 @@
   },
   {
    "name": "era-roaring",
+   "group": "backdrops",
+   "prebuilt": true,
    "src": "era-roaring.png",
    "w": 1600,
    "h": 1000,
@@ -87,6 +103,8 @@
   },
   {
    "name": "era-midcentury",
+   "group": "backdrops",
+   "prebuilt": true,
    "src": "era-midcentury.png",
    "w": 1600,
    "h": 1000,
@@ -94,6 +112,8 @@
   },
   {
    "name": "era-revival",
+   "group": "backdrops",
+   "prebuilt": true,
    "src": "era-revival.png",
    "w": 1600,
    "h": 1000,
@@ -101,6 +121,8 @@
   },
   {
    "name": "era-modern",
+   "group": "backdrops",
+   "prebuilt": true,
    "src": "era-modern.png",
    "w": 1600,
    "h": 1000,
@@ -108,6 +130,8 @@
   },
   {
    "name": "title-hero",
+   "group": "backdrops",
+   "prebuilt": true,
    "src": "title-hero.png",
    "w": 1600,
    "h": 1000,

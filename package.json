@@ -6,8 +6,14 @@
   "license": "MIT",
   "scripts": {
     "setup": "cd shared/test-harness && npm install && npx playwright install chromium",
+    "preflight": "node tools/preflight-check.mjs",
+    "pretest": "node tools/preflight-check.mjs && node --test tests-node/save.test.mjs tests-node/return-loop.test.mjs tests-node/stats-history.test.mjs tests-node/progress-flags.test.mjs",
     "test": "node shared/test-harness/run.mjs .",
-    "pretest": "node --test tests-node/save.test.mjs tests-node/return-loop.test.mjs tests-node/stats-history.test.mjs tests-node/progress-flags.test.mjs",
-    "test:save": "node --test tests-node/save.test.mjs tests-node/return-loop.test.mjs tests-node/stats-history.test.mjs tests-node/progress-flags.test.mjs"
+    "test:save": "node --test tests-node/save.test.mjs tests-node/return-loop.test.mjs tests-node/stats-history.test.mjs tests-node/progress-flags.test.mjs",
+    "art:pack": "node shared/test-harness/art-pack.mjs .",
+    "art:verify": "node shared/test-harness/art-pack.mjs . --verify",
+    "check:file": "node tools/check-file-url.mjs",
+    "solve:trail": "node tools/rules-node.mjs",
+    "sim:diff": "node tools/difficulty-sim.mjs"
   }
 }

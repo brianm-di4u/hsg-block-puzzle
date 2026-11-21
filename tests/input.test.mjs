@@ -171,4 +171,675 @@ export const tests = [
       t.equal(s.scene, 'game', 'Escape resumes');
     },
   },
+  {
+    name: 'W6-S6-04 mid-drag doUndo() and blur/contextmenu/Escape aborts never throw',
+    viewports: ['desktop'],
+    async run(t) {
+      const L = await setup(t, [{ id: 'o1' }, { id: 'o1' }, { id: 'o1' }]);
+      await t.game('act', 'setting', 'undo', 3);
+      await t.game('newGame', { mode: 'classic', seed: 12 });
+      await t.game('setState', { board: EMPTY(), tray: [{ id: 'o1' }, { id: 'o1' }, { id: 'o1' }], undoLeft: 3 });
+      await t.game('act', 'hideToast');
+      // Place 3 pieces so Round 2 deals a fresh tray; snapshot on undoStack has slot 0 = null, slot 1 = null, slot 2 = o1.
+      t.expect((await t.game('act', 'place', 0, 0, 0)).ok, 'piece 1 placed');
+      t.expect((await t.game('act', 'place', 1, 0, 2)).ok, 'piece 2 placed');
+      t.expect((await t.game('act', 'place', 2, 0, 4)).ok, 'piece 3 placed -> Round 2 dealt');
+      // Begin dragging slot 0 of Round 2 across the board (slot 0 was null in Round 1's pre-Piece-3 snapshot!).
+      const [sx, sy] = slotCenter(L, 0);
+      const [bx, by] = cellCenter(L, 4, 4);
+      await t.page.mouse.move(sx, sy);
+      await t.page.mouse.down();
+      await t.page.mouse.move(bx, by, { steps: 6 });
+      // Trigger Undo mid-drag: must cancelDrag cleanly without TypeError on null S.tray[0].
+      const u = await t.game('act', 'undo');
+      t.equal(u.ok, true, 'mid-drag undo succeeds');
+      await t.page.mouse.move(bx + 20, by + 20, { steps: 3 });
+      await t.page.mouse.up();
+      const afterUndo = await t.page.evaluate(() => ({ drag: UI.drag, ghost: UI.ghost, slot0: S.tray[0] }));
+      t.equal(afterUndo.drag, null, 'drag cleared on mid-drag undo');
+      t.equal(afterUndo.ghost, null, 'ghost cleared on mid-drag undo');
+      t.equal(afterUndo.slot0, null, 'restored Round 1 slot 0 is null without crashing');
+      // Verify blur, contextmenu, Escape, and hidden-tab aborts cleanly cancel active drags.
+      await t.game('setState', { board: EMPTY(), tray: [{ id: 'o4' }, { id: 'o1' }, { id: 'i2h' }], undoLeft: 3 });
+      for (const abortKind of ['blur', 'contextmenu', 'Escape']) {
+        await t.page.mouse.move(sx, sy);
+        await t.page.mouse.down();
+        await t.page.mouse.move(bx, by, { steps: 5 });
+        t.expect(await t.page.evaluate(() => !!(UI.drag && UI.drag.moved)), abortKind + ': drag started');
+        if (abortKind === 'blur') await t.page.evaluate(() => window.dispatchEvent(new Event('blur')));
+        else if (abortKind === 'contextmenu') await t.page.evaluate(() => document.getElementById('cv').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })));
+        else await t.page.keyboard.press('Escape');
+        await t.page.mouse.up();
+        const cleared = await t.page.evaluate(() => ({ drag: UI.drag, ghost: UI.ghost }));
+        t.equal(cleared.drag, null, abortKind + ': drag cancelled cleanly');
+        t.equal(cleared.ghost, null, abortKind + ': ghost cleared');
+      }
+    },
+  },
+  {
+    name: 'W6-S5-04 40/40 concave Tap-to-Place double-tap, strict non-bbox confirmation & shared resolveSnapTarget()',
+    viewports: ['mobile'],
+    async run(t) {
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('act', 'setting', 'tapPlace', true);
+      const L = await setup(t, [{ id: 'o1' }, { id: 'o1' }, { id: 'o1' }]);
+      const pieces = await t.game('pieces');
+      const ids = Object.keys(pieces);
+      t.equal(ids.length, 40, 'all 40 pieces tested');
+      const [sx, sy] = slotCenter(L, 0);
+      const [cx, cy] = cellCenter(L, 3, 3); // (3,3) keeps 3x3 o9 straddling 4 pools (2,2..4,4) so none of the 40 pieces auto-clears a 3x3 pool
+      // 1. Every single piece (all 40/40, including 10 concave pieces c3d, l4c, l4d, j4a, j4b, v5a..d, u5a) confirms on two identical center taps.
+      for (const id of ids) {
+        await t.game('setState', { board: EMPTY(), tray: [{ id }, { id: 'o1' }, { id: 'o1' }], score: 0, heat: 0, placed: 0 });
+        await t.page.touchscreen.tap(sx, sy);
+        await t.page.touchscreen.tap(cx, cy);
+        const mid = await t.state();
+        t.expect(mid.ghost && mid.ghost.valid && mid.board.filter(Boolean).length === 0, id + ': first center tap shows valid preview without placing');
+        await t.page.touchscreen.tap(cx, cy);
+        const after = await t.state();
+        t.equal(after.tray[0], null, id + ': second identical center tap places piece');
+        t.equal(after.placed, 1, id + ': placed counter incremented');
+        t.equal(after.board.filter(Boolean).length, pieces[id].n, id + ': exact tile count placed (' + pieces[id].n + ')');
+      }
+      // 2. Strict non-bbox confirmation (CD-WF6-06): concave v5a previewed at (3,3) does NOT confirm on empty bbox corner (5,5),
+      //    but DOES confirm on occupied ghost cell (3,3).
+      const [c44x0, c44y0] = cellCenter(L, 4, 4);
+      await t.game('setState', { board: EMPTY(), tray: [{ id: 'v5a' }, { id: 'o1' }, { id: 'o1' }], score: 0, heat: 0 });
+      await t.page.touchscreen.tap(sx, sy);
+      await t.page.touchscreen.tap(c44x0, c44y0);
+      let s = await t.state();
+      t.expect(s.ghost && s.ghost.r === 3 && s.ghost.c === 3 && s.ghost.valid, 'v5a previewed at 3,3');
+      const [c55x, c55y] = cellCenter(L, 5, 5);
+      await t.page.touchscreen.tap(c55x, c55y);
+      s = await t.state();
+      t.equal(s.board.filter(Boolean).length, 0, 'empty bbox corner (5,5) repositions preview instead of loose-bbox placing');
+      t.expect(s.ghost && s.ghost.r === 4 && s.ghost.c === 4, 'preview moved to 4,4');
+      const [c44x, c44y] = cellCenter(L, 4, 4); // (4,4) is an occupied cell of v5a at (4,4)
+      await t.page.touchscreen.tap(c44x, c44y);
+      s = await t.state();
+      t.equal(s.board.filter(Boolean).length, 5, 'tap on occupied ghost cell confirms placement');
+      // 3. Shared resolveSnapTarget() 0.75-cell nearest-valid snap assist works in Tap-to-Place too.
+      const board = EMPTY(); board[2 * 9 + 3] = 1;
+      await t.game('setState', { board, tray: [{ id: 'o1' }, { id: 'o4' }, { id: 'i2h' }], score: 0, heat: 0 });
+      await t.page.touchscreen.tap(sx, sy);
+      const b = L.board;
+      const snapX = b.gx + (3 + 0.9) * b.cell, snapY = b.gy + (2 + 0.5) * b.cell; // 0.4 cells right of blocked (2,3) -> 0.6 cells from open (2,4)
+      await t.page.touchscreen.tap(snapX, snapY);
+      s = await t.state();
+      t.expect(s.ghost && s.ghost.valid && s.ghost.r === 2 && s.ghost.c === 4, 'Tap-to-Place snaps past blocked (2,3) to open (2,4): ' + JSON.stringify(s.ghost));
+      await t.page.touchscreen.tap(snapX, snapY);
+      s = await t.state();
+      t.expect(s.tray[0] === null && s.board[2 * 9 + 4] > 0, 'second tap confirms snapped placement at (2,4)');
+    },
+  },
+  {
+    name: 'W6-P-N04 W6-S5-04 fresh-boot & Level-24 focusFirst() (getClientRects), Title #cv containment & <main> landmark',
+    viewports: ['desktop'],
+    async run(t) {
+      // Fresh boot straight on #sc-title (no prior game or clicks):
+      const bootInfo = await t.page.evaluate(() => {
+        const ae = document.activeElement;
+        const main = document.querySelector('main');
+        const cv = document.getElementById('cv');
+        const hud = document.getElementById('hud');
+        const title = document.getElementById('sc-title');
+        return {
+          scene: window.__game.getState().scene,
+          hasMain: !!main,
+          mainWrapsCv: !!(main && main.contains(cv)),
+          mainWrapsTitle: !!(main && main.contains(title)),
+          hudOutsideMain: !!(main && hud && !main.contains(hud)),
+          activeTag: ae && ae.tagName,
+          activeMode: ae && ae.dataset ? ae.dataset.mode : null,
+          activeId: ae && ae.id,
+          activeRects: ae ? ae.getClientRects().length : 0,
+          cvInert: cv.inert,
+          cvTabIndex: cv.tabIndex,
+          hudInert: hud.inert,
+          usesOffsetParent: /offsetParent/.test(focusFirst.toString() + isVisibleControl.toString()),
+          usesGetClientRects: /getClientRects/.test(isVisibleControl.toString()),
+        };
+      });
+      t.equal(bootInfo.scene, 'title', 'fresh boot starts on Title');
+      t.equal(bootInfo.hasMain, true, 'semantic <main> landmark present');
+      t.equal(bootInfo.mainWrapsCv && bootInfo.mainWrapsTitle && bootInfo.hudOutsideMain, true, '<main> wraps #cv and #sc-title while <header id="hud"> stays top-level');
+      t.equal(bootInfo.activeMode, 'classic', 'fresh-boot focusFirst() skips hidden #b-continue and focuses Play Classic (got ' + JSON.stringify(bootInfo) + ')');
+      t.expect(bootInfo.activeRects > 0, 'focused Play Classic button is visible via getClientRects()');
+      t.equal(bootInfo.cvInert, true, '#cv is inert on non-modal #sc-title');
+      t.equal(bootInfo.cvTabIndex, -1, '#cv tabIndex is -1 on #sc-title');
+      t.equal(bootInfo.hudInert, true, '#hud is inert on #sc-title');
+      t.equal(bootInfo.usesOffsetParent, false, 'focusFirst() never relies on offsetParent (CD-WF6-04)');
+      t.equal(bootInfo.usesGetClientRects, true, 'focusFirst() filters visibility strictly via getClientRects()');
+
+      // Shift+Tab from Play Classic must NEVER escape onto hidden #cv behind Title (W6-P-N04).
+      await t.page.keyboard.press('Shift+Tab');
+      const afterShiftTab = await t.page.evaluate(() => ({ id: document.activeElement && document.activeElement.id, tag: document.activeElement && document.activeElement.tagName }));
+      t.expect(afterShiftTab.id !== 'cv', 'Shift+Tab on Title never lands on #cv (got ' + JSON.stringify(afterShiftTab) + ')');
+
+      // Even if blurred to <body>, pressing Tab once on Title must land on Play Classic, never #cv.
+      await t.page.evaluate(() => { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); });
+      await t.page.keyboard.press('Tab');
+      const afterBodyTab = await t.page.evaluate(() => ({ id: document.activeElement && document.activeElement.id, mode: document.activeElement && document.activeElement.dataset && document.activeElement.dataset.mode }));
+      t.equal(afterBodyTab.mode, 'classic', 'first Tab from <body> on Title lands on Play Classic, skipping inert #cv');
+
+      // Level-24 Win (#sc-win with #b-next hidden): focusFirst() must land on visible #b-trail2, never <body> or hidden #b-next.
+      const lvl24Focus = await t.page.evaluate(() => {
+        const last = LEVELS[LEVELS.length - 1];
+        newGame({ mode: 'trail', level: last.id });
+        S.over = true; S.won = true; S.undosUsed = 0;
+        showWinTrail();
+        const ae = document.activeElement;
+        return {
+          scene: S.scene,
+          nextHidden: $('b-next').getClientRects().length === 0,
+          activeId: ae && ae.id,
+          activeTag: ae && ae.tagName,
+          activeVisible: !!(ae && ae.getClientRects().length > 0),
+          inWin: $('sc-win').contains(ae),
+          cvInert: cv.inert,
+          cvTabIndex: cv.tabIndex,
+        };
+      });
+      t.equal(lvl24Focus.scene, 'win', 'Level-24 win screen opened');
+      t.equal(lvl24Focus.nextHidden, true, '#b-next is hidden on final Level 24');
+      t.equal(lvl24Focus.inWin && lvl24Focus.activeVisible && lvl24Focus.activeId === 'b-trail2', true, 'Level-24 focusFirst() focuses visible #b-trail2 instead of <body> (' + JSON.stringify(lvl24Focus) + ')');
+      t.equal(lvl24Focus.cvInert && lvl24Focus.cvTabIndex === -1, true, '#cv is inert with tabIndex=-1 on #sc-win');
+    },
+  },
+  {
+    name: 'W6-S5-04 all 9 dialogs Tab-trap & #cv inertness, back() opener restore, boundary-releasing #cv Tab, numeric 1-9 rim & pointer UI.kbd clear',
+    viewports: ['desktop'],
+    async run(t) {
+      // 1. Verify all 8 non-confirm aria-modal dialogs trap Tab/Shift+Tab and hold #cv/#hud/<main> inert.
+      const dialogSpecs = [
+        { name: 'trail', id: 'sc-trail', open: () => t.game('scene', 'trail') },
+        { name: 'cards', id: 'sc-cards', open: () => t.game('scene', 'cards') },
+        { name: 'records', id: 'sc-records', open: () => t.game('scene', 'records') },
+        { name: 'help', id: 'sc-help', open: () => t.game('scene', 'help') },
+        { name: 'settings', id: 'sc-settings', open: () => t.game('scene', 'settings') },
+        { name: 'pause', id: 'sc-pause', open: async () => { await t.game('newGame', { mode: 'classic', seed: 5 }); await t.game('act', 'pause'); } },
+        { name: 'over', id: 'sc-over', open: async () => { await t.game('newGame', { mode: 'classic', seed: 5 }); await t.game('scene', 'over'); } },
+        { name: 'win', id: 'sc-win', open: async () => { await t.game('newGame', { mode: 'trail', level: 'display-spring' }); await t.game('act', 'place', 0, 8, 3); await t.page.waitForFunction(() => window.__game.getState().scene === 'win', null, { timeout: 6000 }); } },
+      ];
+      for (const d of dialogSpecs) {
+        await d.open();
+        const st = await t.page.evaluate(id => {
+          const root = document.getElementById(id), list = padControls(), ae = document.activeElement;
+          return {
+            modal: root.getAttribute('aria-modal'),
+            count: list.length,
+            inRoot: root.contains(ae),
+            cvInert: cv.inert,
+            cvTab: cv.tabIndex,
+            hudInert: $('hud').inert,
+            mainInert: $('main').inert,
+          };
+        }, d.id);
+        t.equal(st.modal, 'true', d.name + ': aria-modal="true"');
+        t.expect(st.count >= 1 && st.inRoot, d.name + ': active focus is inside dialog (' + JSON.stringify(st) + ')');
+        t.equal(st.cvInert && st.cvTab === -1 && st.hudInert && st.mainInert, true, d.name + ': #cv, #hud, and <main> inert behind dialog');
+        // Focus first control and press Shift+Tab -> must wrap to last control inside dialog.
+        await t.page.evaluate(() => { const l = padControls(); l[0].focus({ preventScroll: true }); });
+        await t.page.keyboard.press('Shift+Tab');
+        const wrappedBack = await t.page.evaluate(id => {
+          const l = padControls();
+          return document.getElementById(id).contains(document.activeElement) && document.activeElement === l[l.length - 1];
+        }, d.id);
+        t.equal(wrappedBack, true, d.name + ': Shift+Tab wraps cleanly from first to last control inside dialog');
+        // Now on last control -> press Tab -> must wrap to first control inside dialog.
+        await t.page.keyboard.press('Tab');
+        const wrappedFwd = await t.page.evaluate(id => {
+          const l = padControls();
+          return document.getElementById(id).contains(document.activeElement) && document.activeElement === l[0];
+        }, d.id);
+        t.equal(wrappedFwd, true, d.name + ': Tab wraps cleanly from last to first control inside dialog');
+      }
+
+      // 2. 9th dialog (#sc-confirm) inerts underlying screen, traps Tab/Shift+Tab, and restores opener focus on Escape.
+      await t.game('newGame', { mode: 'classic', seed: 9 });
+      await t.game('act', 'place', 0, 0, 0);
+      await t.game('act', 'pause');
+      await t.page.focus('#b-restart');
+      await t.page.click('#b-restart');
+      const cfState = await t.page.evaluate(() => ({
+        on: $('sc-confirm').classList.contains('on'),
+        activeId: document.activeElement && document.activeElement.id,
+        pauseInert: $('sc-pause').inert,
+        cvInert: cv.inert,
+      }));
+      t.equal(cfState.on && cfState.activeId === 'cf-no' && cfState.pauseInert && cfState.cvInert, true, '#sc-confirm inerts underlying #sc-pause & #cv and focuses #cf-no');
+      await t.page.keyboard.press('Shift+Tab');
+      t.equal(await t.page.evaluate(() => document.activeElement.id), 'cf-yes', '#sc-confirm Shift+Tab wraps to #cf-yes');
+      await t.page.keyboard.press('Tab');
+      t.equal(await t.page.evaluate(() => document.activeElement.id), 'cf-no', '#sc-confirm Tab wraps to #cf-no');
+      await t.page.keyboard.press('Escape');
+      const afterCf = await t.page.evaluate(() => ({ pauseInert: $('sc-pause').inert, activeId: document.activeElement && document.activeElement.id }));
+      t.equal(afterCf.pauseInert, false, 'closing #sc-confirm un-inerts #sc-pause');
+      t.equal(afterCf.activeId, 'b-restart', 'closing #sc-confirm restores opener focus to #b-restart');
+
+      // 3. Opener focus restore in back() from both #sc-pause and #sc-title.
+      await t.page.focus('#sc-pause [data-go="help"]');
+      await t.page.click('#sc-pause [data-go="help"]');
+      t.equal((await t.state()).scene, 'help', 'opened Help from Pause');
+      await t.page.keyboard.press('Escape');
+      t.equal(await t.page.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-go') === 'help' && $('sc-pause').contains(document.activeElement)), true, 'back() restores focus to Pause How to play opener');
+
+      await t.game('scene', 'title');
+      await t.page.focus('#sc-title [data-go="settings"]');
+      await t.page.click('#sc-title [data-go="settings"]');
+      t.equal((await t.state()).scene, 'settings', 'opened Settings from Title');
+      await t.page.keyboard.press('Escape');
+      t.equal(await t.page.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-go') === 'settings' && $('sc-title').contains(document.activeElement)), true, 'back() restores focus to Title Settings opener');
+
+      // 4. Boundary-releasing #cv Tab (WCAG 2.1.2) + Q/E infinite wrap + UI.kbd-only numeric 1-9 rim indices + pointer drag clear.
+      await t.game('act', 'setting', 'tipsSeen', false);
+      const L = await setup(t, [{ id: 'o1' }, { id: 'o4' }, { id: 'i2h' }]);
+      await t.page.evaluate(() => { tipShow('goal'); cv.focus({ preventScroll: true }); });
+      await t.page.keyboard.press('Tab');
+      t.equal((await t.state()).sel, 0, '#cv Tab 1 selects slot 0');
+      await t.page.keyboard.press('Tab');
+      t.equal((await t.state()).sel, 1, '#cv Tab 2 selects slot 1');
+      await t.page.keyboard.press('Tab');
+      t.equal((await t.state()).sel, 2, '#cv Tab 3 selects slot 2');
+      await t.page.keyboard.press('Tab');
+      const releasedId = await t.page.evaluate(() => document.activeElement && document.activeElement.id);
+      t.equal(releasedId, 'b-pause', '#cv Tab past last occupied slot releases cleanly to #hud (#b-pause)');
+      // Continue tabbing across #hud until reaching #tip-skip (zero WCAG 2.1.2 trap!).
+      let hitSkip = false;
+      for (let step = 0; step < 8; step++) {
+        if (await t.page.evaluate(() => document.activeElement && document.activeElement.id === 'tip-skip')) { hitSkip = true; break; }
+        await t.page.keyboard.press('Tab');
+      }
+      t.equal(hitSkip, true, 'forward Tab from #cv reaches #tip-skip cleanly');
+
+      // Shift+Tab from slot 0 on #cv releases backward cleanly; Q/E wrap infinitely.
+      await t.page.focus('#cv');
+      await t.page.keyboard.press('1');
+      await t.page.keyboard.press('Shift+Tab');
+      t.expect(await t.page.evaluate(() => document.activeElement && document.activeElement.id !== 'cv'), '#cv Shift+Tab at slot 0 releases backward off #cv');
+      await t.page.focus('#cv');
+      await t.page.keyboard.press('1');
+      await t.page.keyboard.press('e'); t.equal((await t.state()).sel, 1, 'E steps 0 -> 1');
+      await t.page.keyboard.press('e'); t.equal((await t.state()).sel, 2, 'E steps 1 -> 2');
+      await t.page.keyboard.press('e'); t.equal((await t.state()).sel, 0, 'E wraps 2 -> 0 infinitely');
+      await t.page.keyboard.press('q'); t.equal((await t.state()).sel, 2, 'Q wraps 0 -> 2 infinitely');
+
+      // Numeric 1-9 rim indices drawn ONLY when UI.kbd is active (zero A-I letters, all >=12px), cleared on pointer drag.
+      const kbdTexts = await t.game('act', 'canvasText');
+      const rimNums = kbdTexts.texts.filter(x => /^[1-9]$/.test(x.text) && x.size === 12);
+      const alphaCols = kbdTexts.texts.filter(x => /^[A-I]$/.test(x.text));
+      t.equal(rimNums.length, 18, 'UI.kbd renders 18 numeric 1-9 rim indices (9 cols + 9 rows) at 12px');
+      t.equal(alphaCols.length, 0, 'zero A-I column letters on board rim (CD-WF5-07)');
+      const [sx, sy] = slotCenter(L, 0), [bx, by] = cellCenter(L, 4, 4);
+      await t.page.mouse.move(sx, sy);
+      await t.page.mouse.down();
+      await t.page.mouse.move(bx, by, { steps: 5 });
+      await t.page.mouse.up();
+      const afterDragKbd = await t.page.evaluate(() => UI.kbd);
+      t.equal(afterDragKbd, false, 'pointer drag clears UI.kbd');
+      const ptrTexts = await t.game('act', 'canvasText');
+      t.equal(ptrTexts.texts.filter(x => /^[1-9]$/.test(x.text) && x.size === 12).length, 0, 'numeric rim indices hidden once UI.kbd clears');
+    },
+  },
+  {
+    name: 'W6-S5-04 modifier-key passthrough preserving (Ctrl|Cmd)+Z Undo & #sc-over/#sc-win Escape/U/Gamepad B/START',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.game('act', 'setting', 'undo', 3);
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await setup(t, [{ id: 'o1' }, { id: 'o4' }, { id: 'i2h' }]);
+      await t.game('setState', { board: EMPTY(), tray: [{ id: 'o1' }, { id: 'o4' }, { id: 'i2h' }], undoLeft: 3 });
+      t.expect((await t.game('act', 'place', 0, 0, 0)).ok, 'initial piece placed for undo check');
+
+      // 1. Modifier shortcuts MUST NOT be intercepted (no preventDefault, no game state mutation, no UI.kbd latch).
+      const modChecks = await t.page.evaluate(() => {
+        UI.kbd = false; UI.sel = -1; UI.ghost = null; UI.hint = null;
+        const cases = [
+          { label: 'Ctrl+1', key: '1', ctrlKey: true },
+          { label: 'Meta+2', key: '2', metaKey: true },
+          { label: 'Alt+3', key: '3', altKey: true },
+          { label: 'Ctrl+q', key: 'q', ctrlKey: true },
+          { label: 'Alt+e', key: 'e', altKey: true },
+          { label: 'Alt+ArrowLeft', key: 'ArrowLeft', altKey: true },
+          { label: 'Ctrl+ArrowDown', key: 'ArrowDown', ctrlKey: true },
+          { label: 'Ctrl+h', key: 'h', ctrlKey: true },
+          { label: 'Meta+h', key: 'h', metaKey: true },
+          { label: 'Ctrl+u', key: 'u', ctrlKey: true },
+          { label: 'Alt+u', key: 'u', altKey: true },
+          { label: 'Ctrl+p', key: 'p', ctrlKey: true },
+          { label: 'Meta+p', key: 'p', metaKey: true },
+          { label: 'Ctrl+m', key: 'm', ctrlKey: true },
+          { label: 'Ctrl+Alt+z', key: 'z', ctrlKey: true, altKey: true },
+        ];
+        const soundBefore = SAVE.settings.sound, placedBefore = S.placed;
+        const results = cases.map(c => {
+          const ev = new KeyboardEvent('keydown', { key: c.key, ctrlKey: !!c.ctrlKey, metaKey: !!c.metaKey, altKey: !!c.altKey, bubbles: true, cancelable: true });
+          window.dispatchEvent(ev);
+          return { label: c.label, prevented: ev.defaultPrevented };
+        });
+        return {
+          results,
+          scene: S.scene,
+          sel: UI.sel,
+          ghost: UI.ghost,
+          hint: UI.hint,
+          kbd: UI.kbd,
+          placedSame: S.placed === placedBefore,
+          soundSame: SAVE.settings.sound === soundBefore,
+        };
+      });
+      for (const r of modChecks.results) t.equal(r.prevented, false, r.label + ' not intercepted');
+      t.equal(modChecks.scene === 'game' && modChecks.sel === -1 && modChecks.ghost === null && modChecks.hint === null && modChecks.kbd === false && modChecks.placedSame && modChecks.soundSame, true, 'zero game state mutated by browser modifier shortcuts');
+
+      // 2. (Ctrl|Cmd)+Z (without Alt) STILL triggers Undo cleanly!
+      const ctrlZ = await t.page.evaluate(() => {
+        const before = S.placed;
+        const ev = new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true });
+        window.dispatchEvent(ev);
+        return { prevented: ev.defaultPrevented, delta: S.placed - before };
+      });
+      t.equal(ctrlZ.prevented && ctrlZ.delta === -1, true, 'Ctrl+Z Undo preserved (' + JSON.stringify(ctrlZ) + ')');
+
+      t.expect((await t.game('act', 'place', 0, 0, 0)).ok, 're-placed piece for Cmd+Z check');
+      const metaZ = await t.page.evaluate(() => {
+        const before = S.placed;
+        const ev = new KeyboardEvent('keydown', { key: 'z', metaKey: true, bubbles: true, cancelable: true });
+        window.dispatchEvent(ev);
+        return { prevented: ev.defaultPrevented, delta: S.placed - before };
+      });
+      t.equal(metaZ.prevented && metaZ.delta === -1, true, 'Cmd+Z (Meta+Z) Undo preserved (' + JSON.stringify(metaZ) + ')');
+
+      // 3. #sc-over Escape, U, Ctrl+Z, Gamepad B (undoable vs non-undoable) & Gamepad START.
+      const triggerLoss = async (undoLeft) => {
+        await t.game('newGame', { mode: 'classic', seed: 11 });
+        const bFull = EMPTY();
+        for (let i = 0; i < 81; i++) bFull[i] = ((Math.floor(i / 9) + (i % 9)) % 2) ? 1 + (i % 6) : 0;
+        bFull[0] = 0;
+        await t.game('setState', { board: bFull, tray: [{ id: 'o1' }, { id: 'o9' }, { id: 'o9' }], undoLeft });
+        await t.game('act', 'place', 0, 0, 0);
+        await t.page.waitForFunction(() => window.__game.getState().scene === 'over', null, { timeout: 6000 });
+      };
+      await triggerLoss(2);
+      await t.page.keyboard.press('u');
+      t.equal((await t.state()).scene, 'game', '#sc-over U rescues run via doUndo()');
+
+      await triggerLoss(2);
+      await t.page.evaluate(() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true })));
+      t.equal((await t.state()).scene, 'game', '#sc-over Ctrl+Z rescues run via doUndo()');
+
+      await triggerLoss(2);
+      await t.page.evaluate(() => padButton('B'));
+      t.equal((await t.state()).scene, 'game', '#sc-over Gamepad B rescues run when undoAvail()');
+
+      await triggerLoss(0);
+      await t.page.evaluate(() => padButton('B'));
+      t.equal((await t.state()).scene, 'title', '#sc-over Gamepad B returns to Title when non-undoable');
+
+      await triggerLoss(0);
+      await t.page.keyboard.press('Escape');
+      t.equal((await t.state()).scene, 'title', '#sc-over Escape returns cleanly to Title');
+
+      await triggerLoss(0);
+      await t.page.evaluate(() => padButton('START'));
+      const afterStartOver = await t.state();
+      t.equal(afterStartOver.scene === 'game' && afterStartOver.placed === 0, true, '#sc-over Gamepad START activates Play again');
+
+      // 4. #sc-win Escape, Gamepad B & Gamepad START (both Level 1 with #b-next and Level 24 without #b-next).
+      const solveLevel1 = async () => {
+        await t.game('newGame', { mode: 'trail', level: 'display-spring' });
+        await t.game('act', 'place', 0, 8, 3);
+        await t.page.waitForFunction(() => window.__game.getState().scene === 'win', null, { timeout: 6000 });
+      };
+      await solveLevel1();
+      await t.page.evaluate(() => padButton('START'));
+      const afterWinStart = await t.state();
+      t.equal(afterWinStart.scene === 'game' && afterWinStart.level === 'hale-bathhouse', true, '#sc-win Gamepad START launches visible #b-next');
+
+      await solveLevel1();
+      await t.page.keyboard.press('Escape');
+      t.equal((await t.state()).scene, 'trail', '#sc-win Escape returns cleanly to Spring Trail');
+
+      await solveLevel1();
+      await t.page.evaluate(() => padButton('B'));
+      t.equal((await t.state()).scene, 'trail', '#sc-win Gamepad B returns cleanly to Spring Trail');
+
+      // Level 24 (#b-next hidden): Gamepad START falls back to visible #b-trail2 instead of dead 'p'.
+      await t.page.evaluate(() => {
+        const last = LEVELS[LEVELS.length - 1];
+        newGame({ mode: 'trail', level: last.id });
+        S.over = true; S.won = true; S.undosUsed = 0;
+        showWinTrail();
+        padButton('START');
+      });
+      t.equal((await t.state()).scene, 'trail', 'Level-24 #sc-win Gamepad START activates visible #b-trail2');
+    },
+  },
+  {
+    name: 'W6-S2-17 shape-rich tray narration, coalesced live announcements, moveCursor/V/R shortcuts, Trail score suppression & #b-tips markup',
+    viewports: ['desktop'],
+    async run(t) {
+      // 1. All 40 PIECES expose concise geometric shape names/dimensions & #b-tips is not wrapped in <label>.
+      const meta = await t.page.evaluate(() => {
+        const all = Object.values(PIECES);
+        const missing = all.filter(p => !p.name || p.name.length < 6).map(p => p.id);
+        const tipsBtn = document.getElementById('b-tips');
+        return {
+          count: all.length,
+          missing,
+          samples: { o1: PIECES.o1.name, i3h: PIECES.i3h.name, o4: PIECES.o4.name, t4a: PIECES.t4a.name, v5a: PIECES.v5a.name },
+          tipsInLabel: !!(tipsBtn && tipsBtn.closest('label')),
+          tipsParentTag: tipsBtn && tipsBtn.parentElement && tipsBtn.parentElement.tagName,
+        };
+      });
+      t.equal(meta.count, 40, 'all 40 pieces inspected');
+      t.equal(meta.missing.length, 0, 'all 40 pieces have geometric shape names');
+      t.expect(/square/i.test(meta.samples.o4) && /horizontal bar/i.test(meta.samples.i3h) && /T-shape/i.test(meta.samples.t4a), 'concise geometric names: ' + JSON.stringify(meta.samples));
+      t.equal(meta.tipsInLabel, false, '#b-tips is unwrapped from <label class="set"> (W6-S2-17)');
+      t.equal(meta.tipsParentTag, 'DIV', '#b-tips lives inside <div class="set">');
+
+      // 2. trayDesc(), selectSlot() nearest-valid snap on blocked center, moveCursor() live narration & coalescing.
+      const board = EMPTY();
+      for (let c = 1; c < 9; c++) board[c] = 1; // row 0 ready to clear at (0,0)
+      board[0 * 9 + 5] = 8; // vent in row 0 so placing o1 at (0,0) clears 1 group & opens 1 vent
+      board[4 * 9 + 4] = 2; // block center (4,4) to test nearest-valid snap on selectSlot
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await setup(t, [{ id: 'o1' }, { id: 'i3h' }, { id: 'o4' }]);
+      await t.game('setState', { board, tray: [{ id: 'o1' }, { id: 'i3h' }, { id: 'o4' }], score: 0, heat: 0 });
+      await t.page.focus('#cv');
+
+      const tDesc = await t.page.evaluate(() => trayDesc());
+      t.expect(tDesc.includes('single tile') && tDesc.includes('3-wide horizontal bar') && tDesc.includes('2 by 2 square'), 'trayDesc() narrates geometric shapes: ' + tDesc);
+
+      await t.page.keyboard.press('1');
+      const snapCur = await t.state();
+      t.expect(snapCur.ghost && snapCur.ghost.valid && !(snapCur.ghost.r === 4 && snapCur.ghost.c === 4), 'selectSlot() snaps past blocked center (4,4) to nearest valid spot: ' + JSON.stringify(snapCur.ghost));
+      await t.page.waitForFunction(() => /single tile/.test(document.getElementById('live').textContent) && /Row \d+, column \d+/.test(document.getElementById('live').textContent), null, { timeout: 3000 });
+
+      // Rapid moveCursor burst coalesces cleanly via clearTimeout to the final cell (0,0) and reports predicted clear + vent!
+      await t.page.evaluate(() => {
+        UI.cur = { r: 0, c: 3 };
+        moveCursor(0, -1); // (0,2) blocked
+        moveCursor(0, -1); // (0,1) blocked
+        moveCursor(0, -1); // (0,0) valid, clears 1 group, opens 1 vent
+      });
+      await t.page.waitForFunction(() => /Row 1, column 1, valid, clears 1 group, opens 1 vent/.test(document.getElementById('live').textContent), null, { timeout: 3000 });
+      t.expect(true, 'coalesced moveCursor() announces 1-indexed Row 1, column 1 + valid + predicted clear + vent');
+
+      // Moving onto blocked (0,1) announces blocked state.
+      await t.page.keyboard.press('ArrowRight');
+      await t.page.waitForFunction(() => /Row 1, column 2, blocked/.test(document.getElementById('live').textContent), null, { timeout: 3000 });
+
+      // 3. V jumps to next valid spot; R reads board summary; Ctrl+V and Ctrl+R still pass through to browser.
+      await t.page.keyboard.press('v');
+      const afterV = await t.state();
+      t.expect(afterV.ghost && afterV.ghost.valid, 'V jumped from blocked (0,1) to a valid spot: ' + JSON.stringify(afterV.ghost));
+      await t.page.waitForFunction(() => /Valid spot \d+ of \d+/.test(document.getElementById('live').textContent), null, { timeout: 3000 });
+
+      await t.page.keyboard.press('r');
+      await t.page.waitForFunction(() => /of 81 cells filled/.test(document.getElementById('live').textContent) && /row 1 \(8 of 9\)/.test(document.getElementById('live').textContent), null, { timeout: 3000 });
+
+      const modVR = await t.page.evaluate(() => ['v', 'r'].map(key => {
+        const ev = new KeyboardEvent('keydown', { key, ctrlKey: true, bubbles: true, cancelable: true });
+        window.dispatchEvent(ev);
+        return { key, prevented: ev.defaultPrevented };
+      }));
+      t.equal(modVR.every(x => !x.prevented), true, 'Ctrl+V and Ctrl+R pass cleanly to browser (CD-WF5-07)');
+
+      // 4. Spring Trail suppresses inert Score/Heat speech in R summary, placement, and announce() itself.
+      await t.game('newGame', { mode: 'trail', level: 'display-spring' });
+      await t.page.keyboard.press('r');
+      await t.page.waitForFunction(() => /Display Spring/.test(document.getElementById('live').textContent), null, { timeout: 3000 });
+      const trailLive = await t.page.textContent('#live');
+      t.expect(!/Score|Heat|degrees/i.test(trailLive), 'Spring Trail board summary suppresses Score/Heat: ' + trailLive);
+    },
+  },
+  {
+    name: 'W6-S5-08 own-slot calm cancel, off-board hover clear, desktop hoverSlot/grab, clearLock <=0.04 & radial gamepad steering',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('act', 'setting', 'undo', 3);
+      const bClr = EMPTY();
+      for (let c = 1; c < 9; c++) bClr[c] = 1;
+      const L = await setup(t, [{ id: 'o1' }, { id: 'o4' }, { id: 'i2h' }]);
+      await t.game('setState', { board: bClr, tray: [{ id: 'o1' }, { id: 'o4' }, { id: 'i2h' }], undoLeft: 3 });
+
+      // 1. Desktop tray hover sets UI.hoverSlot & grab cursor; pointerleave clears hoverSlot, cursor & off-board hover ghost.
+      const [s0x, s0y] = slotCenter(L, 0);
+      await t.page.mouse.move(s0x, s0y);
+      const hov = await t.page.evaluate(() => ({ hoverSlot: UI.hoverSlot, cursor: cv.style.cursor }));
+      t.equal(hov.hoverSlot, 0, 'hovering occupied slot 0 sets UI.hoverSlot = 0');
+      t.equal(hov.cursor, 'grab', 'hovering occupied slot 0 sets grab cursor');
+
+      // Click-select slot 0, hover valid board cell -> ghost appears, then move off board -> ghost clears!
+      await t.page.mouse.click(s0x, s0y);
+      const [c22x, c22y] = cellCenter(L, 2, 2);
+      await t.page.mouse.move(c22x, c22y);
+      t.expect((await t.state()).ghost && (await t.state()).ghost.valid, 'mouse hover over board shows valid ghost');
+      await t.page.mouse.move(4, 4);
+      t.equal((await t.state()).ghost, null, 'moving mouse off board clears sticky hover ghost');
+
+      // Hover slot 1 then fire mouse pointerleave -> clears hoverSlot & cursor.
+      const [s1x, s1y] = slotCenter(L, 1);
+      await t.page.mouse.move(s1x, s1y);
+      await t.page.evaluate(() => cv.dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse', bubbles: false })));
+      const afterLeave = await t.page.evaluate(() => ({ hoverSlot: UI.hoverSlot, cursor: cv.style.cursor }));
+      t.equal(afterLeave.hoverSlot, -1, 'pointerleave clears UI.hoverSlot');
+      t.equal(afterLeave.cursor, '', 'pointerleave resets canvas cursor');
+
+      // 2. Own-slot drag release cancels calmly (zero invalid buzz or off-board announcement) AND clearLock fires once <=0.04 peak.
+      await t.game('act', 'clearCues');
+      await t.page.evaluate(() => { document.getElementById('live').textContent = ''; });
+      const [c00x, c00y] = cellCenter(L, 0, 0);
+      await t.page.mouse.move(s0x, s0y);
+      await t.page.mouse.down();
+      await t.page.mouse.move(c00x, c00y, { steps: 6 }); // enters would-clear cell (0,0) -> clearLock fires once
+      const dragCursor = await t.page.evaluate(() => cv.style.cursor);
+      t.equal(dragCursor, 'grabbing', 'active mouse drag sets grabbing cursor');
+      await t.page.mouse.move(s0x, s0y, { steps: 6 }); // drag back onto own slot 0 and release
+      await t.page.mouse.up();
+      const ownDrop = await t.page.evaluate(() => ({
+        cues: window.__game.act('cues'),
+        live: document.getElementById('live').textContent,
+        kept: !!(S.tray[0] && S.tray[0].id === 'o1'),
+      }));
+      t.equal(ownDrop.kept, true, 'own-slot drop returns piece to slot 0');
+      t.equal(ownDrop.cues.includes('clearLock'), true, 'entering 0 -> >=1 would-clear fires clearLock once');
+      t.equal(ownDrop.cues.includes('invalid'), false, 'own-slot drop produces zero invalid error buzz');
+      t.expect(!/Drop the piece on the board/.test(ownDrop.live), 'own-slot drop does not fire off-board error announcement');
+      const clPeak = await t.page.evaluate(async () => (await window.__game.audioRender('cue:clearLock', 0.5, false, {})).peak);
+      t.expect(clPeak > 0 && clPeak <= 0.04, 'clearLock peak stays whisper-quiet <= 0.04 (' + clPeak + ')');
+
+      // 3. Gamepad radial deadzone (>0.35), dominant-axis diagonal steering, Board B cancel-before-Undo & padStep scrollIntoView.
+      const padCheck = await t.page.evaluate(() => {
+        const fake = { id: 'W4B04 pad', index: 0, connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) };
+        const origGet = navigator.getGamepads;
+        navigator.getGamepads = () => [fake, null, null, null];
+        PAD.connected = true; PAD.dir = ''; PAD.next = 0; PAD.prev = [];
+        try {
+          selectSlot(0);
+          UI.cur = { r: 4, c: 4 }; UI.ghost = ghostAt(0, 4, 4);
+          // Inside radial deadzone (0.20, 0.20 => r=0.283 <= 0.35): must not move.
+          fake.axes[0] = 0.20; fake.axes[1] = 0.20;
+          pollPad(1000);
+          const afterSmall = { r: UI.cur.r, c: UI.cur.c, dir: PAD.dir };
+          // Diagonal with dominant X (0.80, 0.55): must steer Right (not hijacked vertically by Y-before-X!).
+          fake.axes[0] = 0.80; fake.axes[1] = 0.55;
+          pollPad(1020);
+          const afterDiag = { r: UI.cur.r, c: UI.cur.c, dir: PAD.dir, nextDelta: PAD.next - 1020 };
+          // Repeat at full tilt fires in <=85 ms after initial 240 ms hold.
+          pollPad(1265);
+          const afterRep = { r: UI.cur.r, c: UI.cur.c, repDelta: PAD.next - 1265 };
+          fake.axes[0] = 0; fake.axes[1] = 0; pollPad(1300);
+
+          // Place once so Undo is available, then select slot 1: first B cancels selection (placed unchanged), second B undoes!
+          doPlace(0, 4, 4);
+          const placedBeforeB = S.placed;
+          selectSlot(1);
+          padButton('B');
+          const afterB1 = { sel: UI.sel, placed: S.placed };
+          padButton('B');
+          const afterB2 = { sel: UI.sel, placed: S.placed };
+
+          // padStep calls scrollIntoView on tall Settings modal.
+          showScene('settings');
+          let scrolled = 0;
+          const ctrls = padControls();
+          const lastCtrl = ctrls[ctrls.length - 1];
+          const origSiv = lastCtrl.scrollIntoView;
+          lastCtrl.scrollIntoView = function () { scrolled++; return origSiv ? origSiv.apply(this, arguments) : undefined; };
+          ctrls[0].focus({ preventScroll: true });
+          padStep('Up'); // wraps to lastCtrl and invokes scrollIntoView
+          lastCtrl.scrollIntoView = origSiv;
+          return { afterSmall, afterDiag, afterRep, placedBeforeB, afterB1, afterB2, scrolled };
+        } finally {
+          navigator.getGamepads = origGet;
+          PAD.connected = false; PAD.dir = ''; PAD.prev = [];
+        }
+      });
+      t.equal(padCheck.afterSmall, { r: 4, c: 4, dir: '' }, 'radial deadzone ignores (0.20, 0.20) stick noise');
+      t.equal(padCheck.afterDiag.r, 4, 'dominant-axis diagonal (0.80, 0.55) does not hijack row vertically');
+      t.equal(padCheck.afterDiag.c, 5, 'dominant-axis diagonal (0.80, 0.55) moves right along dominant X axis');
+      t.equal(padCheck.afterDiag.nextDelta, 240, 'snappy 240 ms initial hold delay (down from 380 ms)');
+      t.equal(padCheck.afterRep.c, 6, 'held stick repeats smoothly at 240 ms');
+      t.expect(padCheck.afterRep.repDelta >= 70 && padCheck.afterRep.repDelta <= 85, 'full-tilt deflection repeat scales to ~75 ms (got ' + padCheck.afterRep.repDelta + ')');
+      t.equal(padCheck.afterB1.sel, -1, 'first board B cancels active piece selection');
+      t.equal(padCheck.afterB1.placed, padCheck.placedBeforeB, 'first board B does not prematurely undo');
+      t.equal(padCheck.afterB2.placed, padCheck.placedBeforeB - 1, 'second board B (no piece aimed) triggers Undo');
+      t.expect(padCheck.scrolled >= 1, 'padStep() invokes scrollIntoView() on tall modals');
+    },
+  },
+  {
+    name: 'W6-S5-08 W6-S2-17 mobile 90ms eased touch lift vs 0ms dragGhost & Tap-to-Place preview narration',
+    viewports: ['mobile'],
+    async run(t) {
+      await t.game('act', 'setting', 'tipsSeen', true);
+      const L = await setup(t, [{ id: 'i3v' }, { id: 'o1' }, { id: 'o4' }]);
+      // 1. Eased 90 ms touch visual lift in dragBody() while dragGhost() hit-tests at 0 ms lag and converges <0.5 px.
+      const liftCheck = await t.page.evaluate(() => {
+        const b = LAY.board, cell = b.cell, p = PIECES.i3v;
+        const fx = b.gx + 4 * cell + p.wd * cell / 2, fy = b.gy + 2 * cell + p.h * cell + cell * 0.75;
+        const d = { slot: 0, x: fx, y: fy, sx: fx, sy: fy + 20, t0: 1000, t1: 1000, grabOx: 0, grabOy: 0, moved: true, touch: true, id: 1 };
+        const gh0 = dragGhost(d);
+        UI.ghost = gh0;
+        const b0 = dragBody(d, 1000);
+        const bMid = dragBody(d, 1045);
+        const bEnd = dragBody(d, 1120);
+        const [tlx, tly] = dragTopLeft(d, p);
+        UI.ghost = null;
+        return { gh0, y0: b0.y, yMid: bMid.y, yEnd: bEnd.y, tly, errEnd: Math.abs(bEnd.y - tly) };
+      });
+      t.expect(liftCheck.gh0 && liftCheck.gh0.valid && liftCheck.gh0.r === 2 && liftCheck.gh0.c === 4, 'dragGhost() resolves at full lift with 0 ms latency: ' + JSON.stringify(liftCheck.gh0));
+      t.expect(liftCheck.y0 > liftCheck.yMid && liftCheck.yMid > liftCheck.yEnd, 'touch dragBody() lifts smoothly over 90 ms instead of teleporting in 1 frame (' + [liftCheck.y0, liftCheck.yMid, liftCheck.yEnd].map(v => v.toFixed(1)).join(' -> ') + ')');
+      t.expect(liftCheck.errEnd < 0.5, 'touch dragBody() converges within <0.5 px of dragTopLeft after 90 ms (err=' + liftCheck.errEnd.toFixed(3) + ')');
+
+      // 2. Tap-to-Place preview narrates 1-indexed Row/Column + valid + Tap again to place.
+      await t.game('act', 'setting', 'tapPlace', true);
+      const [sx, sy] = slotCenter(L, 1), [cx, cy] = cellCenter(L, 3, 4);
+      await t.page.touchscreen.tap(sx, sy);
+      await t.page.touchscreen.tap(cx, cy);
+      await t.page.waitForFunction(() => /Row 4, column 5, valid\. Tap again to place\./.test(document.getElementById('live').textContent), null, { timeout: 3000 });
+      t.expect(true, 'Tap-to-Place first tap narrates Row 4, column 5, valid. Tap again to place.');
+    },
+  },
 ];

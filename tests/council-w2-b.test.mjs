@@ -5,10 +5,11 @@ const R = loadRules();
 const HARD = ['x5', 'u5a', 'u5b', 'v5a', 'v5b', 'v5c', 'v5d', 'o9', 'r6h', 'r6v', 'i5h', 'i5v'];
 const EASY = ['o1', 'i2h', 'i2v'];
 
-function share(mode, score, ids, n = 6000) {
+function share(mode, score, ids, n = 6000, extra = null) {
   const g = R.freshGame(mode);
   g.score = score;
   g.rng = 99;
+  if (extra) Object.assign(g, extra);
   let k = 0;
   for (let i = 0; i < n; i++) if (ids.includes(R.pickPiece(g))) k++;
   return k / n;
@@ -64,8 +65,15 @@ export const tests = [
         t.expect(easy[e] < easy[e - 1], `small pieces get rarer in era ${e}`);
       }
       t.expect(hard[6] > hard[0] * 2, 'last era serves at least twice the hard pieces');
-      t.expect(Math.abs(share('daily', 9000, HARD) - hard[0]) < 0.02, 'Daily keeps the old weights at any score');
-      t.expect(Math.abs(share('springs', 9000, HARD) - hard[0]) < 0.02, 'Springs keeps the old weights at any score');
+      // PREC-06 synchronized migration (W6-S3-03 / W6-S3-02): Daily escalates strictly by round (score-independent),
+      // and Springs escalates by 3-Act vent progress (Act I matches baseline; Act III Final 10 surges).
+      t.expect(Math.abs(share('daily', 9000, HARD, 6000, { round: 0 }) - hard[0]) < 0.02, 'Daily ignores score at round 0');
+      const dailyLate = share('daily', 0, HARD, 6000, { round: 92 });
+      t.expect(dailyLate > hard[0] * 2, 'Daily escalates hard pieces by round (round 92 >= 2x baseline: ' + dailyLate.toFixed(3) + ')');
+      t.expect(Math.abs(share('springs', 9000, HARD, 6000, { springs: 0, round: 0 }) - hard[0]) < 0.02, 'Springs Act I keeps baseline weights regardless of score');
+      const springsAct3 = share('springs', 0, HARD, 6000, { springs: 38, round: 28 });
+      const springsAct3Easy = share('springs', 0, EASY, 6000, { springs: 38, round: 28 });
+      t.expect(springsAct3 > hard[0] * 1.5 && springsAct3Easy < easy[0] * 0.75, 'Springs Act III surges hard pieces and trims helpers (' + springsAct3.toFixed(3) + ' / ' + springsAct3Easy.toFixed(3) + ')');
     },
   },
   {
@@ -152,6 +160,9 @@ tests.push(
       t.equal(RING2.length, 12, 'twelve in the second ring');
       t.equal(new Set(R.LEVELS.map(l => l.id)).size, 24, 'ids are unique');
       t.equal(R.LEVELS.slice(0, 12).map(l => l.id), RING1, 'the first twelve are unchanged and first');
+      for (const L of R.LEVELS) {
+        t.equal(R.findClears(R.parseLevel(L)).length, 0, L.id + ': starts with zero pre-cleared groups');
+      }
       for (const L of RING2) {
         const rec = SOL[L.id];
         t.expect(rec && rec.key === JSON.stringify([L.board, L.pieces, L.goal]), L.id + ': solutions.json is current (run node tools/rules-node.mjs)');
@@ -271,8 +282,11 @@ tests.push(
       save.trail.stars[RING1[5]] = 3;
       await storeAndReload(t, save);
       await t.page.click('#sc-title [data-go="trail"]');
-      t.expect(!(await t.page.$eval('#levels button:nth-of-type(13)', e => e.disabled)), '18 stars: open');
-      t.expect(await t.page.$eval('#levels button:nth-of-type(14)', e => e.disabled), 'the next one waits for the first');
+      // Ratified CD-WF2-06 / OQ-WF2-02: Ring 2 opens in a rolling 3-puzzle window (13..15 open, 16 locked)
+      t.expect(!(await t.page.$eval('#levels button:nth-of-type(13)', e => e.disabled)), '18 stars: Ring 2 #13 open');
+      t.expect(!(await t.page.$eval('#levels button:nth-of-type(14)', e => e.disabled)), '18 stars: Ring 2 #14 open in rolling 3-puzzle window');
+      t.expect(!(await t.page.$eval('#levels button:nth-of-type(15)', e => e.disabled)), '18 stars: Ring 2 #15 open in rolling 3-puzzle window');
+      t.expect(await t.page.$eval('#levels button:nth-of-type(16)', e => e.disabled), '18 stars: Ring 2 #16 waits until an open Ring 2 puzzle is solved');
       await t.checkLayout({ allowScrollY: true });
       await t.shot('S3-03-trail-ring2-open');
       await t.page.click('#levels button:nth-of-type(13)');
@@ -280,6 +294,35 @@ tests.push(
       t.equal(s.level, RING2[0].id, 'the first second-ring puzzle starts');
       await t.game('act', 'hideToast');
       await t.shot('S3-03-ring2-level');
+    },
+  },
+  {
+    name: 'W6-S2-02 / CD-WF2-06 forgiving 3-stage Spring Trail Accordion funnel and truthful Finish Ring 1 gate',
+    viewports: ['desktop'],
+    async run(t) {
+      // Stage 1: #1-#3 linear; solving #1-#3 opens full Bathhouse Row Promenade (#4-#9) while #10-#12 wait for 4/6 Row solves
+      const s3 = oldSave();
+      s3.trail.done = RING1.slice(0, 3);
+      s3.trail.stars = Object.fromEntries(s3.trail.done.map(id => [id, 3]));
+      await storeAndReload(t, s3);
+      await t.page.click('#sc-title [data-go="trail"]');
+      let dis = await t.page.$$eval('#levels button', els => els.map(e => e.disabled));
+      t.equal(dis.slice(0, 9), Array(9).fill(false), 'Stage 2 Promenade: solving #1-#3 opens #4-#9 simultaneously');
+      t.equal(dis.slice(9, 12), [true, true, true], 'Stage 3 Park Finale (#10-#12) waits for 4 Bathhouse Row solves');
+
+      // Stage 3: solving any 4 of #4-#9 (out of order!) opens #10-#12 AND hitting 18 stars before Ring 1 completes says Finish Ring 1
+      const s7 = oldSave();
+      s7.trail.done = [...RING1.slice(0, 3), RING1[3], RING1[5], RING1[7], RING1[8]]; // 7 done, 4 in Promenade
+      s7.trail.stars = Object.fromEntries(s7.trail.done.map(id => [id, 3])); // 21 stars (>= 18), Ring 1 incomplete!
+      await storeAndReload(t, s7);
+      await t.page.click('#sc-title [data-go="trail"]');
+      dis = await t.page.$$eval('#levels button', els => els.map(e => e.disabled));
+      t.equal(dis.slice(9, 12), [false, false, false], 'Stage 3 Park Finale: any 4 of 6 Promenade solves open #10-#12 simultaneously');
+      t.equal(dis[12], true, 'Ring 2 stays locked until Ring 1 is complete even at 21 stars');
+      const r2Head = await t.page.textContent('#levels h3.ring');
+      const r2Btn = await t.page.textContent('#levels button:nth-of-type(13)');
+      t.expect(/Finish Ring 1/.test(r2Head) && !/locked until 18 stars/.test(r2Head), 'Ring 2 header truthfully says Finish Ring 1 when >=18 stars: ' + r2Head);
+      t.expect(/Finish Ring 1/.test(r2Btn), 'Ring 2 card truthfully says Finish Ring 1 when >=18 stars: ' + r2Btn);
     },
   },
   {

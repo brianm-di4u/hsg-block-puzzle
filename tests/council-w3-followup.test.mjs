@@ -51,7 +51,12 @@ export const tests = [
           await t.game('setState', mode === 'springs' ? { score, springs: 46 } : { score });
           await t.waitFrames(2);
           const ex = await hudExtents(t);
-          t.expect(ex.stats.some(x => x.texts.some(y => y.text === shown)), 'the score ' + shown + ' is showing in ' + mode);
+          if (mode === 'trail') {
+            t.expect(!ex.stats.some(x => x.texts.some(y => y.text === shown)), 'Trail hides inert score (CD-WF1-03)');
+            t.expect(ex.stats.some(x => x.texts.some(y => y.text === '9')), 'the Trail goal is showing');
+          } else {
+            t.expect(ex.stats.some(x => x.texts.some(y => y.text === shown)), 'the score ' + shown + ' is showing in ' + mode);
+          }
           if (mode === 'classic' && score < 10000) t.expect(ex.stats.some(x => x.texts.some(y => y.text === '9,999')), 'the four-digit best is showing in Classic');
           if (mode === 'springs') t.expect(ex.stats.some(x => x.texts.some(y => y.text === '46/47')), 'the Springs goal is showing');
           if (w === 390 && mode !== 'trail') await t.shot('S4-14-' + mode + '-hud-' + w);

@@ -6,13 +6,16 @@ shared/test-harness/smoke/screenshots/
 *.log
 .DS_Store
 Thumbs.db
-art-src/**/*.png
+# Temporary rendered art intermediates and review contact sheets (allow lossless master PNGs in art-src/ if added)
+art-src/sheet.png
+art-src/tile-*.png
+art-src/**/renders/
 
 # User reference photos (third-party product images; style reference only, not for the repo)
 /Sample Images/
-# Blender backups, renders and caches (keep .blend sources and exported assets)
+# Auto-generated Blender scene files, backups, renders and caches (scripts + tile-spec.json are the source of truth)
+art-src/**/*.blend
 art-src/**/*.blend1
-art-src/**/renders/
 # Benchmark screenshots of other games (review only, never shipped)
 /benchmarks/
 # Downloaded elevation caches (re-fetched by game tools)

@@ -34,11 +34,11 @@ export const tests = [
       let r = await t.game('act', 'place', 2, 4, 4);
       t.expect(r.ok, 'o4 placed');
       t.equal(JSON.stringify(await vib(t)), '[10]', 'a plain drop is a single 10 ms pulse');
-      // a placement that clears one group: place pulse, then a clear pulse
+      // a placement that clears one group: single non-clobbering unified clearing-drop pattern [10, 35, 18] (OQ-WF4-01 / OQ-WF6-03)
       await clearVib(t);
       r = await t.game('act', 'place', 0, 0, 0);
       t.equal(r.G, 1, 'one group cleared');
-      t.equal(JSON.stringify(await vib(t)), '[10,[18]]', 'place pulse then one 18 ms clear pulse');
+      t.equal(JSON.stringify(await vib(t)), '[[10,35,18]]', 'unified clearing-drop pattern [10, 35, 18] without clobbering');
       // an illegal placement: two short pulses
       await clearVib(t);
       r = await t.game('act', 'place', 1, 4, 4);
@@ -58,7 +58,10 @@ export const tests = [
       const r = await t.game('act', 'place', 0, 0, 0);
       t.expect(r.G >= 3, 'three or more groups cleared (' + r.G + ')');
       const calls = await vib(t);
-      const clear = calls[calls.length - 1];
+      t.equal(calls.length, 1, 'single unified clearing-drop vibrate call (OQ-WF4-01 / OQ-WF6-03)');
+      const pat = calls[0];
+      t.equal(pat.slice(0, 2), [10, 35], 'starts with 10 ms place tap and 35 ms gap');
+      const clear = pat.slice(2);
       t.equal(clear.length, 2 * Math.min(4, r.G) - 1, 'pulses follow the group count');
       t.expect(clear.every((v, i) => (i % 2 ? v === 30 : v === 18)), 'pulses of 18 ms with 30 ms gaps');
     },
@@ -328,11 +331,30 @@ export const tests = [
       t.expect(!(await t.page.isVisible('#sc-confirm')) && (await t.state()).scene === 'title', 'Escape means no');
       t.equal(JSON.stringify((await readSave(t)).resume), JSON.stringify(kept), 'and the run is untouched');
       await t.page.click('#sc-title [data-mode=springs]');
-      t.expect((await t.page.textContent('#sc-confirm')).includes('Your saved Classic run'), 'Springs asks too, naming the Classic run it would replace');
+      t.expect(!(await t.page.isVisible('#sc-confirm')), 'CD-WF6-02: switching to Springs preserves Classic without asking');
+      let s = await t.state();
+      t.expect(s.scene === 'game' && s.mode === 'springs' && s.score === 0, 'Springs starts cleanly in its own slot');
+      t.equal(JSON.stringify((await readSave(t)).resume), JSON.stringify(kept), 'Classic resume stays intact across cross-mode switch');
+      await t.game('setState', { board: rowReady(), ...setTray(['o1', 'o1', 'o4']) });
+      await t.game('act', 'place', 0, 0, 0);
+      const runStore = await t.page.evaluate(() => JSON.parse(localStorage.getItem('hs-thermal-blocks-v1-run') || 'null'));
+      t.expect(runStore && runStore.springs && runStore.springs.state && runStore.springs.state.score > 0, 'Springs run is stored in its own RUN_KEY sub-slot');
+      t.equal(JSON.stringify((await readSave(t)).resume), JSON.stringify(kept), 'Classic resume still untouched after Springs progress');
+      await t.game('scene', 'title');
+      await t.page.click('#sc-title [data-mode=springs]');
+      t.expect(await t.page.isVisible('#sc-confirm'), 'same-mode Springs overwrite still asks');
+      t.expect((await t.page.textContent('#sc-confirm')).includes('Your saved Springs run'), 'names the saved Springs run it would replace');
       await t.page.click('#cf-yes');
-      const s = await t.state();
-      t.expect(s.scene === 'game' && s.mode === 'springs' && s.score === 0, 'Yes starts the new game');
-      t.equal((await readSave(t)).resume, null, 'the old run is gone');
+      s = await t.state();
+      t.expect(s.scene === 'game' && s.mode === 'springs' && s.score === 0, 'Yes starts a fresh Springs game');
+      t.equal(JSON.stringify((await readSave(t)).resume), JSON.stringify(kept), 'Classic resume still untouched after replacing Springs');
+      await t.game('scene', 'title');
+      await t.page.click('#sc-title [data-mode=classic]');
+      t.expect(await t.page.isVisible('#sc-confirm'), 'same-mode Classic overwrite still asks');
+      await t.page.click('#cf-yes');
+      s = await t.state();
+      t.expect(s.scene === 'game' && s.mode === 'classic' && s.score === 0, 'Yes starts the new Classic game');
+      t.equal((await readSave(t)).resume, null, 'the old Classic run is gone');
     },
   },
   {
@@ -384,14 +406,14 @@ export const tests = [
         icon: document.querySelector('link[rel~=icon]') && document.querySelector('link[rel~=icon]').getAttribute('href'),
         manifest: document.querySelector('link[rel=manifest]') && document.querySelector('link[rel=manifest]').getAttribute('href'),
       }));
-      t.equal(h.theme, '#14121F', 'theme-color is the dark ground of the menus');
+      t.equal(h.theme, '#131C1E', 'theme-color is the warm bathhouse dark ground of the menus');
       t.expect(h.icon && h.icon.startsWith('data:image/svg+xml,'), 'an inline icon, so no /favicon.ico request');
       t.expect(decodeURIComponent(h.icon.slice('data:image/svg+xml,'.length)).includes('<rect'), 'the icon is a drawing of tiles');
       t.expect(h.manifest && h.manifest.startsWith('data:application/manifest+json,'), 'an inline manifest');
       const m = JSON.parse(decodeURIComponent(h.manifest.slice('data:application/manifest+json,'.length)));
       t.equal(m.name, 'Thermal Blocks', 'the manifest names the game');
       t.equal(m.display, 'standalone', 'and opens full screen from a home-screen icon');
-      t.equal(m.theme_color, '#14121F', 'with the same theme colour');
+      t.equal(m.theme_color, '#131C1E', 'with the same warm bathhouse theme colour');
       t.expect(m.icons.length > 0 && m.icons[0].src.startsWith('data:image/svg+xml,'), 'and carries the icon');
       const cdp = await t.page.context().newCDPSession(t.page);   // the browser itself reads the manifest without complaint
       const parsed = await cdp.send('Page.getAppManifest');

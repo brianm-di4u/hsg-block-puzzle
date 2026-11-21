@@ -63,3 +63,28 @@ test('two tabs each setting a Master best keep the higher, and a lower score nev
   b.value.best.diff.master.classic = 300; b.value.best.diff.relaxed.springs = 80; b.persist();
   assert.equal(r.saved.best.diff.master.classic, 500); assert.equal(r.saved.best.diff.relaxed.springs, 80);
 });
+
+// Wave 4 (W6-S3-08 / W6-S4-07): per-difficulty recent history and legacy boolean patterns migration.
+test('recentDiff normalizes damaged entries, keeps Relaxed/Master separate from Standard, and merges across tabs', () => {
+  const bad = copy(defaultSave());
+  bad.stats.recentDiff = { relaxed: { classic: [100, 'x', -5, 200], springs: 'bad' }, master: null, extra: { classic: [9] } };
+  const s = rig(bad).tab(); s.load();
+  assert.deepEqual(s.value.stats.recentDiff, { relaxed: { classic: [100, 200], springs: [] }, master: { classic: [], springs: [] } });
+  const r = rig(), a = r.tab(), b = r.tab(); a.load(); b.load();
+  a.value.stats.recent.classic.push(300); a.value.stats.recentDiff.relaxed.classic.push(900); a.persist();
+  b.value.stats.recentDiff.relaxed.classic.push(950); b.value.stats.recentDiff.master.classic.push(150); b.persist();
+  assert.deepEqual(r.saved.stats.recent.classic, [300]);
+  assert.deepEqual(r.saved.stats.recentDiff.relaxed.classic, [900, 950]);
+  assert.deepEqual(r.saved.stats.recentDiff.master.classic, [150]);
+});
+
+test('legacy boolean settings.patterns migrates cleanly to 3-state relief/high/off', () => {
+  const oldOn = copy(defaultSave()); oldOn.settings.patterns = true;
+  const oldOff = copy(defaultSave()); oldOff.settings.patterns = false;
+  const hi = copy(defaultSave()); hi.settings.patterns = 'high';
+  const bad = copy(defaultSave()); bad.settings.patterns = 'invalid';
+  assert.equal(rig(oldOn).tab().load().settings.patterns, 'relief');
+  assert.equal(rig(oldOff).tab().load().settings.patterns, 'off');
+  assert.equal(rig(hi).tab().load().settings.patterns, 'high');
+  assert.equal(rig(bad).tab().load().settings.patterns, 'relief');
+});

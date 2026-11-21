@@ -249,21 +249,22 @@ export const tests = [
     },
   },
 
-  // ------------------------------------------------------------------ P-N01 heat is felt
+  // ------------------------------------------------------------------ P-N01 / W6-S3-04 heat calibration (OQ-WF1-02)
   {
-    name: 'P-N01 cool water needs two dry placements to lose a step; warm water loses one with each',
+    name: 'P-N01 cool/warm water below 6 needs two dry placements to lose a step; hot water loses one; 143°F holds once',
     node: true,
     async run(t) {
-      const dry = heat => {
-        const g = R.freshGame('classic'); g.board = empty(); g.tray = [{ id: 'o1' }, { id: 'o1' }, { id: 'o1' }]; g.heat = heat; g.rng = 5;
+      const dry = (heat, boilHold = 0) => {
+        const g = R.freshGame('classic'); g.board = empty(); g.tray = [{ id: 'o1' }, { id: 'o1' }, { id: 'o1' }]; g.heat = heat; g.boilHold = boilHold; g.rng = 5;
         const out = [];
         for (let k = 0; k < 2; k++) { R.applyMove(g, k, 4, 3 * k + 1); out.push(g.heat); }
         return { out, g };
       };
-      t.equal(dry(2).out, [2, 1], 'at 2 the first dry placement holds, the second cools');
+      t.equal(dry(5).out, [5, 4], 'below HEAT_SLOW_BELOW=6 the first dry placement holds, the second cools');
       t.equal(dry(0).out, [0, 0], 'at 0 it stays at 0');
-      t.equal(dry(5).out, [4, 3], 'at 5 every dry placement cools one step');
-      t.equal(dry(3).out, [2, 2], 'at 3 the first dry placement cools, and the cool water then waits for a second');
+      t.equal(dry(8).out, [7, 6], 'above 6 every dry placement cools one step');
+      t.equal(dry(6).out, [5, 5], 'at 6 the first dry placement cools to 5, then slow-cooling waits for a second');
+      t.equal(dry(12, 1).out, [12, 11], 'at 143°F Boiling, Boil-Hold absorbs one dry placement before cooling');
       // a clear in between resets the count
       const g = R.freshGame('classic'); g.board = empty(); for (let c = 1; c < 9; c++) g.board[c] = 1;
       g.tray = [{ id: 'o1' }, { id: 'o1' }, { id: 'o1' }]; g.heat = 2; g.rng = 5;
@@ -275,31 +276,29 @@ export const tests = [
     },
   },
   {
-    name: 'P-N01 a good greedy player spends most of a game with warm water and never boils by routine',
+    name: 'P-N01 a good greedy player spends most of a game in warm water and reaches Boiling as a rare payoff (<5% moves)',
     node: true,
     async run(t) {
-      // 10 seeded games with the strong greedy bot of tools/difficulty-sim.mjs: the same answer every run.
-      // Before the change the same games sat at 60°F on about a third of moves and at 90°F or more on a fifth.
       const hist = new Array(13).fill(0); let moves = 0;
       for (let seed = 0; seed < 10; seed++) botGame('classic', seed, (g, when) => { if (when === 'before') { hist[g.heat]++; moves++; } });
       const share = f => hist.reduce((a, v, h) => a + (f(h) ? v : 0), 0) / moves;
       t.log('moves ' + moves + ': heat 0 ' + (100 * share(h => h === 0)).toFixed(1) + '%, 3+ ' + (100 * share(h => h >= 3)).toFixed(1) + '%, 6+ ' + (100 * share(h => h >= 6)).toFixed(1) + '%, 12 ' + (100 * share(h => h === 12)).toFixed(1) + '%');
       t.expect(share(h => h === 0) < 0.2, 'heat 0 on under a fifth of moves');
-      t.expect(share(h => h >= 3) > 0.4 && share(h => h >= 3) < 0.8, 'water at Warm or hotter (heat 3+) on 40 to 80% of moves');
-      t.expect(share(h => h >= 6) > 0.03, 'and the glowing bead (heat 6+) is seen');
-      t.expect(share(h => h === 12) < 0.02, 'boiling stays a rare reward');
+      t.expect(share(h => h >= 3) > 0.5, 'water spends over half of moves Warm or hotter (heat 3+)');
+      t.expect(share(h => h >= 6) > 0.08, 'the glowing bead (heat 6+) is regularly reached');
+      t.expect(share(h => h === 12) < 0.05, 'boiling stays a rare reward (<5% of moves per OQ-WF1-02)');
     },
   },
 
-  // ------------------------------------------------------------------ S1-01 no forced loss at the deal
+  // ------------------------------------------------------------------ S1-01 / W6-S3-03 no forced loss at deal (Classic/Springs) & 100% parity (Daily)
   {
-    name: 'S1-01 a tray that cannot be placed in full is redrawn, in Classic, Springs and Daily Soak',
+    name: 'S1-01 a tray that cannot be placed in full is redrawn in Classic and Springs',
     node: true,
     async run(t) {
       // five open cells in a row: only straight pieces one tile tall go in, so about half of all trays cannot be played out
       const board = new Array(81).fill(1);
       for (const i of [0, 1, 2, 3, 4]) board[i] = 0;
-      for (const mode of ['classic', 'springs', 'daily']) {
+      for (const mode of ['classic', 'springs']) {
         let bad = 0, plain = 0;
         for (let seed = 1; seed <= 300; seed++) {
           const g = R.freshGame(mode); g.rng = seed; g.board = board.slice(); g.score = 0;
@@ -315,24 +314,21 @@ export const tests = [
     },
   },
   {
-    name: 'S1-01 Daily Soak keeps its piece stream: redraws come from a side stream, so everyone gets the same pieces',
+    name: 'S1-01 / CD-WF1-05 Daily Soak deals 100% board-independent identical trays with <=1 giant in early/mid rounds',
     node: true,
     async run(t) {
-      const board = new Array(81).fill(1);
-      for (const i of [0, 1, 2, 3, 4]) board[i] = 0;
-      let redrawn = 0;
+      const cramped = new Array(81).fill(1);
+      for (const i of [0, 1, 2, 3, 4]) cramped[i] = 0;
+      let diverged = 0, multiGiant = 0;
       for (let seed = 1; seed <= 100; seed++) {
-        const g = R.freshGame('daily'); g.rng = seed; g.board = board.slice();
-        const h = R.freshGame('daily'); h.rng = seed;
-        const raw = [0, 1, 2].map(() => R.pickPiece(h));
-        R.dealTray(g);
-        t.expect(g.rng === h.rng, 'seed ' + seed + ': the main stream advanced by exactly three draws');
-        if (g.tray.map(x => x.id).join() !== raw.join()) redrawn++;
-        // the same tray on an empty board is dealt exactly as drawn
-        const e = R.freshGame('daily'); e.rng = seed; R.dealTray(e);
-        t.equal(e.tray.map(x => x.id), raw, 'seed ' + seed + ': on an open board nothing is redrawn');
+        const g = R.freshGame('daily'); g.rng = seed; g.board = cramped.slice();
+        const e = R.freshGame('daily'); e.rng = seed;
+        R.dealTray(g); R.dealTray(e);
+        if (g.tray.map(x => x.id).join() !== e.tray.map(x => x.id).join() || g.rng !== e.rng) diverged++;
+        if (g.tray.filter(x => R.PIECES[x.id].n >= 5).length > 1) multiGiant++;
       }
-      t.expect(redrawn > 10, 'the guard does act on the cramped board (' + redrawn + ' of 100)');
+      t.equal(diverged, 0, 'cramped and open Daily boards receive 100% identical trays and RNG state');
+      t.equal(multiGiant, 0, 'early/mid Daily trays cap giant (>=5-cell) pieces deterministically without inspecting the board');
     },
   },
   {

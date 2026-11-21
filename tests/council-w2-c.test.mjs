@@ -217,7 +217,7 @@ export const tests = [
       t.expect(toast.x >= 0 && toast.x + toast.w <= t.vp.width, 'the toast fits the screen');
       await t.shot('S3-02-goal-toast');
       const before = JSON.stringify((await goals(t)).earned);
-      await t.game('setState', { board: rowReady(), ...setTray(['o1', 'o1', 'o1']) });
+      await t.game('setState', { board: rowReady(), score: 0, heat: 0, ...setTray(['o1', 'o1', 'o1']) });
       await place(t, 'o1', 0, 0);
       t.equal(JSON.stringify((await goals(t)).earned), before, 'a goal already earned keeps its record');
       t.equal((await readSave(t)).ach['first-soak'], await today(t), 'in localStorage');
@@ -307,10 +307,32 @@ export const tests = [
       t.expect(/6-day streak · Today’s best: 321/.test(await t.page.textContent('#daily-sub')), 'title: ' + await t.page.textContent('#daily-sub'));
       await t.game('scene', 'records');
       t.expect(/Streak: 6 days/.test(await t.page.textContent('#rec-streak')), 'Records shows the streak');
-      t.equal(await t.page.locator('#rec-cal i').count(), 30, 'a 30-day calendar');
-      t.equal(await t.page.locator('#rec-cal i.on').count(), 6, 'six days marked');
-      t.equal(await t.page.locator('#rec-cal i.today').count(), 1, 'today is outlined');
+      // Ratified OQ-WF5-01 / CD-WF5-05 interactive >=44px 5-col (<500px) / 6-col (>=500px) Daily Soak calendar
+      t.equal(await t.page.locator('#rec-cal button').count(), 30, 'a 30-day interactive calendar');
+      t.equal(await t.page.locator('#rec-cal button.on').count(), 6, 'six days marked');
+      t.equal(await t.page.locator('#rec-cal button.today').count(), 1, 'today is outlined');
+      t.equal(await t.page.locator('#rec-cal button.today[aria-current="date"]').count(), 1, 'today carries aria-current="date"');
       t.expect(/6 of the last 30/.test(await t.page.getAttribute('#rec-cal', 'aria-label')), 'the calendar has a text label');
+      const calGeom = await t.page.evaluate(() => {
+        const btns = [...document.querySelectorAll('#rec-cal button')];
+        const rects = btns.map(b => b.getBoundingClientRect());
+        const cols = new Set(rects.map(r => Math.round(r.left))).size;
+        return {
+          minW: Math.min(...rects.map(r => r.width)),
+          minH: Math.min(...rects.map(r => r.height)),
+          cols,
+          vw: innerWidth,
+          aqTop: document.getElementById('rec-aquifer').getBoundingClientRect().top,
+          statsTop: document.getElementById('rec-stats').getBoundingClientRect().top,
+          dailyCtaHidden: document.getElementById('b-rec-daily').hidden,
+        };
+      });
+      t.expect(calGeom.minW >= 44 && calGeom.minH >= 44, `every calendar day >= 44x44px (got ${calGeom.minW.toFixed(1)}x${calGeom.minH.toFixed(1)})`);
+      t.equal(calGeom.cols, calGeom.vw < 500 ? 5 : 6, '5-col mobile (<500px) / 6-col desktop (>=500px) calendar grid');
+      t.expect(calGeom.aqTop < calGeom.statsTop, '4,400-year groundwater aquifer bar sits elevated above stats');
+      t.equal(calGeom.dailyCtaHidden, true, 'Records Daily CTA hides once today is played');
+      await t.page.click('#rec-cal button.today');
+      t.expect(/321/.test(await t.page.textContent('#rec-cal-detail')), 'tapping today shows exact Daily Soak best: ' + await t.page.textContent('#rec-cal-detail'));
     },
   },
   {
@@ -335,6 +357,9 @@ export const tests = [
       t.equal(await t.page.locator('#rec-goals li.got').count(), 2, 'two earned');
       t.expect(/Goals · 2 of 12/.test(await t.page.textContent('#rec-goals-h')), 'the heading counts them');
       t.expect(/Locked\. Reach the Gilded Spa era/.test(await t.page.textContent('#rec-goals')), 'a locked goal shows its condition in plain words');
+      t.expect(/Progress:\s*\d/.test(await t.page.textContent('#rec-goals')), 'locked quantitative goals show numeric progress tallies');
+      t.equal(await t.page.$eval('#b-rec-daily', el => el.hidden), false, 'Records Daily CTA shows when today is unplayed');
+      t.expect(await t.page.getAttribute('#rec-aq-bar', 'role') === 'progressbar' && await t.page.getAttribute('#rec-aq-bar', 'aria-valuemax') === '4400', 'aquifer bar has progressbar semantics out of 4400');
       const stats = await t.page.textContent('#rec-stats');
       t.expect(/Best Daily Soak\s*450/.test(stats) && /Daily Soaks played\s*2/.test(stats), 'the personal bests include the Daily Soak');
       t.expect(/Classic best\s*1,234/.test(stats), 'older records are all still there');

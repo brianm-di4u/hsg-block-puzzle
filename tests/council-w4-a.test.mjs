@@ -153,7 +153,12 @@ async function sweepHud(t, w, h, scores, label) {
     await t.game('setState', mode === 'springs' ? { score, springs: 46 } : { score });
     await t.waitFrames(2);
     const ex = await hudExtents(t);
-    t.expect(ex.stats.some(x => x.texts.some(y => y.text === shown)), label + ' ' + w + 'x' + h + ': the score ' + shown + ' is showing in ' + mode);
+    if (mode === 'trail') {
+      t.expect(!ex.stats.some(x => x.texts.some(y => y.text === shown)), label + ' ' + w + 'x' + h + ': Trail hides inert score (CD-WF1-03)');
+      t.expect(ex.stats.some(x => x.texts.some(y => y.text === '9')), label + ' ' + w + 'x' + h + ': Trail goal is showing');
+    } else {
+      t.expect(ex.stats.some(x => x.texts.some(y => y.text === shown)), label + ' ' + w + 'x' + h + ': the score ' + shown + ' is showing in ' + mode);
+    }
     const far = assertClear(t, ex, label + ' ' + mode + ' ' + score + ' at ' + w + 'x' + h);
     t.expect(far <= w + 0.5, label + ' ' + mode + ' at ' + w + 'x' + h + ': nothing runs off the right edge (' + far.toFixed(0) + ')');
     const doc = await t.page.evaluate(() => document.documentElement.scrollWidth);
@@ -242,8 +247,9 @@ tests.push(
       await t.game('newGame', { mode: 'springs', seed: 4 });
       await t.game('setState', { springs: 12 });
       let c = await canvasText(t);
-      let g = find(c, /Springs opened 12 \/ 47/);
-      t.expect(g, 'Springs prints its count: ' + c.texts.map(x => x.text).join(' | '));
+      let g = c.land ? find(c, /Springs opened 12 \/ 47/) : find(c, /Springs.*Act I/);
+      t.expect(g, (c.land ? 'Springs landscape caption prints count: ' : 'Springs portrait strip shows deduplicated Act progress (OQ-WF5-01): ') + c.texts.map(x => x.text).join(' | '));
+      if (!c.land) t.expect(await t.page.textContent('#h-goal-num') === '12/47', 'portrait HUD owns the Springs 12/47 counter without duplication');
       await t.game('newGame', { mode: 'daily', date: '2026-11-12' });
       c = await canvasText(t);
       g = find(c, /Daily Soak · Nov 12/);
@@ -258,7 +264,7 @@ tests.push(
       c = await canvasText(t);
       g = find(c, /piece/);
       t.expect(g && /left|done/.test(g.text), 'the Trail goal line counts what is left: ' + (g && g.text));
-      if (!c.land) t.expect(g.x + g.width <= c.info.x + c.info.w - 14 + 0.5, 'the Trail line fits its strip');
+      if (!c.land) t.expect(g.x + g.width <= c.info.x + c.info.w - 14 + 0.5 && g.size >= 12, 'the Trail line fits its strip at >=12 px');
     },
   },
 );
