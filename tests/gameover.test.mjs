@@ -384,4 +384,136 @@ export const tests = [
       await t.game('act', 'setting', 'undo', 1);
     },
   },
+  {
+    name: 'W6-S5-01 interrupt state machine: pause clock offsets & sub-menu audio hold, immediate end-wait skip & no steam stall, single cancellable countUp(), end-cue cancel on undo',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('act', 'setting', 'undo', 2);
+      await t.game('act', 'audio', 'click');
+      await t.page.waitForTimeout(150);
+
+      // 1. Mid-clear Pause records UI.pausedAt, clears UI.sel, freezes & offsets FX/WATER clocks on resume, and keeps AU.kit held across Pause -> Help/Cards/Records.
+      await t.game('newGame', { mode: 'classic', seed: 14 });
+      const b1 = EMPTY(); for (let c = 0; c < 8; c++) b1[c] = 1; b1[80] = 1;
+      await t.game('setState', { board: b1, tray: [{ id: 'o1' }, { id: 'o1' }, { id: 'o1' }], score: 200, heat: 4 });
+      await t.game('act', 'select', 1);
+      await t.game('act', 'place', 0, 0, 8);
+      await t.game('act', 'select', 1);
+      const beforePause = await t.page.evaluate(() => ({
+        sel: UI.sel,
+        fxCount: FX.length,
+        t0: FX[0] ? FX[0].t0 : 0,
+      }));
+      t.equal(beforePause.sel, 1, 'slot selected before pause');
+      t.expect(beforePause.fxCount > 0, 'clear FX active before pause');
+      await t.game('act', 'pause');
+      const whilePaused = await t.page.evaluate(() => ({
+        sel: UI.sel,
+        pausedAt: UI.pausedAt,
+        held: AU.kit ? AU.kit.held : null,
+      }));
+      t.equal(whilePaused.sel, -1, 'pauseGame() clears UI.sel');
+      t.expect(typeof whilePaused.pausedAt === 'number' && whilePaused.pausedAt > 0, 'pauseGame() records UI.pausedAt');
+      if (whilePaused.held !== null) t.equal(whilePaused.held, true, 'AU.kit held on Pause');
+
+      // Pause -> Help -> Cards -> Records must keep AU.kit held and UI.pausedAt frozen.
+      for (const sub of ['help', 'cards', 'records']) {
+        await t.game('scene', sub);
+        const subSt = await t.page.evaluate(() => ({ held: AU.kit ? AU.kit.held : null, pausedAt: UI.pausedAt, returnTo: UI.returnTo }));
+        t.equal(subSt.returnTo, 'pause', `${sub} preserves returnTo='pause'`);
+        t.equal(subSt.pausedAt, whilePaused.pausedAt, `${sub} keeps UI.pausedAt frozen`);
+        if (subSt.held !== null) t.equal(subSt.held, true, `AU.kit stays held on Pause -> ${sub}`);
+      }
+      await t.page.waitForTimeout(260);
+      await t.game('scene', 'game');
+      const afterResume = await t.page.evaluate(() => ({
+        pausedAt: UI.pausedAt,
+        fxCount: FX.length,
+        t0: FX[0] ? FX[0].t0 : 0,
+        held: AU.kit ? AU.kit.held : null,
+      }));
+      t.equal(afterResume.pausedAt, null, 'resume clears UI.pausedAt');
+      t.expect(afterResume.fxCount > 0 && afterResume.t0 >= beforePause.t0 + 200, 'resume offsets FX[].t0 by paused duration');
+      if (afterResume.held !== null) t.equal(afterResume.held, false, 'AU.kit releases cleanly on resume');
+
+      // 2. blur & visibilitychange(hidden) clear UI.sel and UI.ghost cleanly.
+      await t.game('act', 'select', 1);
+      const afterBlur = await t.page.evaluate(() => {
+        window.dispatchEvent(new Event('blur'));
+        return { sel: UI.sel, ghost: UI.ghost };
+      });
+      t.equal(afterBlur, { sel: -1, ghost: null }, 'window blur clears UI.sel and UI.ghost');
+
+      // 3. Immediate tap/Enter skip during long Springs win end-wait (2400 ms) opens #sc-over in < 300 ms,
+      //    and Escape during end-wait does NOT open #sc-pause.
+      await t.game('newGame', { mode: 'springs', seed: 18 });
+      const bWin = EMPTY(); for (let c = 0; c < 8; c++) bWin[c] = 1; bWin[4] = 8;
+      await t.game('setState', { board: bWin, tray: [{ id: 'o1' }, { id: 'o1' }, { id: 'o1' }], springs: 46, score: 500 });
+      const tStart = await t.page.evaluate(() => {
+        window.__game.act('place', 0, 0, 8);
+        return { over: S.over, overIn: window.__game.getState().overIn, scene: S.scene };
+      });
+      t.expect(tStart.over && tStart.scene === 'game' && tStart.overIn > 1500, 'Springs win sets ~2400ms ceremony wait (' + tStart.overIn + 'ms)');
+      await t.page.keyboard.press('Escape');
+      t.equal((await t.state()).scene, 'game', 'Escape during end-wait does not open Pause');
+      const skipMs = await t.page.evaluate(() => new Promise(res => {
+        const t0 = performance.now();
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+        const poll = () => {
+          if (S.scene === 'over') res(performance.now() - t0);
+          else if (performance.now() - t0 > 1200) res(9999);
+          else requestAnimationFrame(poll);
+        };
+        requestAnimationFrame(poll);
+      }));
+      t.expect(skipMs < 300, 'Enter immediately skips 2400ms end-wait without waiting for UI.overAt (' + Math.round(skipMs) + 'ms)');
+
+      // 4. Non-skipping clear-loss transitions on UI.overAt (~1050ms) without stalling on 1600ms+ steam FX,
+      //    and calls fillOver()/countUp() strictly ONCE with a single cancellable UI.countRaf.
+      await t.game('newGame', { mode: 'classic', seed: 22 });
+      const bClrLoss = checker();
+      for (let c = 0; c < 8; c++) bClrLoss[c] = 1;
+      bClrLoss[8] = 0;
+      await t.game('setState', { board: bClrLoss, tray: [{ id: 'o1' }, { id: 'o9' }, { id: 'o9' }], score: 900, heat: 6, undoLeft: 2 });
+      const overFlow = await t.page.evaluate(() => new Promise(res => {
+        let countCalls = 0;
+        const origCountUp = countUp;
+        countUp = (el, to) => { countCalls++; return origCountUp(el, to); };
+        const t0 = performance.now();
+        window.__game.act('place', 0, 0, 8);
+        // Inject a long-lived 4000ms steam puff to prove showEnd() never stalls on trailing steam FX
+        addFx({ type: 'steam', x: 200, y: 200, dur: 4000, h: 80, ph: 0, w: 40 });
+        const endCuesBefore = AU.endCues.length, endTimersBefore = UI.endTimers.length;
+        const poll = () => {
+          if (S.scene === 'over') {
+            const elapsed = performance.now() - t0;
+            const rafActive = UI.countRaf;
+            countUp = origCountUp;
+            res({ elapsed, countCalls, rafActive, endCuesBefore, endTimersBefore });
+          } else if (performance.now() - t0 > 2600) {
+            countUp = origCountUp;
+            res({ elapsed: 9999, countCalls, rafActive: UI.countRaf, endCuesBefore, endTimersBefore });
+          } else requestAnimationFrame(poll);
+        };
+        requestAnimationFrame(poll);
+      }));
+      t.expect(overFlow.elapsed >= 950 && overFlow.elapsed < 1800, 'clear-loss opens at ~1050ms without stalling on 4000ms trailing steam (' + Math.round(overFlow.elapsed) + 'ms)');
+      t.equal(overFlow.countCalls, 1, 'showEnd() -> showScene("over") invokes fillOver()/countUp() strictly once (no dual rAF race)');
+      t.expect(overFlow.rafActive > 0, 'countUp() stores active cancellable UI.countRaf handle');
+
+      // 5. Post-Loss Undo cancels UI.countRaf, clears UI.endTimers & AU.endCues, and spawns 160ms non-blocking undo-lift FX.
+      const undoInfo = await t.page.evaluate(() => {
+        const res = doUndo();
+        const lift = FX.find(f => f.type === 'undo-lift');
+        return { ok: res.ok, countRaf: UI.countRaf, endTimers: UI.endTimers.length, endCues: AU.endCues.length, liftDur: lift ? lift.dur : 0 };
+      });
+      t.equal(undoInfo.ok, true, 'Post-Loss Undo succeeds');
+      t.equal(undoInfo.countRaf, 0, 'doUndo() cancels active UI.countRaf');
+      t.equal(undoInfo.endTimers, 0, 'doUndo() cancels pending best/card endTimers');
+      t.equal(undoInfo.endCues, 0, 'doUndo() cancels active end-cue GainNodes');
+      t.equal(undoInfo.liftDur, 160, 'doUndo() spawns non-blocking 160ms undo-lift reverse flight');
+      await t.game('act', 'setting', 'undo', 1);
+    },
+  },
 ];

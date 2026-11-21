@@ -90,6 +90,8 @@ button.primary{background:var(--color-primary) linear-gradient(rgba(255,255,255,
 #hud .lbl{font-size:.78em;color:#E9E2CF;text-transform:uppercase;letter-spacing:.12em;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.8)}
 #hud .num{font-family:var(--font-display);font-weight:800;font-size:1.25em;text-shadow:0 2px 4px rgba(0,0,0,.7);font-variant-numeric:lining-nums tabular-nums}
 #hud .stat.score .num{font-size:3.3em;color:#FFF7E0;letter-spacing:.01em}
+@keyframes scorepop{0%{transform:scale(1)}40%{transform:scale(1.08)}100%{transform:scale(1)}}
+#h-score.pop{display:inline-block;animation:scorepop 220ms cubic-bezier(.22,1,.36,1)}
 #hud .stat.goal .num{color:#9FF2E4;font-size:1.4em}
 #hud .stat[hidden]{display:none}
 #hud .stat.best .num{color:#F7CF62;font-size:1.4em}
@@ -201,6 +203,11 @@ button.big{width:100%;font-size:1.1em;padding:12px}
 .levels h3.ring{grid-column:1/-1;margin:12px 0 2px;font-size:1.2em;color:var(--color-primary)}
 .stars{letter-spacing:.12em;color:var(--color-primary);font-size:.95em}
 .winstars{text-align:center;font-size:2em;margin:0 0 4px}
+@keyframes starpop{0%{opacity:0;transform:scale(.55)}70%{opacity:1;transform:scale(1.12)}100%{opacity:1;transform:scale(1)}}
+.winstars .star{display:inline-block}
+.winstars .star.lit{opacity:0;animation:starpop 260ms cubic-bezier(.22,1,.36,1) both}
+@media (prefers-reduced-motion:reduce){:root:not(.motion-full) #h-score.pop,:root:not(.motion-full) .winstars .star.lit{animation:none;opacity:1}}
+:root.motion-reduced #h-score.pop,:root.motion-reduced .winstars .star.lit{animation:none;opacity:1}
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
 .card{overflow:hidden;border:2px solid var(--color-border);border-radius:var(--radius-md);padding:12px;background:var(--color-bg)}
 .card h4{margin:0 0 4px;font-family:var(--font-display);font-weight:700;font-size:1.05em;color:var(--color-primary)}
@@ -1483,7 +1490,7 @@ function persist(intent = 'none', opts = null) {
 let S = freshGame('classic');
 S.scene = 'title';
 let SEED_PENDING = null;
-const UI = { sel: -1, cur: null, ghost: null, drag: null, hover: null, returnTo: 'title', overAt: 0, fxFrozen: null, pausedAt: null, lastTap: null, lastInput: performance.now(), input: (window.matchMedia && matchMedia('(pointer:coarse)').matches) ? 'touch' : 'mouse', tip: null, earned: [] };
+const UI = { sel: -1, cur: null, ghost: null, drag: null, hover: null, returnTo: 'title', overAt: 0, skipEnd: false, fxFrozen: null, pausedAt: null, countRaf: 0, countUntil: 0, auditionAudio: false, dispHeat: 0, heatAnim: null, heatPulseAt: 0, dispScore: 0, scoreAnim: null, ambSteamAlpha: 1, endTimers: [], turnTimers: [], lastTap: null, lastInput: performance.now(), input: (window.matchMedia && matchMedia('(pointer:coarse)').matches) ? 'touch' : 'mouse', tip: null, earned: [] };
 
 function todayStr(d = new Date()) {
   const p = n => String(n).padStart(2, '0');
@@ -1521,7 +1528,7 @@ function eraId() {
 // ===================================================================== AUDIO (WebAudio synthesis)
 // Cues are one-shot oscillators and noise (sfx). Music and ambience come from the generative kit below, which
 // schedules a little ahead of the audio clock. Everything feeds AU.master (Sound switch + Volume), then a limiter and a soft ceiling.
-const AU = { ctx: null, master: null, duck: null, noise: null, kit: null, limiter: null };
+const AU = { ctx: null, master: null, duck: null, noise: null, kit: null, limiter: null, endCues: [] };
 // The master gain is Volume x MASTER_SCALE. It was 0.6, which left cues peaking about 0.12 and the music about 0.05 at the
 // default volume of 0.7; at 1.25 the default master is 0.875, so cues peak 0.2 to 0.45 and music 0.06 to 0.16 as heard.
 // Lowering it does not tame the busiest moment (the compressor below squeezes loud sound to about full scale whatever the
@@ -1602,7 +1609,9 @@ function audioMood() {
   k.amb.set('heat', heatLvl);
   if (onTitle || sc === 'over' || sc === 'win') k.music.intensity(0);
   else audioPressure();
-  const hold = document.hidden || sc === 'pause';
+  // Keep AU.kit.hold() active across Pause -> Help/Cards/Records/Trail (releasing on Pause -> Settings only while auditioning Music/Ambience, W6-S5-01).
+  const pausedSub = sc !== 'game' && sc !== 'title' && sc !== 'over' && sc !== 'win' && UI.returnTo === 'pause';
+  const hold = document.hidden || sc === 'pause' || (pausedSub && !(sc === 'settings' && UI.auditionAudio));
   if (hold && !k.held) k.hold(); else if (!hold && k.held) k.release();
 }
 function boardFill() { let n = 0; for (const v of S.board) if (v) n++; return n / 81; }
@@ -1681,8 +1690,9 @@ function motif(t, base, vol) {   // three soft sine notes through a short feedba
   const c = AU.ctx, dest = cueDest(), dry = c.createGain(), dl = c.createDelay(0.5), fb = c.createGain(), wet = c.createGain();
   dry.connect(dest); dl.delayTime.value = MOTIF_ECHO.gap; fb.gain.value = MOTIF_ECHO.feedback; wet.gain.value = MOTIF_ECHO.wet;
   dl.connect(fb); fb.connect(dl); dl.connect(wet); wet.connect(dest);
+  const prevBus = CUE_BUS;
   CUE_BUS = dry;   // tone() sends to the dry bus for these three notes, and the dry bus also feeds the echo
-  try { MOTIF.forEach((st, k) => tone(semi(base, st), t + k * 0.22, 0.7, 'sine', vol)); } finally { CUE_BUS = null; }
+  try { MOTIF.forEach((st, k) => tone(semi(base, st), t + k * 0.22, 0.7, 'sine', vol)); } finally { CUE_BUS = prevBus; }
   dry.connect(dl);
   setTimeout(() => { try { dry.disconnect(); dl.disconnect(); fb.disconnect(); wet.disconnect(); } catch (e) { /* already gone */ } }, 6000);
 }
@@ -1712,9 +1722,9 @@ function playCue(name, o, t) {
       break;
     }
     case 'invalid': tone(330, t, 0.11, 'triangle', 0.29, 300); tone(247, t + 0.11, 0.16, 'triangle', 0.29, 210); hiss(t, 0.08, 0.05, 900, 500, 0.8); break;   // a two-note fall (was a 110 Hz square buzz)
-    case 'deal': {     // three soft wood ticks, an octave under the clear chimes (they sit at 440 Hz and up; the deal was 392 to 588 Hz, on top of them)
+    case 'deal': {     // three soft wood ticks synced 1:1 to 0/45/90 ms staggered deals, an octave under the clear chimes
       hiss(t, 0.16, 0.05, 1800, 5200, 0.8);
-      [0, 1, 2].forEach(k => { tone(DEAL_BASE + k * 49, t + k * 0.05, 0.08, 'triangle', 0.24); tone((DEAL_BASE + k * 49) * 2, t + k * 0.05, 0.04, 'sine', 0.07); });
+      [0, 1, 2].forEach(k => { tone(DEAL_BASE + k * 49, t + k * 0.045, 0.08, 'triangle', 0.24); tone((DEAL_BASE + k * 49) * 2, t + k * 0.045, 0.04, 'sine', 0.07); });
       break;
     }
     case 'undo': tone(500, t, 0.14, 'triangle', 0.31, 280); tone(250, t + 0.02, 0.12, 'sine', 0.12, 170); hiss(t, 0.12, 0.08, 1800, 600, 0.8); break;
@@ -1809,6 +1819,35 @@ function duckTails(t0, t1) {
 const INVALID_GAP = 250;   // ms: a blocked drag that keeps being blocked sounds and buzzes once in this time
 let lastInvalid = -Infinity;
 const HEARD_LOG = [];      // the cues that really started, for the test hook (CUE_LOG also holds the ones held back)
+// Cancel any scheduled end-of-game audio cues (GainNodes + best/card timers) on Post-Loss Undo or reset (W6-S5-01).
+function cancelEndCues() {
+  for (let i = 0; i < UI.endTimers.length; i++) clearTimeout(UI.endTimers[i]);
+  UI.endTimers.length = 0;
+  if (AU.endCues && AU.endCues.length) {
+    const t = AU.ctx ? AU.ctx.currentTime : 0;
+    const nodes = AU.endCues.splice(0);
+    for (const g of nodes) {
+      try {
+        g.gain.cancelScheduledValues(t);
+        g.gain.setValueAtTime(Math.max(0.0001, g.gain.value), t);
+        g.gain.linearRampToValueAtTime(0.0001, t + 0.025);
+        setTimeout(() => { try { g.disconnect(); } catch (_) {} }, 50);
+      } catch (_) {}
+    }
+  }
+  if (AU.ctx && AU.duck) {
+    try {
+      const t = AU.ctx.currentTime, g = AU.duck.gain;
+      g.cancelScheduledValues(t);
+      g.setValueAtTime(Math.max(0.0001, g.value), t);
+      g.linearRampToValueAtTime(1, t + 0.03);
+    } catch (_) {}
+  }
+}
+function cancelTurnTimers() {
+  for (let i = 0; i < UI.turnTimers.length; i++) clearTimeout(UI.turnTimers[i]);
+  UI.turnTimers.length = 0;
+}
 function sfx(name, o = {}) {
   CUE_LOG.push(name); if (CUE_LOG.length > 60) CUE_LOG.shift();
   if (name === 'invalid') { const nowMs = performance.now(); if (nowMs - lastInvalid < INVALID_GAP) return; lastInvalid = nowMs; }
@@ -1824,7 +1863,20 @@ function sfx(name, o = {}) {
     AU.lead = now < FIRST_CUE_CLOCK ? FIRST_CUE_LEAD : 0.01;
     const start = now + AU.lead + (o.at || 0);
     if (o.at && AU.duck) duckTails(now + AU.lead, start);
-    playCue(name, o, start);
+    if (name === 'over' || name === 'win') {
+      const eg = AU.ctx.createGain(); eg.gain.value = 1; eg.connect(AU.master);
+      AU.endCues.push(eg);
+      const prevBus = CUE_BUS;
+      CUE_BUS = eg;
+      try { playCue(name, o, start); } finally { CUE_BUS = prevBus; }
+      setTimeout(() => {
+        const idx = AU.endCues.indexOf(eg);
+        if (idx >= 0) AU.endCues.splice(idx, 1);
+        try { eg.disconnect(); } catch (_) {}
+      }, 4500);
+    } else {
+      playCue(name, o, start);
+    }
     if (AU.kit && !AU.kit.held) {
       if (name === 'clear') AU.kit.music.duck(3, 350);
       else if (name === 'era' || name === 'win' || name === 'over') AU.kit.music.duck(6, 500);
@@ -3089,10 +3141,61 @@ function drawTrailInfo(lv) {
     text(line, I.x + 14, I.y + 42, lfs, '#E2DDD0', 'left', 'sans');
   }
 }
+function syncGauges(snap = false, opts = null) {
+  const red = reducedMotion(), trail = S.mode === 'trail';
+  const now = performance.now();
+  if (snap || red || trail) {
+    UI.dispHeat = S.heat; UI.heatAnim = null; UI.heatPulseAt = 0;
+    UI.dispScore = S.score; UI.scoreAnim = null;
+    const scEl = $('h-score'); if (scEl) scEl.classList.remove('pop');
+    return;
+  }
+  if (S.heat !== UI.dispHeat) {
+    UI.heatAnim = { from: UI.dispHeat, to: S.heat, t0: now, dur: 220 };
+    if (opts && typeof opts.prevHeat === 'number' && heatTier(S.heat) > heatTier(opts.prevHeat)) UI.heatPulseAt = now;
+  }
+  if (S.score !== UI.dispScore) {
+    UI.scoreAnim = { from: UI.dispScore, to: S.score, t0: now, dur: 220 };
+    if (opts && opts.G >= 2) {
+      const scEl = $('h-score');
+      if (scEl) { scEl.classList.remove('pop'); void scEl.offsetWidth; scEl.classList.add('pop'); }
+    }
+  }
+}
+function stepHudScore(now) {
+  const a = UI.scoreAnim;
+  if (!a || S.mode === 'trail') return;
+  if (reducedMotion()) {
+    UI.dispScore = a.to; UI.scoreAnim = null;
+    $('h-score').textContent = S.score.toLocaleString('en-US');
+    return;
+  }
+  const q = clamp01((fxNow(now) - a.t0) / a.dur);
+  UI.dispScore = a.from + (a.to - a.from) * easeOut(q);
+  $('h-score').textContent = Math.round(UI.dispScore).toLocaleString('en-US');
+  if (q >= 1 && UI.fxFrozen == null && UI.pausedAt == null) {
+    UI.dispScore = a.to; UI.scoreAnim = null;
+    $('h-score').textContent = S.score.toLocaleString('en-US');
+  }
+}
 function drawInfo(now) {
   const lv = S.mode === 'trail' && LEVELS.find(l => l.id === S.level);
   if (S.mode === 'trail') { drawTrailInfo(lv); return; }
-  const I = LAY.info, frac = S.heat / 12, mult = heatMult(S.heat), boiling = S.heat >= 12, hot = heatCol(frac);
+  const tNow = fxNow(now), red = reducedMotion();
+  if (UI.heatAnim && !red) {
+    const hq = clamp01((tNow - UI.heatAnim.t0) / UI.heatAnim.dur);
+    UI.dispHeat = UI.heatAnim.from + (UI.heatAnim.to - UI.heatAnim.from) * easeOut(hq);
+    if (hq >= 1 && UI.fxFrozen == null && UI.pausedAt == null) { UI.dispHeat = UI.heatAnim.to; UI.heatAnim = null; }
+  } else {
+    UI.dispHeat = S.heat; UI.heatAnim = null;
+  }
+  let bulbPulse = 0;
+  if (UI.heatPulseAt && !red) {
+    const pq = clamp01((tNow - UI.heatPulseAt) / 240);
+    if (pq >= 1 && UI.fxFrozen == null && UI.pausedAt == null) UI.heatPulseAt = 0;
+    else bulbPulse = Math.sin(Math.PI * pq);
+  }
+  const I = LAY.info, frac = clamp01(UI.dispHeat / 12), mult = heatMult(S.heat), boiling = S.heat >= 12, hot = heatCol(frac);
   const temp = boiling ? 'Boiling' : tempF(S.heat) + '°F', mtxt = '×' + mult.toFixed(2).replace(/0$/, '');
   const era = ERAS[S.era];
   if (LAY.land) {
@@ -3105,18 +3208,18 @@ function drawInfo(now) {
     let cg = GRAD_CACHE.thermCase;
     if (!cg) { cg = ctx.createLinearGradient(cx - tw, 0, cx + tw, 0); cg.addColorStop(0, '#7A5A18'); cg.addColorStop(0.35, '#F0CF75'); cg.addColorStop(1, '#8C6A22'); GRAD_CACHE.thermCase = cg; }
     ctx.fillStyle = cg; rr(ctx, cx - tw / 2 - 5, ty - 5, tw + 10, th + 10, (tw + 10) / 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(cx, ty + th + bulb * 0.5, bulb + 5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, ty + th + bulb * 0.5, bulb + 5 + bulbPulse * 1.5, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#0B2227'; rr(ctx, cx - tw / 2, ty, tw, th, tw / 2); ctx.fill();
     ctx.beginPath(); ctx.arc(cx, ty + th + bulb * 0.5, bulb, 0, Math.PI * 2); ctx.fill();
     const fh = Math.max(0, (th - 6) * frac);
     let lg = GRAD_CACHE.thermFill;
     if (!lg) { lg = ctx.createLinearGradient(0, ty + th, 0, ty); lg.addColorStop(0, '#4FC3D9'); lg.addColorStop(0.5, '#F2A541'); lg.addColorStop(1, '#FF4A2B'); GRAD_CACHE.thermFill = lg; }
     ctx.fillStyle = lg; rr(ctx, cx - tw / 2 + 4, ty + th - 3 - fh, tw - 8, fh + 12, (tw - 8) / 2); ctx.fill();
-    ctx.fillStyle = hot; ctx.beginPath(); ctx.arc(cx, ty + th + bulb * 0.5, bulb - 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = hot; ctx.beginPath(); ctx.arc(cx, ty + th + bulb * 0.5, bulb - 5 + bulbPulse * 2.2, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,.35)'; rr(ctx, cx - tw / 2 + 3, ty + 4, 3, th - 8, 1.5); ctx.fill();
-    if (boiling && !reducedMotion()) { // bubbles in the tube
-      const t = now / 1000;
-      for (let k = 0; k < 6; k++) { const q = (t * 0.6 + k / 6) % 1; ctx.fillStyle = 'rgba(255,240,220,' + (0.8 * (1 - q)) + ')'; ctx.beginPath(); ctx.arc(cx + Math.sin(k * 3 + t * 4) * 2, ty + th - q * (th - 10), 1.6 + (k % 2), 0, Math.PI * 2); ctx.fill(); }
+    if (boiling && !red) { // buoyant easeIn-accelerating bubbles in the tube (wf-4 §1E)
+      const t = tNow / 1000;
+      for (let k = 0; k < 6; k++) { const q = (t * 0.6 + k / 6) % 1; const rise = easeIn(q); ctx.fillStyle = 'rgba(255,240,220,' + (0.8 * (1 - q)) + ')'; ctx.beginPath(); ctx.arc(cx + Math.sin(k * 3 + t * 4) * 2, ty + th - rise * (th - 10), 1.6 + (k % 2), 0, Math.PI * 2); ctx.fill(); }
     }
     ctx.strokeStyle = 'rgba(255,240,200,.8)'; ctx.lineWidth = 1.5;
     for (let k = 0; k <= 4; k++) { const yy = ty + 4 + (th - 8) * (1 - k / 4); ctx.beginPath(); ctx.moveTo(cx + tw / 2 + 7, yy); ctx.lineTo(cx + tw / 2 + 13, yy); ctx.stroke(); }
@@ -3233,10 +3336,10 @@ function drawTray(now) {
     const f = FX[i], s = f.slot;
     if (s === undefined) continue;
     if (f.type === 'deal' && !TRAY_DEAL[s]) TRAY_DEAL[s] = f;
-    else if (f.type === 'return' && !TRAY_RET[s]) TRAY_RET[s] = f;
+    else if ((f.type === 'return' || f.type === 'undo-lift') && !TRAY_RET[s]) TRAY_RET[s] = f;
     else if (f.type === 'nudge' && !TRAY_NUD[s]) TRAY_NUD[s] = f;
   }
-  const tNow = fxNow(now);
+  const tNow = fxNow(now), red = reducedMotion();
   for (let k = 0; k < 3; k++) {
     const sl = LAY.slots[k], t = S.tray[k];
     const isSel = UI.sel === k && !UI.drag;
@@ -3280,26 +3383,69 @@ function drawTray(now) {
     ctx.restore();
     if (UI.kbd) text(String(k + 1), wx + 13, wy + 14, 13, isHint ? '#E8FFF9' : isSel ? '#F7CF62' : 'rgba(233,226,207,.78)', 'center', 'sans', '700', false);
     if (!t || (UI.drag && UI.drag.slot === k && UI.drag.moved)) continue;
-    const gm = slotPieceGeom(k, danger ? 22 : 0);
-    let sc = 1;
-    const de = TRAY_DEAL[k];
-    if (de) { const q = Math.min(1, Math.max(0, (tNow - de.t0) / de.dur)); sc = q < 0.6 ? 0.3 + 0.85 * easeOut(q / 0.6) : 1.15 - 0.15 * easeOut((q - 0.6) / 0.4); }
+    const p = PIECES[t.id], gm = slotPieceGeom(k, danger ? 22 : 0);
+    const pcx = gm.x + p.wd * gm.s / 2, pcy = gm.y + p.h * gm.s / 2; // piece visual center pivot (wf-4 §1E)
     const rt = TRAY_RET[k];
     if (rt) {
-      const q = easeOut(Math.min(1, Math.max(0, (tNow - rt.t0) / rt.dur)));
-      const cs = LAY.board.cell + (gm.s - LAY.board.cell) * q;
-      drawPiece(t.id, rt.x + (gm.x - rt.x) * q, rt.y + (gm.y - rt.y) * q, cs, 1);
+      const rq = clamp01((tNow - rt.t0) / rt.dur);
+      const startS = rt.s || LAY.board.cell;
+      if (rq < 0.82) {
+        const u = easeInOut(rq / 0.82);
+        const arcLift = red ? 0 : Math.sin(Math.PI * u) * Math.min(28, LAY.board.cell * 0.45);
+        const cs = startS + (gm.s - startS) * u;
+        drawPiece(t.id, rt.x + (gm.x - rt.x) * u, rt.y + (gm.y - rt.y) * u - arcLift, cs, 1);
+      } else {
+        // 40 ms ceramic slot-settle squash after parabolic return / undo-lift arrival
+        const u = clamp01((rq - 0.82) / 0.18), bump = red ? 0 : Math.sin(Math.PI * u);
+        ctx.save();
+        if (bump) { ctx.translate(pcx, pcy); ctx.scale(1 + 0.06 * bump, 1 - 0.06 * bump); ctx.translate(-pcx, -pcy); }
+        drawPiece(t.id, gm.x, gm.y, gm.s, fits ? 1 : 0.3);
+        ctx.restore();
+      }
       continue;
     }
-    // pressed (before the drag threshold) the piece swells a little; a tap with drag-only touch makes it hop
-    const pressed = UI.drag && UI.drag.slot === k && !UI.drag.moved;
-    if (pressed) sc *= 1.08;
+    const pressed = !!(UI.drag && UI.drag.slot === k && !UI.drag.moved);
+    const de = TRAY_DEAL[k];
+    // Staggered 0/45/90 ms deal: hidden unobtrusively before de.t0 while 100% Frame-1 grabbable (CD-WF4-01)
+    if (de && tNow < de.t0 && !pressed) {
+      // Piece waits for its staggered tick; pill (if any) renders after arrival
+      continue;
+    }
+    let sx = 1, sy = 1, dy = 0, dealAlpha = 1;
+    if (de && !red) {
+      const dq = clamp01((tNow - de.t0) / de.dur);
+      const bsc = 0.34 + 0.66 * easeBack(dq);
+      sx *= bsc; sy *= bsc;
+      dealAlpha = clamp01(dq / 0.25);
+      dy += (1 - easeOut(dq)) * 10;
+    }
+    // 65 ms eased press swell pivoted around piece visual center
+    if (pressed) {
+      const pq = red ? 1 : easeOut(clamp01((tNow - (UI.drag.t0 || tNow)) / 65));
+      const psc = 1 + 0.08 * pq;
+      sx *= psc; sy *= psc; dy -= 4 * pq;
+    } else if (selected) {
+      dy -= 3;
+    }
+    // 340 ms key-posed touch nudge: crouch (sy=0.92) -> stretch hop (sy=1.06) -> impact squash settle (wf-4 §1E)
     const nu = TRAY_NUD[k];
-    const hop = nu ? Math.sin(Math.PI * Math.min(1, Math.max(0, (tNow - nu.t0) / nu.dur))) * sl.h * 0.12 : 0;
+    if (nu && !red) {
+      const nq = clamp01((tNow - nu.t0) / nu.dur);
+      if (nq < 0.20) {
+        const u = easeOut(nq / 0.20);
+        sx *= 1 + 0.08 * u; sy *= 1 - 0.08 * u; dy += 2.5 * u;
+      } else if (nq < 0.78) {
+        const u = (nq - 0.20) / 0.58, arc = Math.sin(Math.PI * u);
+        dy -= arc * sl.h * 0.13;
+        sx *= 1 - 0.05 * arc; sy *= 1 + 0.06 * arc;
+      } else {
+        const u = clamp01((nq - 0.78) / 0.22), bump = Math.sin(Math.PI * u);
+        sx *= 1 + 0.06 * bump; sy *= 1 - 0.06 * bump; dy += 1.5 * bump;
+      }
+    }
     ctx.save();
-    if (sc !== 1) { ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.translate(-cx, -cy); }
-    if (selected || pressed || hop) { ctx.translate(0, -(selected ? 3 : pressed ? 4 : 0) - hop); }
-    drawPiece(t.id, gm.x, gm.y, gm.s, fits ? 1 : 0.3);
+    if (sx !== 1 || sy !== 1 || dy) { ctx.translate(pcx, pcy + dy); ctx.scale(sx, sy); ctx.translate(-pcx, -pcy); }
+    drawPiece(t.id, gm.x, gm.y, gm.s, (fits ? 1 : 0.3) * dealAlpha);
     ctx.restore();
     if (!fits || doomed) {
       const label = !fits ? '! no room' : (sl.w < 100 ? '! won’t fit' : '! won’t all fit');
@@ -3398,11 +3544,34 @@ function drawGhost(now) {
 }
 
 // ---------- effects
+const clamp01 = x => (x < 0 ? 0 : x > 1 ? 1 : x);
 function fxNow(now) { return UI.fxFrozen != null ? UI.fxFrozen : UI.pausedAt != null ? UI.pausedAt : now; }
+function easeIn(q) { return q * q * q; }
 function easeOut(q) { return 1 - Math.pow(1 - q, 3); }
+function easeInOut(q) { return q < 0.5 ? 4 * q * q * q : 1 - Math.pow(-2 * q + 2, 3) / 2; }
 function easeBack(q) { const c = 1.9; return 1 + (c + 1) * Math.pow(q - 1, 3) + c * Math.pow(q - 1, 2); }
+const SLOT_FX = new Set(['deal', 'return', 'nudge', 'undo-lift']);
+function clearSlotFx(slot) {
+  for (let i = FX.length - 1; i >= 0; i--) {
+    if (FX[i].slot === slot && SLOT_FX.has(FX[i].type)) FX.splice(i, 1);
+  }
+}
 function addFx(f) {
-  f.t0 = performance.now() + (f.delay || 0);
+  const now = performance.now();
+  f.t0 = now + (f.delay || 0);
+  // Supersede conflicting per-slot FX, prior combo banners, and weaker/older shakes (W6-S5-01 / W6-S5-03)
+  if (f.slot !== undefined && SLOT_FX.has(f.type)) clearSlotFx(f.slot);
+  else if (f.type === 'banner') {
+    for (let i = FX.length - 1; i >= 0; i--) if (FX[i].type === 'banner') FX.splice(i, 1);
+  } else if (f.type === 'shake') {
+    for (let i = FX.length - 1; i >= 0; i--) {
+      if (FX[i].type !== 'shake') continue;
+      const old = FX[i], qOld = clamp01((now - old.t0) / old.dur);
+      const remAmp = old.amp * (1 - qOld) * (1 - qOld);
+      if (qOld >= 1 || f.amp >= remAmp) FX.splice(i, 1);
+      else { dirty = true; return old; }
+    }
+  }
   if (FX.length >= MAX_FX) {
     // Tertiary-particle-only eviction preserving primary feedback and >=36 winSteam() puffs (CD-WF4-05 / CD-WF6-05)
     let victim = -1;
@@ -3471,15 +3640,16 @@ function groupCenter(g) {
 }
 function spawnClearFx(res) {
   const b = LAY.board, cell = b.cell, red = reducedMotion(), ef = ERA_FX[eraId()] || ERA_FX.ancient;
-  // tiles pop in a wave from the placed piece outward along each line
+  // G=1 launches immediately (0 ms); G>=2 / Clear Spring! gets a purely visual 42 ms ceramic-gold lock-in anticipation beat (CD-WF4-01)
+  const antic = (!red && (res.G >= 2 || res.bonus)) ? 42 : 0;
   const pc = res.at || [4, 4];
-  addFx({ type: 'flash', cells: res.cleared, dur: red ? 220 : 620, delayOf: red ? null : (i => Math.min(0.25, (Math.abs(i % 9 - pc[1]) + Math.abs(Math.floor(i / 9) - pc[0])) * 0.03)) });
-  if (WATER.on) for (const g of res.groups) { const [gc, gr] = groupCenter(g); WATER.ripple((gc + 0.5) / 9, (gr + 0.5) / 9, red ? 0.4 : 1); }
+  addFx({ type: 'flash', cells: res.cleared, groups: res.groups, antic, dur: red ? 160 : (620 + antic), delayOf: red ? null : (i => Math.min(0.25, (Math.abs(i % 9 - pc[1]) + Math.abs(Math.floor(i / 9) - pc[0])) * 0.03)) });
+  if (WATER.on) for (const g of res.groups) { const [gc, gr] = groupCenter(g); WATER.ripple((gc + 0.5) / 9, (gr + 0.5) / 9, red ? 0.4 : (res.G >= 4 || res.bonus ? 1 : res.G >= 2 ? 0.75 : 0.45)); }
   if (red) return;
   for (const g of res.groups) {
     const [gc, gr] = groupCenter(g), cells = g.cells ? g.cells.slice() : groupCells(g.type, g.i);
-    addFx({ type: 'beam', g, cells, dur: 420, tint: ef.beam });
-    addFx({ type: 'ripple', g, cells, tint: ef.ripple, flicker: !!ef.flicker, x: b.gx + (gc + 0.5) * cell, y: b.gy + (gr + 0.5) * cell, dur: 820, r: cell * (g.type === 'box' ? 1.9 : 4.4) });
+    addFx({ type: 'beam', g, cells, dur: 420, delay: antic, tint: ef.beam });
+    addFx({ type: 'ripple', g, cells, tint: ef.ripple, flicker: !!ef.flicker, x: b.gx + (gc + 0.5) * cell, y: b.gy + (gr + 0.5) * cell, dur: 820, delay: antic, r: cell * (g.type === 'box' ? 1.9 : 4.4) });
   }
   const R = Math.random, lite = liteFx();
   for (let ci = 0; ci < res.cleared.length; ci++) {
@@ -3489,13 +3659,13 @@ function spawnClearFx(res) {
     if (code === 7) { // matte travertine crumble feedback on dissolved tufa stones (W6-S3-04)
       for (let tci = 0; tci < 2; tci++) {
         const a = -Math.PI / 2 + (R() - 0.5) * 2.4, sp = cell * (1.2 + R() * 1.9);
-        addFx({ type: 'shard', code: 7, x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - cell * 1.5, rot: R() * 6, vr: (R() - 0.5) * 8, s: cell * (0.17 + R() * 0.1), dur: 580 + R() * 220, delay: 40, plank: false });
+        addFx({ type: 'shard', code: 7, x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - cell * 1.5, rot: R() * 6, vr: (R() - 0.5) * 8, s: cell * (0.17 + R() * 0.1), dur: 580 + R() * 220, delay: antic + 55, plank: false });
       }
     } else if (R() < 0.35) { const a = -Math.PI / 2 + (R() - 0.5) * 2.2, sp = cell * (1.6 + R() * 2.4); // ceramic glaze chips (~70/30 Frontier timber splinters, CD-WF1-08)
-      addFx({ type: 'shard', code, x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - cell * 2, rot: R() * 6, vr: (R() - 0.5) * 10, s: cell * (0.16 + R() * 0.1), dur: 600 + R() * 250, delay: 60, plank: !!ef.plank && code <= 6 && R() < 0.3 }); }
+      addFx({ type: 'shard', code, x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - cell * 2, rot: R() * 6, vr: (R() - 0.5) * 10, s: cell * (0.16 + R() * 0.1), dur: 600 + R() * 250, delay: antic + 60, plank: !!ef.plank && code <= 6 && R() < 0.3 }); }
     for (let k = 0; k < 2; k++) { const a = -Math.PI / 2 + (R() - 0.5) * 1.8, sp = cell * (2.5 + R() * 3); // hot droplets
-      addFx({ type: 'drop', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: cell * (0.035 + R() * 0.04), dur: 520 + R() * 260, delay: 40 }); }
-    if ((ci & 1) === 0) addFx({ type: 'steam', x, y, dur: 950 + R() * 650, h: cell * (1.4 + R() * 1.4), ph: R() * 6, w: cell * (0.48 + R() * 0.28), delay: 100 + R() * 140 });
+      addFx({ type: 'drop', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: cell * (0.035 + R() * 0.04), dur: 520 + R() * 260, delay: antic + 40 }); }
+    if ((ci & 1) === 0) addFx({ type: 'steam', x, y, dur: 950 + R() * 650, h: cell * (1.4 + R() * 1.4), ph: R() * 6, w: cell * (0.48 + R() * 0.28), delay: antic + 100 + R() * 140 });
   }
   if (res.G >= 2 || res.bonus) addFx({ type: 'shake', dur: 300, amp: Math.min(9, 2 + res.G * 1.8) });
   else addFx({ type: 'shake', dur: SINGLE_SHAKE.dur, amp: SINGLE_SHAKE.amp });   // the common one-group clear lands with a small knock too (S1-11)
@@ -3554,43 +3724,166 @@ function clearFeedback(res, cx, cy, prevHeat) {
   if (res.vents && !springsWin) popup(res.vents + (res.vents > 1 ? ' springs' : ' spring') + ' opened', cx, cy - cell * 1.1, '#9FF2E4', Math.max(12, Math.round(cell * 0.32)));
 }
 function bannerSize(level) { const b = LAY.board; return Math.min(b.size * 0.13, b.cell * (0.75 + level * 0.08)); }
-function landFx(id, r, c) { if (!reducedMotion()) addFx({ type: 'land', id, r, c, dur: 220 }); }
+function landSpec(n) {
+  if (n <= 2) return { dur: 150, sx: 1.05, sy: 0.95, rsx: 0.99, rsy: 1.02, dip: 0.5 };
+  if (n <= 4) return { dur: 185, sx: 1.06, sy: 0.94, rsx: 0.985, rsy: 1.025, dip: 1.0 };
+  return { dur: 230, sx: 1.08, sy: 0.92, rsx: 0.98, rsy: 1.03, dip: 2.0 };
+}
+function landTransform(q, n) {
+  const sp = landSpec(n), Q = clamp01(q);
+  if (Q < 0.32) {
+    const u = easeOut(Q / 0.32);
+    return { sx: 1 + (sp.sx - 1) * u, sy: 1 + (sp.sy - 1) * u, dy: sp.dip * u };
+  }
+  if (Q < 0.68) {
+    const u = easeInOut((Q - 0.32) / 0.36);
+    return { sx: sp.sx + (sp.rsx - sp.sx) * u, sy: sp.sy + (sp.rsy - sp.sy) * u, dy: sp.dip * (1 - u) };
+  }
+  const u = easeOut((Q - 0.68) / 0.32);
+  return { sx: sp.rsx + (1 - sp.rsx) * u, sy: sp.rsy + (1 - sp.rsy) * u, dy: 0 };
+}
+function landFx(id, r, c, cleared = null) {
+  const p = PIECES[id]; if (!p) return;
+  let clearedSet = null;
+  if (cleared && cleared.length) { clearedSet = new Set(); for (let i = 0; i < cleared.length; i++) clearedSet.add(cleared[i].i); }
+  const cells = [];
+  for (const [dr, dc] of p.cells) {
+    const idx = (r + dr) * 9 + (c + dc);
+    if (!clearedSet || !clearedSet.has(idx)) cells.push([dr, dc]);
+  }
+  if (!cells.length) return;
+  const red = reducedMotion(), sp = landSpec(p.n);
+  addFx({ type: 'land', id, r, c, n: p.n, cells, dur: red ? 140 : sp.dur, staticOnly: red });
+}
 function drawFx(now) {
   const t = fxNow(now), b = LAY.board, cell = b.cell, red = reducedMotion();
   for (let k = FX.length - 1; k >= 0; k--) {
     const f = FX[k], q = (t - f.t0) / f.dur;
     if (q >= 1 && UI.fxFrozen == null) { FX.splice(k, 1); continue; }
     if (q < 0 || f.type === 'banner') continue;
-    const Q = Math.max(0, Math.min(1, q));
+    const Q = clamp01(q);
     if (f.type === 'flash') {
       if (red) {
+        // Reduced-motion static confirmation: crisp gold group perimeter + calm tile fade (zero steam/ripple/shake, CD-WF4-05)
         for (let ci = 0; ci < f.cells.length; ci++) {
           const { i, code } = f.cells[ci];
           drawTile(code, b.gx + (i % 9) * cell, b.gy + Math.floor(i / 9) * cell, cell, 1 - Q);
         }
+        if (f.groups && f.groups.length) {
+          ctx.save();
+          ctx.fillStyle = 'rgba(247,207,98,' + (0.16 * (1 - Q)) + ')';
+          ctx.strokeStyle = 'rgba(247,207,98,' + (0.90 * (1 - Q)) + ')';
+          ctx.lineWidth = 2.5;
+          for (const g of f.groups) {
+            const cells = g.cells || groupCells(g.type, g.i);
+            let x0 = 9, y0 = 9, x1 = 0, y1 = 0;
+            for (const i of cells) { x0 = Math.min(x0, i % 9); x1 = Math.max(x1, i % 9 + 1); y0 = Math.min(y0, Math.floor(i / 9)); y1 = Math.max(y1, Math.floor(i / 9) + 1); }
+            rr(ctx, b.gx + x0 * cell + 2, b.gy + y0 * cell + 2, (x1 - x0) * cell - 4, (y1 - y0) * cell - 4, cell * 0.16);
+            ctx.fill(); ctx.stroke();
+          }
+          ctx.restore();
+        }
         continue;
       }
-      // Pass 1 (source-over): draw all shrinking tiles without switching composite op per cell
+      const elapsed = Math.max(0, t - f.t0), antic = f.antic || 0;
+      if (antic > 0 && elapsed < antic) {
+        // Purely visual 42 ms ceramic-gold lock-in anticipation beat for G>=2 / Clear Spring! (CD-WF4-01)
+        const aq = easeOut(clamp01(elapsed / antic)), asc = 1 + 0.03 * aq;
+        for (let ci = 0; ci < f.cells.length; ci++) {
+          const { i, code } = f.cells[ci], cr = Math.floor(i / 9), cc = i % 9;
+          const gx = b.gx + cc * cell, gy = b.gy + cr * cell, cx = gx + cell / 2, cy = gy + cell / 2;
+          const v = code === 7 ? ((cr * 7 + cc * 13) & 3) : 0;
+          ctx.save(); ctx.translate(cx, cy); ctx.scale(asc, asc); ctx.translate(-cx, -cy);
+          drawTile(code, gx, gy, cell, 1, v);
+          ctx.restore();
+        }
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = 'rgba(255,240,185,' + (0.48 * aq) + ')';
+        for (let ci = 0; ci < f.cells.length; ci++) {
+          const { i } = f.cells[ci], gx = b.gx + (i % 9) * cell, gy = b.gy + Math.floor(i / 9) * cell;
+          rr(ctx, gx + 2, gy + 2, cell - 4, cell - 4, cell * 0.14); ctx.fill();
+        }
+        ctx.restore();
+        continue;
+      }
+      const waveDur = Math.max(1, f.dur - antic), Qw = clamp01((elapsed - antic) / waveDur);
+      // Pass 1 (source-over): per-actor clear motion over canonical LAY.board.cell sprites (0 offscreen allocations, CD-WF3-03)
       for (let ci = 0; ci < f.cells.length; ci++) {
-        const { i, code } = f.cells[ci], d = f.delayOf ? f.delayOf(i) : 0, QQ = Math.max(0, Math.min(1, Q - d));
-        if (QQ < 0.4) {
-          const sc = QQ < 0.12 ? 1 + 0.08 * (QQ / 0.12) : 1.08 * (1 - easeOut((QQ - 0.12) / 0.28)), off = cell * (1 - sc) / 2;
-          if (sc > 0.02) drawTile(code, b.gx + (i % 9) * cell + off, b.gy + Math.floor(i / 9) * cell + off, cell * sc);
+        const { i, code } = f.cells[ci], cr = Math.floor(i / 9), cc = i % 9;
+        const gx = b.gx + cc * cell, gy = b.gy + cr * cell, cx = gx + cell / 2, cy = gy + cell / 2;
+        const v = code === 7 ? ((cr * 7 + cc * 13) & 3) : 0;
+        const d = f.delayOf ? f.delayOf(i) : 0;
+        if (Qw < d) {
+          drawTile(code, gx, gy, cell, 1, v);
+          continue;
+        }
+        const QQ = clamp01((Qw - d) / Math.max(0.01, 1 - d));
+        if (code === 7) {
+          // Tufa Stone: ~60 ms limestone micro-rumble jitter -> heavier crumble-drop settle (wf-4 §1D)
+          if (QQ < 0.46) {
+            let jx = 0, jy = 0, sc = 1, al = 1;
+            if (QQ < 0.14) {
+              jx = Math.sin(QQ * 120 + i * 3.1) * 1.5;
+              jy = Math.cos(QQ * 145 + i * 2.3) * 1.5;
+            } else {
+              const u = easeIn(clamp01((QQ - 0.14) / 0.32));
+              sc = 1 - u * 0.65; jy = u * cell * 0.28; al = 1 - u;
+            }
+            if (sc > 0.02 && al > 0.02) {
+              ctx.save(); ctx.translate(cx + jx, cy + jy); ctx.scale(sc, sc); ctx.translate(-cx, -cy);
+              drawTile(7, gx, gy, cell, al, v);
+              ctx.restore();
+            }
+          }
+        } else if (code === 8) {
+          // Spring Vent: buoyant upward aqua-gold surge bloom 1.0 -> 1.24 -> snap (wf-4 §1D)
+          if (QQ < 0.48) {
+            const sc = QQ < 0.22 ? 1 + 0.24 * easeOut(QQ / 0.22) : 1.24 * (1 - easeIn(clamp01((QQ - 0.22) / 0.26)));
+            const dy = -cell * 0.16 * easeOut(clamp01(QQ / 0.35));
+            if (sc > 0.02) {
+              ctx.save(); ctx.translate(cx, cy + dy); ctx.scale(sc, sc); ctx.translate(-cx, -cy);
+              drawTile(8, gx, gy, cell, 1, 0);
+              ctx.restore();
+            }
+          }
+        } else {
+          // Glazed Ceramic (1..6): 1.08x porcelain flash swell -> fast easeIn inward snap-shrink (wf-4 §1D)
+          if (QQ < 0.42) {
+            const sc = QQ < 0.14 ? 1 + 0.08 * easeOut(QQ / 0.14) : 1.08 * (1 - easeIn(clamp01((QQ - 0.14) / 0.28)));
+            if (sc > 0.02) {
+              ctx.save(); ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.translate(-cx, -cy);
+              drawTile(code, gx, gy, cell, 1, 0);
+              ctx.restore();
+            }
+          }
         }
       }
-      // Pass 2 (lighter): single composite-op switch for all flash highlights and fading cell glows
+      // Pass 2 (lighter): single composite-op switch for flash highlights, vent surge coronas & pow(1-u, 2.2) cell glows
       const glowSp = getGlowSprite();
       ctx.globalCompositeOperation = 'lighter';
       for (let ci = 0; ci < f.cells.length; ci++) {
-        const { i } = f.cells[ci], x = b.gx + (i % 9) * cell, y = b.gy + Math.floor(i / 9) * cell;
-        const d = f.delayOf ? f.delayOf(i) : 0, QQ = Math.max(0, Math.min(1, Q - d));
-        if (QQ < 0.4) {
-          const sc = QQ < 0.12 ? 1 + 0.08 * (QQ / 0.12) : 1.08 * (1 - easeOut((QQ - 0.12) / 0.28)), off = cell * (1 - sc) / 2;
-          const wa = QQ < 0.12 ? QQ / 0.12 : Math.max(0, 1 - (QQ - 0.12) / 0.2);
+        const { i, code } = f.cells[ci], x = b.gx + (i % 9) * cell, y = b.gy + Math.floor(i / 9) * cell;
+        const d = f.delayOf ? f.delayOf(i) : 0;
+        if (Qw < d) continue;
+        const QQ = clamp01((Qw - d) / Math.max(0.01, 1 - d));
+        if (code === 8 && QQ < 0.56) {
+          const va = Math.pow(clamp01(1 - QQ / 0.56), 1.8);
+          ctx.strokeStyle = 'rgba(145,252,232,' + (0.85 * va) + ')';
+          ctx.lineWidth = Math.max(2, cell * 0.09 * va);
+          ctx.beginPath(); ctx.arc(x + cell / 2, y + cell / 2, cell * (0.28 + 0.46 * easeOut(clamp01(QQ / 0.56))), 0, Math.PI * 2); ctx.stroke();
+        } else if (QQ < 0.42) {
+          const sc = code === 7 ? (QQ < 0.14 ? 1 : 1 - easeIn(clamp01((QQ - 0.14) / 0.28)) * 0.65)
+            : (QQ < 0.14 ? 1 + 0.08 * easeOut(QQ / 0.14) : 1.08 * (1 - easeIn(clamp01((QQ - 0.14) / 0.28))));
+          const off = cell * (1 - sc) / 2;
+          const wa = QQ < 0.14 ? QQ / 0.14 : Math.max(0, 1 - (QQ - 0.14) / 0.20);
           const fw = cell * sc - 4;
-          if (wa > 0 && fw > 2) { ctx.globalAlpha = 1; ctx.fillStyle = 'rgba(255,252,235,' + (0.75 * wa) + ')'; rr(ctx, x + off + 2, y + off + 2, fw, fw, Math.min(fw / 2, cell * 0.14 * sc)); ctx.fill(); }
+          if (wa > 0 && fw > 2) {
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = code === 7 ? 'rgba(232,220,194,' + (0.55 * wa) + ')' : 'rgba(255,252,235,' + (0.75 * wa) + ')';
+            rr(ctx, x + off + 2, y + off + 2, fw, fw, Math.min(fw / 2, cell * 0.14 * sc)); ctx.fill();
+          }
         }
-        const a = QQ < 0.12 ? QQ / 0.12 : 1 - (QQ - 0.12) / 0.88;
+        const a = QQ < 0.14 ? QQ / 0.14 : Math.pow(clamp01(1 - (QQ - 0.14) / 0.86), 2.2);
         if (a > 0.01) { ctx.globalAlpha = a * 0.8; ctx.drawImage(glowSp, x - cell * 0.2, y - cell * 0.2, cell * 1.4, cell * 1.4); }
       }
       ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
@@ -3660,8 +3953,15 @@ function drawFx(now) {
       }
       ctx.restore();
     } else if (f.type === 'drop') {
+      // Velocity-tapered ballistic droplet holding opacity high through peak arc (Q < 0.55, wf-4 §3C)
       const tt = Q * f.dur / 1000, x = f.x + f.vx * tt, y = f.y + f.vy * tt + cell * 16 * tt * tt;
-      ctx.globalAlpha = 1 - Q; ctx.fillStyle = '#DFFBF6'; ctx.beginPath(); ctx.arc(x, y, f.r, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+      const vx = f.vx, vy = f.vy + cell * 32 * tt, spd = Math.hypot(vx, vy);
+      const a = Q < 0.55 ? 0.92 : 0.92 * (1 - (Q - 0.55) / 0.45);
+      const stretch = Math.min(2.1, 1 + spd / Math.max(120, cell * 4.5));
+      ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = '#DFFBF6';
+      ctx.translate(x, y); ctx.rotate(Math.atan2(vy, vx));
+      ctx.beginPath(); ctx.ellipse(0, 0, f.r * stretch, f.r * (0.95 - 0.15 * Q), 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
     } else if (f.type === 'steam') {
       const sp = getSteamSprite(), sz = f.w * (0.65 + easeOut(Q) * 1.15);
       const sy = f.y - easeOut(Q) * f.h;
@@ -3673,10 +3973,29 @@ function drawFx(now) {
         ctx.globalAlpha = 1;
       }
     } else if (f.type === 'land') {
-      const p = PIECES[f.id], a = 1 - Q;
-      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = 'rgba(255,255,240,' + 0.7 * a + ')'; ctx.lineWidth = 2;
-      for (const [dr, dc] of p.cells) { rr(ctx, b.gx + (f.c + dc) * cell + 2, b.gy + (f.r + dr) * cell + 2, cell - 4, cell - 4, cell * 0.16); ctx.stroke(); }
+      // Stroke ONLY surviving occupied cells (never orphaned white outlines over cleared water, W6-S5-03)
+      const cells = f.cells || PIECES[f.id].cells, a = 1 - Q;
+      ctx.save();
+      if (!f.staticOnly) ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = f.staticOnly ? 'rgba(255,250,230,' + (0.78 * a) + ')' : 'rgba(255,255,240,' + (0.55 * a) + ')';
+      ctx.lineWidth = f.staticOnly ? 2.2 : 1.8;
+      for (const [dr, dc] of cells) {
+        const r = f.r + dr, c = f.c + dc;
+        if (!S.board[r * 9 + c]) continue;
+        rr(ctx, b.gx + c * cell + 2, b.gy + r * cell + 2, cell - 4, cell - 4, cell * 0.16); ctx.stroke();
+      }
       ctx.restore();
+    } else if (f.type === 'vent-pop' && !red) {
+      const vc = f.i % 9, vr = Math.floor(f.i / 9);
+      const vx = b.gx + (vc + 0.5) * cell, vy = b.gy + (vr + 0.5) * cell;
+      const a = 0.68 * (1 - Q);
+      if (a > 0.01) {
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        ctx.strokeStyle = 'rgba(130,250,232,' + a + ')';
+        ctx.lineWidth = Math.max(1.8, cell * 0.07 * (1 - Q));
+        ctx.beginPath(); ctx.arc(vx, vy, cell * (0.28 + 0.44 * easeOut(Q)), 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+      }
     }
   }
 }
@@ -3684,10 +4003,11 @@ function drawOverlayFx(now) { // popups and banners above everything on the boar
   const t = fxNow(now), b = LAY.board, cell = b.cell, red = reducedMotion();
   for (const f of FX) {
     const q = (t - f.t0) / f.dur; if (q < 0 || q > 1) continue;
+    const Q = clamp01(q);
     if (f.type === 'popup') {
-      const y = f.y - (red || f.rise === false ? 0 : cell * 0.7 * easeOut(q));
-      const sc = red ? 1 : (q < 0.18 ? easeBack(q / 0.18) : 1);
-      ctx.save(); ctx.globalAlpha = q < 0.7 ? 1 : 1 - (q - 0.7) / 0.3;
+      const y = f.y - (red || f.rise === false ? 0 : cell * 0.7 * easeOut(Q));
+      const sc = red ? 1 : (Q < 0.18 ? easeBack(Q / 0.18) : 1);
+      ctx.save(); ctx.globalAlpha = Q < 0.7 ? 1 : 1 - (Q - 0.7) / 0.3;
       ctx.translate(f.x, y); ctx.scale(sc, sc);
       ctx.font = '800 ' + f.size + 'px ' + FONT_DISPLAY; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(4, f.size * 0.18); ctx.strokeStyle = 'rgba(10,28,32,.92)';
@@ -3695,8 +4015,8 @@ function drawOverlayFx(now) { // popups and banners above everything on the boar
       ctx.restore();
     } else if (f.type === 'banner') {
       const cx = b.x + b.size / 2, cy = b.y + b.size * 0.42, size = bannerSize(f.level);
-      const sc = red ? 1 : (q < 0.22 ? easeBack(q / 0.22) : 1 + 0.03 * (q - 0.22));
-      const a = q < 0.75 ? 1 : 1 - (q - 0.75) / 0.25;
+      const sc = red ? 1 : (Q < 0.22 ? easeBack(Q / 0.22) : 1 + 0.03 * (Q - 0.22));
+      const a = Q < 0.75 ? 1 : 1 - (Q - 0.75) / 0.25;
       ctx.save(); ctx.globalAlpha = a; ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.rotate(-0.04);
       if (!red && f.level >= 3) { // refined restrained warm amber halo behind big combos (<=0.22 alpha, 3.6x2.0, CD-WF4-05)
         ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = a * Math.min(0.22, 0.10 + 0.025 * f.level);
@@ -3720,11 +4040,22 @@ function drawOverlayFx(now) { // popups and banners above everything on the boar
       ctx.restore();
     }
   }
+  // Calm dark-glass bottom caption during end-of-game loss waits (W6-S5-01 / wf-4 §2A.3, >= 12px floor CD-WF5-03)
+  if (S.scene === 'game' && S.over && UI.overAt && !S.won) {
+    const prompt = undoAvail() ? 'Tap to continue · U to undo' : 'Tap to continue';
+    const pw = Math.min(VW - 24, measureW('700 13px ' + FONT_SANS, prompt) + 28);
+    const px = b.x + b.size / 2 - pw / 2;
+    const py = Math.min(VH - 34, b.y + b.size - 34);
+    capsule(px, py, pw, 26, 0.88);
+    text(prompt, px + pw / 2, py + 13, 13, '#F4F2EC', 'center', 'sans', '700', false);
+  }
 }
 function shakeOffset(now) {
   const f = FX.find(x => x.type === 'shake'); if (!f) return [0, 0];
-  const q = Math.min(1, Math.max(0, (fxNow(now) - f.t0) / f.dur)), a = f.amp * (1 - q);
-  return [Math.sin(q * 40) * a, Math.cos(q * 33) * a * 0.6];
+  const elapsed = Math.max(0, fxNow(now) - f.t0);
+  const q = clamp01(elapsed / f.dur), sec = elapsed / 1000;
+  const a = f.amp * (1 - q) * (1 - q); // wall-clock ~20.5 Hz / 16.5 Hz quadratic decay (zero 60 Hz aliasing, preserving S1-11 metadata)
+  return [Math.sin(sec * 20.5 * Math.PI * 2) * a, Math.cos(sec * 16.5 * Math.PI * 2) * a * 0.6];
 }
 function drawVentWisps(now) {
   if (reducedMotion() || liteFx()) return;
@@ -3755,13 +4086,15 @@ function drawHeatSteam(now) { // from 90°F, <=8 gentle wisps rise off the pools
   }
   ctx.globalAlpha = 1;
 }
-function drawAmbientSteam(now, title) { // slow steam drifting up the scene, behind the board
-  if (reducedMotion() || (!title && (FX.length || liteFx()))) return;
-  const t = now / 1000, sp = getSteamSprite(), n = title ? 12 : 6;
+function drawAmbientSteam(now, title) { // slow steam drifting up the scene, smoothly damped when FX active (wf-4 §3A)
+  if (reducedMotion() || (!title && liteFx())) return;
+  const targetA = title || FX.length === 0 ? 1 : 0.3;
+  UI.ambSteamAlpha += (targetA - UI.ambSteamAlpha) * 0.12;
+  const t = fxNow(now) / 1000, sp = getSteamSprite(), n = title ? 12 : 6;
   for (let k = 0; k < n; k++) {
     const q = (t * (title ? 0.05 : 0.035) + k * 0.383) % 1, x = VW * ((k * 0.137 + 0.05) % 1) + Math.sin(q * 6 + k) * 40, y = VH * (1.05 - q * 0.95);
     const sz = (title ? 110 : 70) + q * (title ? 200 : 130);
-    ctx.globalAlpha = (title ? 0.22 : 0.14) * Math.sin(Math.PI * q);
+    ctx.globalAlpha = (title ? 0.22 : 0.14) * UI.ambSteamAlpha * Math.sin(Math.PI * q);
     ctx.drawImage(sp, x - sz / 2, y - sz / 2, sz, sz);
   }
   ctx.globalAlpha = 1;
@@ -3836,15 +4169,29 @@ function draw(now) {
     drawBeadGlow9Slice(b.gx, b.gy, W9);
     ctx.globalAlpha = 1;
   }
-  let land = null; // freshly placed tiles swell and settle (allocated only while a land FX is active)
-  for (let fi = 0; fi < FX.length; fi++) {
-    const f = FX[fi];
-    if (f.type !== 'land') continue;
-    const q = (fxNow(now) - f.t0) / f.dur;
-    if (q >= 0 && q < 1) {
-      if (!land) land = new Map();
-      const sVal = 1 + 0.08 * Math.sin(Math.PI * q);
-      for (const [dr, dc] of PIECES[f.id].cells) land.set((f.r + dr) * 9 + f.c + dc, sVal);
+  const tNow = fxNow(now), red = reducedMotion();
+  let animSkip = null, activeLands = null, activeVents = null;
+  if (!red) {
+    for (let fi = 0; fi < FX.length; fi++) {
+      const f = FX[fi];
+      if (f.type === 'land' && !f.staticOnly) {
+        const q = (tNow - f.t0) / f.dur;
+        if (q >= 0 && q < 1) {
+          if (!animSkip) animSkip = new Set();
+          if (!activeLands) activeLands = [];
+          const cells = f.cells || PIECES[f.id].cells;
+          for (const [dr, dc] of cells) animSkip.add((f.r + dr) * 9 + f.c + dc);
+          activeLands.push({ f, q: clamp01(q) });
+        }
+      } else if (f.type === 'vent-pop') {
+        const q = (tNow - f.t0) / f.dur;
+        if (q >= 0 && q < 1 && S.board[f.i] === 8) {
+          if (!animSkip) animSkip = new Set();
+          if (!activeVents) activeVents = [];
+          animSkip.add(f.i);
+          activeVents.push({ f, q: clamp01(q) });
+        }
+      }
     }
   }
   // Basin-clipped 81-cell placed drawTile() loop so Row-8/Col-8 baked shadows never bleed across the brass bead or marble rim (W6-S4-02 / CD-WF3-04)
@@ -3852,19 +4199,41 @@ function draw(now) {
   ctx.beginPath(); ctx.rect(b.gx, b.gy, W9, W9); ctx.clip();
   for (let i = 0; i < 81; i++) {
     const code = S.board[i];
-    if (!code || (land && land.has(i))) continue;
+    if (!code || (animSkip && animSkip.has(i))) continue;
     const r = Math.floor(i / 9), c = i % 9;
     const v = code === 7 ? ((r * 7 + c * 13) & 3) : 0;
     drawTile(code, b.gx + c * cell, b.gy + r * cell, cell, 1, v);
   }
-  if (land) { // second mini-pass for swelling landed tiles so bottom/right neighbors never clip them (wf-3:22)
-    for (const [i, k] of land.entries()) {
-      const code = S.board[i];
-      if (!code) continue;
-      const r = Math.floor(i / 9), c = i % 9;
-      const x = b.gx + c * cell, y = b.gy + r * cell;
-      const v = code === 7 ? ((r * 7 + c * 13) & 3) : 0;
-      drawTile(code, x - cell * (k - 1) / 2, y - cell * (k - 1) / 2, cell * k, 1, v);
+  // Post-static-tiles mini-pass: mass-weighted anisotropic ceramic squash-and-stretch pivoted around piece Center of Gravity over canonical cached sprites (CD-WF3-03 / W6-S5-03)
+  if (activeLands) {
+    for (let li = 0; li < activeLands.length; li++) {
+      const { f, q } = activeLands[li], p = PIECES[f.id], cells = f.cells || p.cells;
+      let sumX = 0, sumY = 0;
+      for (const [dr, dc] of p.cells) { sumX += f.c + dc + 0.5; sumY += f.r + dr + 0.5; }
+      const cgx = b.gx + (sumX / p.cells.length) * cell, cgy = b.gy + (sumY / p.cells.length) * cell;
+      const tr = landTransform(q, f.n || p.n);
+      ctx.save();
+      ctx.translate(cgx, cgy + tr.dy);
+      ctx.scale(tr.sx, tr.sy);
+      ctx.translate(-cgx, -cgy);
+      for (const [dr, dc] of cells) {
+        const r = f.r + dr, c = f.c + dc, code = S.board[r * 9 + c];
+        if (!code) continue;
+        const v = code === 7 ? ((r * 7 + c * 13) & 3) : 0;
+        drawTile(code, b.gx + c * cell, b.gy + r * cell, cell, 1, v);
+      }
+      ctx.restore();
+    }
+  }
+  // Buoyant 240 ms Spring Vent spawn pop-in (0.3 -> 1.08 -> 1.0) over canonical cached sprite (CD-WF3-03 / W6-S5-03)
+  if (activeVents) {
+    for (let vi = 0; vi < activeVents.length; vi++) {
+      const { f, q } = activeVents[vi], r = Math.floor(f.i / 9), c = f.i % 9;
+      const sc = q < 0.62 ? 0.3 + 0.78 * easeOut(q / 0.62) : 1.08 - 0.08 * easeOut((q - 0.62) / 0.38);
+      const vx = b.gx + (c + 0.5) * cell, vy = b.gy + (r + 0.5) * cell;
+      ctx.save(); ctx.translate(vx, vy); ctx.scale(sc, sc); ctx.translate(-vx, -vy);
+      drawTile(8, b.gx + c * cell, b.gy + r * cell, cell, 1, 0);
+      ctx.restore();
     }
   }
   ctx.restore();
@@ -3898,20 +4267,34 @@ function draw(now) {
   }
   drawOverlayFx(now);
 }
-// where the carried piece is painted: its top-left is the ghost's, so body and target agree (S1-06); the shadow gives the height
+// where the carried piece is painted: its top-left converges to the ghost's (0.0 px residual when centered, S1-06);
+// touch visual lift eases over 90 ms while dragGhost() hit-tests at 0 ms, desktop grab offset damps over 100 ms, and magnetic snap pulls gently toward valid targets.
 function dragBody(d, now) {
   const t = d && S.tray[d.slot];
   if (!t) return null;
-  const cell = LAY.board.cell, p = PIECES[t.id], [x, y] = dragTopLeft(d, p);
-  const gm = slotPieceGeom(d.slot) || { s: cell }, q = reducedMotion() ? 1 : easeOut(Math.min(1, Math.max(0, (now - (d.t1 || now)) / 120)));
-  const s = gm.s + (cell - gm.s) * q;   // was cell * 1.08, lifted 0.34 cell and shifted 0.12 cell left for the mouse
-  return { id: p.id, x: x + (p.wd * (cell - s)) / 2, y: y + (p.h * (cell - s)) / 2, s };
+  const cell = LAY.board.cell, p = PIECES[t.id], red = reducedMotion();
+  const gm = slotPieceGeom(d.slot) || { s: cell };
+  const elapsed = Math.max(0, now - (d.t1 || now));
+  const qScale = red ? 1 : easeOut(clamp01(elapsed / 120));
+  const s = gm.s + (cell - gm.s) * qScale;
+  const lift = dragLift(d, p, cell);
+  const qLift = (red || !d.touch) ? 1 : easeOut(clamp01(elapsed / 90));
+  const qGrab = (red || d.touch) ? 1 : easeOut(clamp01(elapsed / 100));
+  const x = d.x - p.wd * cell / 2 - (d.grabOx || 0) * (1 - qGrab);
+  const y = d.y - p.h * cell / 2 - lift * qLift - (d.grabOy || 0) * (1 - qGrab);
+  let bx = x + (p.wd * (cell - s)) / 2, by = y + (p.h * (cell - s)) / 2;
+  const gh = UI.ghost;
+  if (gh && gh.slot === d.slot && gh.valid && qScale > 0.9) {
+    const dx = (LAY.board.gx + gh.c * cell) - bx, dy = (LAY.board.gy + gh.r * cell) - by;
+    if (Math.hypot(dx, dy) < cell * 0.75) { bx += dx * 0.16; by += dy * 0.16; }
+  }
+  return { id: p.id, x: bx, y: by, s };
 }
 function needsAnim(now = performance.now()) {
   if (document.hidden || UI.confirm) return false;
   if (S.scene === 'title') return !reducedMotion() && (now - UI.lastInput < 30000);
   if (S.scene !== 'game') return false; // 0 GPU/2D redraws behind Pause, Settings, Help, Cards, Records, Trail, Over, Win (CD-WF3-04)
-  if (FX.length > 0 || (UI.drag && UI.drag.moved)) return true;
+  if (FX.length > 0 || (UI.drag && UI.drag.moved) || UI.heatAnim || UI.scoreAnim || UI.heatPulseAt) return true;
   if (reducedMotion()) return false;
   if (now - UI.lastInput >= 30000) return false; // uniform 30s idle sleep across Springs vents, Boiling, and live water (W3-P-N02)
   return S.board.includes(8) || S.heat >= 4 || WATER.on || !!UI.ghost || !!UI.hint;
@@ -3941,12 +4324,16 @@ function failSafe() {
   try { dropBadResume(); } catch (e) { SAVE.resume = null; }
   try {
     cancelDrag({ animate: false });
+    cancelEndCues();
+    cancelTurnTimers();
+    cancelCountUp();
     WATER.clear();
     clearGoalToasts();
     if (UI.confirm) { UI.confirm = null; $('sc-confirm').classList.remove('on'); }
     if (UI.tip) { clearTimeout(UI.tip.timer); UI.tip = null; tipRender(); }
-    UI.sel = -1; UI.ghost = null; UI.drag = null; UI.hint = null; UI.overAt = 0; UI.skipEnd = false; UI.pausedAt = null; FX.length = 0;
+    UI.sel = -1; UI.ghost = null; UI.drag = null; UI.hint = null; UI.overAt = 0; UI.skipEnd = false; UI.pausedAt = null; UI.heatAnim = null; UI.scoreAnim = null; UI.heatPulseAt = 0; FX.length = 0;
     S = freshGame('classic'); S.scene = 'game';
+    syncGauges(true);
     showScene('title');
   } catch (e) { /* the loop keeps running regardless */ }
   toast('Something went wrong', 'Back at the title screen. Start a new game to keep playing.', 7000, { above: true });
@@ -3955,11 +4342,13 @@ function loop(now) {
   requestAnimationFrame(loop);
   if (document.hidden) return;
   try {
-    if (UI.overAt && S.scene === 'game' && now >= UI.overAt && (FX.length === 0 || UI.skipEnd)) { UI.overAt = 0; UI.skipEnd = false; FX.length = 0; showEnd(); }
+    // Gate showEnd() strictly on UI.overAt && (UI.skipEnd || now >= UI.overAt) in 'game' (never stall on trailing steam FX, W6-S5-01)
+    if (UI.overAt && S.scene === 'game' && (UI.skipEnd || (UI.fxFrozen == null && now >= UI.overAt))) { UI.overAt = 0; UI.skipEnd = false; FX.length = 0; showEnd(); }
+    if (S.scene === 'game') stepHudScore(now);
     watchFrame(now);
     pollPad(now);
     // ambient-only frames (steam, water shimmer) run at 30 fps; anything the player caused runs at full rate
-    const ambientOnly = !dirty && FX.length === 0 && !UI.drag && WATER.ripples.length === 0;
+    const ambientOnly = !dirty && FX.length === 0 && !UI.drag && WATER.ripples.length === 0 && !UI.heatAnim && !UI.scoreAnim && !UI.heatPulseAt;
     if (dirty || (needsAnim(now) && (!ambientOnly || now - lastDraw > 31))) { draw(now); dirty = false; lastDraw = now; }
     frameFails = 0;
   } catch (e) {
@@ -4188,6 +4577,9 @@ function hideToast(force = false) {
 
 function newGame(opts = {}) {
   cancelDrag({ animate: false });
+  cancelEndCues();
+  cancelTurnTimers();
+  cancelCountUp();
   const mode = opts.mode || 'classic';
   const rKey = runKey(mode, opts.level, opts.date || todayStr());
   const keptEntry = opts.resume && RUN_MODES.includes(mode) ? savedRunEntry(mode, rKey) : null;
@@ -4242,6 +4634,7 @@ function newGame(opts = {}) {
   }
   S = Object.assign(g, { scene: 'game' });
   UI.sel = -1; UI.ghost = null; UI.drag = null; UI.overAt = 0; UI.skipEnd = false; UI.pausedAt = null; UI.lastInput = performance.now(); FX.length = 0; WATER.clear(); UI.hint = null; UI.hintRound = currentHintRound();
+  syncGauges(true);
   if (mode === 'classic') { SAVE.resume = null; persist('replace'); }
   hideToast();
   clearGoalToasts();
@@ -4274,11 +4667,13 @@ function snapshot() {
 const CLEAR_RUN = new WeakMap();   // clearing placements in a row in this game (an undo or a new game starts a new count)
 function doPlace(slot, r, c) {
   if (S.over || S.scene !== 'game') return { ok: false };
+  if (UI.drag) cancelDrag({ animate: false });
   UI.lastInput = performance.now();
   const snap = snapshot();
   const prevEra = S.era;
   const res = applyMove(S, slot, r, c);
   if (!res.ok) { sfx('invalid'); return res; }
+  snap._move = { slot, id: res.id, r, c };
   S.undoStack.push(snap);
   UI.hint = null;
   if (S.undoStack.length > (S.mode === 'trail' ? 60 : 3)) S.undoStack.shift();
@@ -4292,12 +4687,18 @@ function doPlace(slot, r, c) {
   sfx('place', { n: pn.n, pan });
   CLEAR_RUN.set(S, S.clearRun || 0);
   S.bestG = Math.max(S.bestG || 0, res.G);
-  landFx(res.id, r, c);
+  landFx(res.id, r, c, res.cleared);
+  if (!res.G && WATER.on && !reducedMotion()) { // mass-scaled basin water ripple on non-clearing drop (wf-4 §1C)
+    WATER.ripple((c + pn.wd / 2) / 9, (r + pn.h / 2) / 9, 0.14 + 0.02 * pn.n);
+  }
   if (res.G) {
     spawnClearFx(res);
     sfx('clear', { G: res.G, heat: S.heat, pan, run: CLEAR_RUN.get(S) });
     clearFeedback(res, cx, cy, snap.heat);
-    if (heatTier(S.heat) > heatTier(snap.heat)) setTimeout(() => sfx('heat', { tier: heatTier(S.heat) }), 180);
+    if (!S.over && heatTier(S.heat) > heatTier(snap.heat)) {
+      const hTier = heatTier(S.heat);
+      UI.turnTimers.push(setTimeout(() => { if (S.scene === 'game' && !S.over) sfx('heat', { tier: hTier }); }, 180));
+    }
     if (res.vents) sfx('vent');
     if (res.bonus || res.tufaSweep) sfx('bonus');
   }
@@ -4305,13 +4706,15 @@ function doPlace(slot, r, c) {
     const red = reducedMotion();
     for (const vi of res.ventsSpawned) {
       const vc = vi % 9, vr = Math.floor(vi / 9);
+      if (!red) addFx({ type: 'vent-pop', i: vi, dur: 240 });
       if (WATER.on) WATER.ripple((vc + 0.5) / 9, (vr + 0.5) / 9, red ? 0.35 : 0.75);
       if (!red && !liteFx()) addFx({ type: 'steam', x: b.gx + (vc + 0.5) * cell, y: b.gy + (vr + 0.5) * cell, dur: 820, h: cell * 1.15, ph: vi * 0.7, w: cell * 0.55, delay: 40 });
     }
   }
   if (res.newRound) {
-    [0, 1, 2].forEach(k => addFx({ type: 'deal', slot: k, dur: reducedMotion() ? 1 : 260 }));
-    setTimeout(() => sfx('deal'), 120);
+    const red = reducedMotion();
+    [0, 1, 2].forEach(k => addFx({ type: 'deal', slot: k, delay: red ? 0 : k * 45, dur: red ? 1 : 170 }));
+    if (!S.over) sfx('deal'); // synced 1:1 to 0/45/90 ms staggered deals (CD-WF4-01 / W6-S5-03)
   }
   if (S.mode === 'classic') {
     S.era = Math.max(S.era, eraFor(S.score));
@@ -4336,7 +4739,7 @@ function doPlace(slot, r, c) {
   const deadNow = S.tray.filter(x => x && !fitsAnywhere(S.board, x.id)).length;
   const deadBefore = res.newRound ? 0 : snap.tray.filter((x, k) => x && k !== slot && !fitsAnywhere(snap.board, x.id)).length;
   const newlyDoomed = !UI.doomed && trayDoomed();
-  if (!S.over && (deadNow > deadBefore || newlyDoomed)) setTimeout(() => { if (S.scene === 'game' && !S.over) sfx('warn'); }, res.G ? 650 : 160);
+  if (!S.over && (deadNow > deadBefore || newlyDoomed)) UI.turnTimers.push(setTimeout(() => { if (S.scene === 'game' && !S.over) sfx('warn'); }, res.G ? 650 : 160));
   if (S.mode !== 'trail' && !res.G && S.heat < snap.heat && hintOnce('cool')) toast('The water cooled', 'A piece that clears nothing cools the water, and cooler water scores less. Clear a group to heat it up.', 5000);
   goalsOnPlace(res); tipAfterPlace(res);
   let msg = 'Placed. ';
@@ -4346,6 +4749,7 @@ function doPlace(slot, r, c) {
   if (S.over) msg += S.won ? 'Goal reached!' : 'No room left. Game over.';
   else msg += trayDesc();
   announce(msg);
+  syncGauges(false, { prevHeat: snap.heat, G: res.G });
   if (S.over) endGame(res);
   else saveResume();
   updateHud();
@@ -4398,6 +4802,7 @@ function currentHintRound() { return Number.isInteger(S.hintRound) ? S.hintRound
 function hintAvail() { return S.scene === 'game' && !S.over && S.mode !== 'trail' && currentHintRound() < S.round && S.tray.some(t => t && fitsAnywhere(S.board, t.id)); }
 function useHint() {
   if (S.mode === 'trail' || S.scene !== 'game' || S.over) return { ok: false };
+  cancelDrag({ animate: false });
   if (!hintAvail()) { sfx('invalid'); announce(currentHintRound() >= S.round ? 'You have used the hint for this tray.' : 'No piece has room for a hint.'); return { ok: false }; }
   const h = findHint(S);
   if (!h) { sfx('invalid'); return { ok: false }; }
@@ -4421,8 +4826,14 @@ function undoCount() {
 function doUndo() {
   if (!canUndo()) { sfx('invalid'); return { ok: false }; }
   cancelDrag({ animate: false });
+  cancelEndCues();
+  cancelTurnTimers();
+  cancelCountUp();
   UI.hint = null;
+  const prevHeat = S.heat;
   const snap = S.undoStack.pop();
+  const mv = snap._move || null;
+  delete snap._move;
   UI.skipEnd = false;
   const stack = S.undoStack, left = S.undoLeft, used = S.undosUsed || 0, hintsUsed = S.hintsUsed || 0;
   const priorBest = Number.isFinite(S.priorBest) ? S.priorBest : bestFor(S.mode);
@@ -4447,12 +4858,17 @@ function doUndo() {
     if (now < was) toast('Undo used', 'This puzzle is now worth ' + now + (now === 1 ? ' star.' : ' stars.'), 2500);
   }
   UI.sel = -1; UI.ghost = null; UI.pausedAt = null; UI.lastInput = performance.now(); FX.length = 0; WATER.clear();
+  if (mv && !reducedMotion() && S.tray[mv.slot] && LAY && LAY.board) { // non-blocking 160 ms reverse flight back to slot (wf-4 §1E)
+    const b = LAY.board, cell = b.cell;
+    addFx({ type: 'undo-lift', slot: mv.slot, x: b.gx + mv.c * cell, y: b.gy + mv.r * cell, s: cell, dur: 160 });
+  }
   bgKey = ''; boardKey = '';
   sfx('undo'); audioMood();
   if (AU.kit) {
     const spFloor = S.mode === 'springs' ? (springsAct(S.springs) === 3 ? 0.55 : springsAct(S.springs) === 2 ? 0.25 : 0) : 0;
     AU.kit.amb.set('heat', S.mode === 'trail' ? 0 : Math.max(spFloor, Math.min(1, S.heat / 12)));
   }
+  syncGauges(false, { prevHeat });
   announce('Undone. ' + (S.mode === 'trail' ? 'Worth ' + trailStars(S.undosUsed) + ' stars now. ' : 'Score ' + S.score + '. ') + trayDesc());
   saveResume(); updateHud(); dirty = true;
   return { ok: true };
@@ -4705,11 +5121,13 @@ function endGame(res) {
   }
   S.provBest = wroteBest;
   UI.skipEnd = false;
-  UI.overAt = performance.now() + (reducedMotion() ? 350 : res && !res.G ? 450 : 1000);   // a last piece that clears nothing has no show to wait for
+  const red = reducedMotion();
+  const waitMs = S.won && S.mode === 'springs' ? (red ? 900 : 2400) : red ? 350 : (res && !res.G && !S.won ? 450 : 1050);
+  UI.overAt = performance.now() + waitMs;   // calibrated wait durations (never stalling on trailing steam FX, W6-S5-01)
   sfx(S.won ? 'win' : 'over', { at: 0.3 });
   if (S.won && S.mode === 'springs') winSteam();
-  if (UI.newBest) setTimeout(() => { if (S.over) sfx('best'); }, 1500);
-  if ((UI.trailWin && UI.trailWin.first && CARDS[S.level]) || UI.newCards.length) setTimeout(() => { if (S.over) sfx('card'); }, 1400);
+  if (UI.newBest) UI.endTimers.push(setTimeout(() => { if (S.over) sfx('best'); }, 1500));
+  if ((UI.trailWin && UI.trailWin.first && CARDS[S.level]) || UI.newCards.length) UI.endTimers.push(setTimeout(() => { if (S.over) sfx('card'); }, 1400));
 }
 // The Springs win (S4-04): steam rises across the whole floor for about three seconds and "Valley of Vapors" (the valley's old
 // nickname, from the first era's caption) hangs over the board before the card. Reduced motion gets the banner only, and shorter.
@@ -4726,10 +5144,10 @@ function winSteam() {
   popup('Valley of Vapors', b.x + b.size / 2, b.y + b.size * 0.44, '#F7CF62', Math.max(18, Math.round(cell * 0.78)), { dur: red ? 900 : 2500, delay: red ? 0 : 200, rise: false });
 }
 function showEnd() {
-  if (!S.over || !GAME_SCENES.has(S.scene)) return;
+  if (!S.over || S.scene !== 'game') return;
   if (S.won && S.mode === 'trail') showWinTrail();
   else {
-    fillOver(); showScene('over');
+    showScene('over'); // single fillOver() invocation inside showScene('over') (W6-S5-01 / CD-WF5-06)
     announce($('ov-title').textContent.replace(/[.!]$/, '') + '. Score ' + S.score.toLocaleString('en-US') + (UI.newBest ? '. New best!' : '. ' + $('ov-new').textContent));
   }
 }
@@ -4763,9 +5181,10 @@ function fillOver() {
     hero.style.backgroundImage = 'url("assets/' + eraName + '.webp")';
     hero.style.backgroundPosition = (ERA_CROP[eraId()] || ERA_CROP.ancient).hero;
   }
-  countUp($('ov-count'), S.score);
+  const countDur = countUp($('ov-count'), S.score);
   $('ov-new').textContent = UI.newBest ? 'New best!' : 'Best: ' + bestFor(S.mode).toLocaleString('en-US');
   $('ov-new').classList.toggle('hit', !!UI.newBest);
+  $('ov-new').style.animationDelay = UI.newBest && countDur > 0 ? Math.round(countDur) + 'ms' : '';
   const rows = [['Groups cleared', S.groups], ['Pieces placed', S.placed]];
   if (!trail) {
     rows.push(['Hottest water', S.bestHeat >= 12 ? '143°F (boiling)' : tempF(S.bestHeat) + '°F']);
@@ -4808,11 +5227,22 @@ function overTip() {
   if (S.groups === 0) return 'Nothing cleared this game. Fill a whole row, column or 3×3 pool to clear it.';
   return 'Keep a gap open for the big pieces: a stranded piece ends the game.';
 }
-function countUp(el, to) { // the summary score counts up (instant under reduced motion)
+function cancelCountUp() {
+  if (UI.countRaf) { cancelAnimationFrame(UI.countRaf); UI.countRaf = 0; }
+  UI.countUntil = 0;
+}
+function countUp(el, to) { // single cancellable score roll (instant under reduced motion, W6-S5-01 / CD-WF5-06)
+  cancelCountUp();
   const dur = reducedMotion() ? 0 : Math.min(900, 300 + to / 8), t0 = performance.now();
-  UI.countUntil = t0 + dur;
-  const step = now => { const q = dur ? Math.min(1, (now - t0) / dur) : 1; el.textContent = Math.round(to * easeOut(q)).toLocaleString('en-US'); if (q < 1) requestAnimationFrame(step); };
+  UI.countUntil = dur ? t0 + dur : 0;
+  const step = now => {
+    const q = dur ? clamp01((now - t0) / dur) : 1;
+    el.textContent = Math.round(to * easeOut(q)).toLocaleString('en-US');
+    if (q < 1) UI.countRaf = requestAnimationFrame(step);
+    else { UI.countRaf = 0; UI.countUntil = 0; }
+  };
   step(t0);
+  return dur;
 }
 function factEl(L) {
   const el = document.createElement('article'); el.className = 'card';
@@ -4834,7 +5264,17 @@ function showWinTrail() {
   const idx = LEVELS.findIndex(l => l.id === S.level);
   const w = UI.trailWin || { stars: trailStars(S.undosUsed || 0), prev: 0, undos: S.undosUsed || 0, first: false };
   $('win-title').textContent = w.crown === 'all' ? 'Spring Trail complete' : w.crown === 'title' ? TRAIL_TITLE : LEVELS[idx].name + ': solved';
-  const sb = $('win-stars'); sb.innerHTML = ''; sb.appendChild(starsEl(w.stars));
+  const sb = $('win-stars'); sb.innerHTML = '';
+  const stEl = document.createElement('span'); stEl.className = 'stars'; stEl.setAttribute('role', 'img'); stEl.setAttribute('aria-label', w.stars + ' of 3 stars');
+  const redSt = reducedMotion();
+  for (let k = 0; k < 3; k++) {
+    const sp = document.createElement('span');
+    sp.className = k < w.stars ? 'star lit' : 'star';
+    sp.textContent = k < w.stars ? '★' : '☆';
+    if (k < w.stars) sp.style.animationDelay = redSt ? '0ms' : (k * 120) + 'ms';
+    stEl.appendChild(sp);
+  }
+  sb.appendChild(stEl);
   const how = w.undos === 0 ? 'No undos used.' : w.undos + (w.undos === 1 ? ' undo' : ' undos') + ' used.';
   const next = w.stars < 3 ? ' Solve it again with ' + (w.stars === 2 ? 'no undos' : 'two undos or fewer') + ' for ' + (w.stars + 1) + ' stars.' : '';
   const best = w.stars > w.prev && w.prev > 0 ? ' New best: up from ' + w.prev + '.' : '';
@@ -4857,17 +5297,31 @@ function resumePauseClocks() {
   UI.pausedAt = null;
   for (let i = 0; i < FX.length; i++) FX[i].t0 += dt;
   for (let i = 0; i < WATER.ripples.length; i++) WATER.ripples[i].t0 += dt;
+  if (UI.heatAnim) UI.heatAnim.t0 += dt;
+  if (UI.scoreAnim) UI.scoreAnim.t0 += dt;
+  if (UI.heatPulseAt) UI.heatPulseAt += dt;
   WATER.phaseT = now;
 }
 function showScene(name) {
   if (name === 'game' && !S.tray) name = 'title';
   if (name !== 'game' && UI.drag) cancelDrag({ animate: false });
+  if (name !== 'over') cancelCountUp();
+  if (name !== 'settings') UI.auditionAudio = false;
   UI.lastInput = performance.now();
   setTimeout(tipRender, 0);
   const prev = S.scene;
-  if (['help', 'settings', 'trail', 'cards', 'records'].includes(name) && prev !== name) UI.returnTo = (prev === 'game' || prev === 'pause') ? 'pause' : (prev === 'trail' && name !== 'trail' ? 'trail' : 'title');
+  const subScenes = ['help', 'settings', 'trail', 'cards', 'records'];
+  if (subScenes.includes(name) && prev !== name) {
+    if (prev === 'game' || prev === 'pause') UI.returnTo = 'pause';
+    else if (subScenes.includes(prev) && UI.returnTo === 'pause') UI.returnTo = 'pause';
+    else if (prev === 'trail' && name !== 'trail') UI.returnTo = 'trail';
+    else UI.returnTo = 'title';
+  } else if (name === 'title' || name === 'game' || name === 'over' || name === 'win') {
+    UI.returnTo = 'title';
+  }
   S.scene = name;
   if (name === 'game') resumePauseClocks();
+  else if (name === 'pause') { if (UI.pausedAt == null) UI.pausedAt = performance.now(); UI.sel = -1; UI.ghost = null; PERF.n = 0; PERF.sum = 0; }
   else if (name === 'title' || name === 'over' || name === 'win') UI.pausedAt = null;
   for (const [k, id] of Object.entries(SCREENS)) $(id).classList.toggle('on', k === name);
   const pb = SCREENS[name] && $(SCREENS[name]).querySelector('.panel-body');
@@ -4908,12 +5362,13 @@ function updateHud() {
   const trail = S.mode === 'trail';
   const scoreStat = document.querySelector('#hud .stat.score');
   if (scoreStat) scoreStat.hidden = trail;
-  $('h-score').textContent = S.score.toLocaleString('en-US');
+  const targetScoreTxt = S.score.toLocaleString('en-US');
+  if (!UI.scoreAnim || reducedMotion() || trail) $('h-score').textContent = targetScoreTxt;
   $('h-best').textContent = trail ? (SAVE.trail.done.length + '/' + LEVELS.length) : Math.max(bestFor(S.mode), S.score).toLocaleString('en-US');
   $('h-best-lbl').textContent = trail ? 'Solved' : 'Best';
   $('h-mode').textContent = trail ? (LEVELS.find(l => l.id === S.level) || {}).name || '' : modeLabel();
   const gl = hudGoal(); $('h-goal').hidden = !gl; $('hud').classList.toggle('hasgoal', !!gl);
-  $('hud').classList.toggle('long', Math.max(trail ? 0 : $('h-score').textContent.length, $('h-best').textContent.length) > 5);
+  $('hud').classList.toggle('long', Math.max(trail ? 0 : targetScoreTxt.length, $('h-best').textContent.length) > 5);
   if (gl) { $('h-goal-lbl').textContent = gl[0]; $('h-goal-num').textContent = gl[1]; }
   $('b-pause').disabled = !!S.over;
   $('b-hint').hidden = S.mode === 'trail';
@@ -5216,10 +5671,11 @@ function wireDom() {
   });
   $('s-volume').addEventListener('change', () => { audioInit(); sfx('click'); });
   $('s-sfx').addEventListener('change', e => { audioInit(); setSetting('sfx', e.target.checked); sfx('click', { dir: e.target.checked ? 1 : -1 }); });
-  $('s-music').addEventListener('change', e => { audioInit(); setSetting('music', e.target.checked); sfx('click', { dir: e.target.checked ? 1 : -1 }); });
-  $('s-musicvol').addEventListener('input', e => { audioInit(); setSetting('musicVol', e.target.value / 100); });
-  $('s-ambience').addEventListener('change', e => { audioInit(); setSetting('ambience', e.target.checked); sfx('click', { dir: e.target.checked ? 1 : -1 }); });
-  $('s-ambvol').addEventListener('input', e => { audioInit(); setSetting('ambVol', e.target.value / 100); });
+  const auditionPauseAudio = () => { if (S.scene === 'settings' && UI.returnTo === 'pause' && !UI.auditionAudio) { UI.auditionAudio = true; audioMood(); } };
+  $('s-music').addEventListener('change', e => { audioInit(); setSetting('music', e.target.checked); auditionPauseAudio(); sfx('click', { dir: e.target.checked ? 1 : -1 }); });
+  $('s-musicvol').addEventListener('input', e => { audioInit(); setSetting('musicVol', e.target.value / 100); auditionPauseAudio(); });
+  $('s-ambience').addEventListener('change', e => { audioInit(); setSetting('ambience', e.target.checked); auditionPauseAudio(); sfx('click', { dir: e.target.checked ? 1 : -1 }); });
+  $('s-ambvol').addEventListener('input', e => { audioInit(); setSetting('ambVol', e.target.value / 100); auditionPauseAudio(); });
   $('s-motion').addEventListener('change', e => { audioInit(); setSetting('motion', e.target.value); sfx('click', { dir: 1 }); });
   $('s-patterns').addEventListener('change', e => { audioInit(); setSetting('patterns', e.target.checked); sfx('click', { dir: e.target.checked ? 1 : -1 }); });
   $('s-undo').addEventListener('change', e => { audioInit(); setSetting('undo', +e.target.value); sfx('click', { dir: 1 }); });
@@ -5283,6 +5739,9 @@ function restart() {
 }
 function resumeSaved(preferredMode = null) {
   cancelDrag({ animate: false });
+  cancelEndCues();
+  cancelTurnTimers();
+  cancelCountUp();
   const mode = preferredMode || UI.continueMode || (bestContinueRun() && bestContinueRun().mode) || 'classic';
   let r = null;
   if (mode === 'springs') {
@@ -5316,6 +5775,7 @@ function resumeSaved(preferredMode = null) {
   UI.earned = []; tipStart(true); hideToast(); clearGoalToasts();
   UI.sel = -1; UI.ghost = null; UI.drag = null; UI.overAt = 0; UI.skipEnd = false; UI.pausedAt = null; UI.lastInput = performance.now();
   UI.hint = null; UI.hintRound = currentHintRound();
+  syncGauges(true);
   FX.length = 0; WATER.clear(); bgKey = '';
   showScene('game');
   announce('Game resumed. Score ' + S.score + '. ' + trayDesc());
@@ -5344,14 +5804,15 @@ function cancelDrag(opts = null) {
   const d = UI.drag;
   const animate = !!(opts && opts.animate);
   const release = !(opts && opts.release === false);
+  const liveBody = d && animate && d.moved ? dragBody(d, performance.now()) : null;
   UI.drag = null;
   UI.ghost = null;
   if (d) {
     if (release && d.id != null) { try { cv.releasePointerCapture(d.id); } catch (_) {} }
     const t = S.tray && S.tray[d.slot];
     if (animate && d.moved && t) {
-      const p = PIECES[t.id], [x, y] = dragTopLeft(d, p);
-      addFx({ type: 'return', slot: d.slot, x, y, dur: reducedMotion() ? 1 : 220 });
+      const db = liveBody || (() => { const p = PIECES[t.id], [x, y] = dragTopLeft(d, p); return { x, y, s: LAY.board.cell }; })();
+      addFx({ type: 'return', slot: d.slot, x: db.x, y: db.y, s: db.s, dur: reducedMotion() ? 1 : 220 });
     }
     dirty = true;
   }
@@ -5376,12 +5837,14 @@ function dragGhost(d) {
   return best || near;
 }
 function dragHint(k) {
-  addFx({ type: 'nudge', slot: k, dur: reducedMotion() ? 1 : 320 }); sfx('pick', { k }); tipPicked();
+  addFx({ type: 'nudge', slot: k, dur: reducedMotion() ? 1 : 340 }); sfx('pick', { k }); tipPicked();
   announce('Drag the piece onto the board.');
   if (!UI.dragHinted && !UI.tip) { UI.dragHinted = true; toast('Drag to place', 'Hold a piece and slide it onto the board. Prefer taps? Turn on Tap to place in Settings.', 3500); }
 }
 function selectSlot(k, withCursor = true) {
   if (!S.tray[k]) { sfx('invalid'); return; }
+  cancelDrag({ animate: false });
+  UI.hint = null;
   UI.sel = k; sfx('pick', { k }); tipPicked();
   const p = PIECES[S.tray[k].id];
   const fit = fitsAnywhere(S.board, p.id) ? '' : ', no room on the board';
@@ -5404,7 +5867,11 @@ cv.addEventListener('pointerdown', e => {
   const p = pt(e), k = slotAt(p);
   if (e.button === 2) return;
   if (k >= 0 && S.tray[k]) {
-    UI.drag = { slot: k, x: p.x, y: p.y, sx: p.x, sy: p.y, moved: false, touch: e.pointerType !== 'mouse', id: e.pointerId };
+    clearSlotFx(k); // Frame-1 pickup interrupts any active deal/return/nudge on this slot (CD-WF4-01 / W6-S5-01)
+    const gm0 = slotPieceGeom(k), pc0 = PIECES[S.tray[k].id];
+    const grabOx = gm0 ? p.x - (gm0.x + pc0.wd * gm0.s / 2) : 0;
+    const grabOy = gm0 ? p.y - (gm0.y + pc0.h * gm0.s / 2) : 0;
+    UI.drag = { slot: k, x: p.x, y: p.y, sx: p.x, sy: p.y, t0: performance.now(), grabOx, grabOy, moved: false, touch: e.pointerType !== 'mouse', id: e.pointerId };
     try { cv.setPointerCapture(e.pointerId); } catch (_) {}
     dirty = true; e.preventDefault(); return;
   }
@@ -5450,6 +5917,7 @@ function endDrag(e, cancel) {
     dirty = true; return;
   }
   if (!cancel && e) { const p = pt(e); d.x = p.x; d.y = p.y; } // drop where the finger lifts, not at the last frame's move
+  const liveBody = dragBody(d, performance.now());
   const gh = cancel ? null : dragGhost(d);
   if (gh && gh.valid) { doPlace(d.slot, gh.r, gh.c); return; }
   UI.ghost = null;
@@ -5457,8 +5925,8 @@ function endDrag(e, cancel) {
   else if (!cancel) { sfx('invalid', { soft: 0.6 }); announce('Drop the piece on the board.'); }   // let go away from the board: say the game saw it
   const cur = S.tray[d.slot];
   if (cur) {
-    const p = PIECES[cur.id], [x, y] = dragTopLeft(d, p);
-    addFx({ type: 'return', slot: d.slot, x, y, dur: reducedMotion() ? 1 : 220 });
+    const db = liveBody || (() => { const p = PIECES[cur.id], [x, y] = dragTopLeft(d, p); return { x, y, s: LAY.board.cell }; })();
+    addFx({ type: 'return', slot: d.slot, x: db.x, y: db.y, s: db.s, dur: reducedMotion() ? 1 : 220 });
   }
 }
 cv.addEventListener('pointerup', e => endDrag(e, false));
@@ -5599,10 +6067,14 @@ function pollPad(now) {
   }
 }
 window.addEventListener('resize', () => { resize(); });
-window.addEventListener('blur', () => { if (UI.drag) cancelDrag({ animate: false }); });
+window.addEventListener('blur', () => {
+  if (UI.drag) cancelDrag({ animate: false });
+  if (UI.sel >= 0 || UI.ghost) { UI.sel = -1; UI.ghost = null; dirty = true; }
+});
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     if (UI.drag) cancelDrag({ animate: false });
+    if (UI.sel >= 0 || UI.ghost) { UI.sel = -1; UI.ghost = null; dirty = true; }
     if (S.scene === 'game') saveResume();
   }
   // a hidden tab makes no sound; Safari may also leave the context 'interrupted' after a call or lock, so resume on return
@@ -5623,6 +6095,9 @@ window.__game = {
   },
   setState(s) {
     cancelDrag({ animate: false });
+    cancelEndCues();
+    cancelTurnTimers();
+    cancelCountUp();
     clearGoalToasts();
     Object.assign(S, JSON.parse(JSON.stringify(s)));
     if (s.board) S.board = s.board.slice();
@@ -5630,11 +6105,12 @@ window.__game = {
     if (s.heat !== undefined && s.clearRun === undefined) S.clearRun = 0;
     if (s.heat !== undefined && s.boilHold === undefined) S.boilHold = s.heat >= 12 ? 1 : 0;
     UI.sel = -1; UI.ghost = null; UI.pausedAt = null; UI.lastInput = performance.now(); FX.length = 0; WATER.clear(); bgKey = ''; boardKey = '';
+    syncGauges(true);
     if (!S.over) { checkEnd(S); if (S.over) endGame(); }
     if (s.scene) showScene(s.scene);
     updateHud(); dirty = true; return true;
   },
-  isIdle() { return UI.fxFrozen != null || (FX.length === 0 && !UI.drag && !UI.overAt && ART.loading === 0 && !(performance.now() < (UI.countUntil || 0))); },
+  isIdle() { return UI.fxFrozen != null || (FX.length === 0 && !UI.drag && !UI.overAt && !UI.scoreAnim && !UI.heatAnim && ART.loading === 0 && !(performance.now() < (UI.countUntil || 0))); },
   scene(name) { if (GAME_SCENES.has(name) && !S.tray.some(Boolean) && !S.over) newGame({ mode: 'classic' }); if (name === 'over') { S.over = true; } if (name === 'win' && S.mode === 'trail') { showWinTrail(); return true; } return showScene(name); },
   newGame(opts) { newGame(opts || {}); return this.getState(); },
   act(name, ...a) {

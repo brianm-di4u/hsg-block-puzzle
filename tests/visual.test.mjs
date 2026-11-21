@@ -812,4 +812,172 @@ export const tests = [
       await t.game('act', 'setting', 'theme', 'system');
     },
   },
+  {
+    name: 'W6-S5-03 animation feel: [0,1] clamps, easing library, mass-weighted squash-and-stretch (0 sprite allocs), 0/45/90ms Frame-1 deals, 42ms G>=2 anticipation, vent-pop, quadratic wall-clock shake & damped gauges',
+    url: 'index.html?gl=force',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.seed(17);
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('act', 'hideToast');
+      await t.waitFrames(3);
+
+      // 1. Canonical easing library + [0,1] clamp safety under negative clock skew (tNow < t0)
+      const easeAndClamp = await t.page.evaluate(() => {
+        const eIn = [easeIn(0), easeIn(0.5), easeIn(1)];
+        const eOut = [easeOut(0), easeOut(0.5), easeOut(1)];
+        const eIO = [easeInOut(0), easeInOut(0.5), easeInOut(1)];
+        const cl = [clamp01(-0.5), clamp01(0.4), clamp01(1.8)];
+        // Skewed future t0 on deal/return/dragBody must never throw or invert piece scale
+        const future = performance.now() + 500;
+        FX.length = 0;
+        addFx({ type: 'deal', slot: 0, delay: 500, dur: 170 });
+        addFx({ type: 'return', slot: 1, x: 200, y: 200, s: 40, delay: 500, dur: 220 });
+        const db = dragBody({ slot: 2, x: 300, y: 300, t1: future, moved: true, touch: true }, performance.now());
+        draw(performance.now());
+        FX.length = 0;
+        return { eIn, eOut, eIO, cl, dbValid: !!(db && db.s > 0 && Number.isFinite(db.x) && Number.isFinite(db.y)) };
+      });
+      t.equal(easeAndClamp.eIn, [0, 0.125, 1], 'easeIn(q) = q^3');
+      t.equal(easeAndClamp.eOut, [0, 0.875, 1], 'easeOut(q) = 1-(1-q)^3');
+      t.equal(easeAndClamp.eIO, [0, 0.5, 1], 'easeInOut(q) cubic symmetric');
+      t.equal(easeAndClamp.cl, [0, 0.4, 1], 'clamp01 clamps strictly to [0, 1]');
+      t.equal(easeAndClamp.dbValid, true, 'negative clock skew produces valid clamped dragBody & draw()');
+
+      // 2. Mass-weighted anisotropic ceramic squash-and-stretch (Light 150ms < Medium 185ms < Heavy 230ms),
+      //    cleared-cell exclusion, non-clearing WATER.ripple, and 0 offscreen sprite allocations (CD-WF3-03).
+      await t.game('setState', { board: EMPTY(), tray: [{ id: 'o1' }, { id: 'i3h' }, { id: 'o9' }], score: 100, heat: 2 });
+      await t.waitFrames(2);
+      const landCheck = await t.page.evaluate(() => {
+        const beforeAllocs = PERF.spriteAllocs;
+        const specs = [1, 3, 9].map(n => ({ n, sp: landSpec(n), mid: landTransform(0.32, n), reb: landTransform(0.68, n), end: landTransform(1, n) }));
+        // Non-clearing heavy o9 drop (at (1,1) straddling 3x3 pools) -> 230ms land FX + mass-scaled WATER.ripple + 0 sprite allocs during draw
+        WATER.clear();
+        window.__game.act('place', 2, 1, 1);
+        const heavyLand = FX.find(f => f.type === 'land');
+        const ripAfterDrop = WATER.ripples.length;
+        draw(performance.now() + 60);
+        // Clearing drop on row 8 -> cleared cells excluded from land FX (zero orphaned white outlines over cleared water)
+        const bClr = new Array(81).fill(0);
+        for (let c = 0; c < 8; c++) bClr[8 * 9 + c] = 1;
+        S.board = bClr; S.tray = [{ id: 'i2v' }, { id: 'o1' }, { id: 'o1' }];
+        FX.length = 0;
+        window.__game.act('place', 0, 7, 8); // cell (8,8) clears row 8; cell (7,8) survives
+        const clrLand = FX.find(f => f.type === 'land');
+        draw(performance.now() + 50);
+        return {
+          specs,
+          heavyDur: heavyLand ? heavyLand.dur : 0,
+          ripAfterDrop,
+          clrLandCells: clrLand ? clrLand.cells : null,
+          allocDelta: PERF.spriteAllocs - beforeAllocs,
+          spriteCount: spriteCache.size,
+        };
+      });
+      t.equal(landCheck.specs.map(x => x.sp.dur), [150, 185, 230], 'mass-weighted land durations Light 150 / Med 185 / Heavy 230 ms');
+      t.expect(landCheck.specs.every(x => x.mid.sx > 1 && x.mid.sy < 1 && x.reb.sx < 1 && x.reb.sy > 1), 'anisotropic ceramic squash -> rebound transforms');
+      t.equal(landCheck.heavyDur, 230, 'o9 spawns 230 ms heavy land FX');
+      t.expect(landCheck.ripAfterDrop >= 1, 'non-clearing drop emits mass-scaled WATER.ripple');
+      t.equal(landCheck.clrLandCells, [[0, 0]], 'cleared row-8 cell (1,0) excluded from land FX cells (zero orphaned outline)');
+      t.equal(landCheck.allocDelta, 0, '0 offscreen sprite allocations during squash-and-stretch & clear draw');
+      t.expect(landCheck.spriteCount <= 22, 'spriteCache remains <= 22 (' + landCheck.spriteCount + ')');
+
+      // 3. Staggered 0/45/90ms deals (total settle <= 260ms) + Frame-1 grabbability superseding waiting deal FX (CD-WF4-01)
+      await t.game('setState', { board: EMPTY(), tray: [null, null, { id: 'o1' }], score: 100, heat: 0 });
+      const dealCheck = await t.page.evaluate(() => {
+        window.__game.act('place', 2, 4, 4); // triggers newRound -> 3 staggered deals
+        const deals = FX.filter(f => f.type === 'deal').sort((a, b) => a.slot - b.slot);
+        const delays = deals.map(d => Math.round(d.t0 - deals[0].t0));
+        const durs = deals.map(d => d.dur);
+        // Grab slot 2 on Frame 1 (while tNow < deals[2].t0) -> pointerdown supersedes deal FX immediately
+        const sl2 = LAY.slots[2], rect = cv.getBoundingClientRect();
+        cv.dispatchEvent(new PointerEvent('pointerdown', { clientX: rect.left + sl2.x + sl2.w / 2, clientY: rect.top + sl2.y + sl2.h / 2, pointerId: 99, pointerType: 'mouse', button: 0, bubbles: true }));
+        const slot2StillDealing = FX.some(f => f.type === 'deal' && f.slot === 2);
+        const grabbedSlot = UI.drag ? UI.drag.slot : -1;
+        cancelDrag({ animate: false });
+        return { delays, durs, slot2StillDealing, grabbedSlot };
+      });
+      t.equal(dealCheck.delays, [0, 45, 90], 'staggered deal delays locked to 0 / 45 / 90 ms');
+      t.equal(dealCheck.durs, [170, 170, 170], 'deal dur 170ms -> total settle 260ms <= 260ms');
+      t.equal(dealCheck.grabbedSlot, 2, 'slot 2 is 100% grabbable on Frame 1 before its 90ms arrival');
+      t.equal(dealCheck.slot2StillDealing, false, 'Frame-1 pointerdown supersedes slot 2 deal FX immediately');
+
+      // 4. G=1 immediate (antic=0) vs G>=2 visual 42ms anticipation + wall-clock quadratic shake preserving S1-11 metadata
+      const clearAndShake = await t.page.evaluate(() => {
+        // G=1 clear
+        const b1 = new Array(81).fill(0); for (let c = 0; c < 8; c++) b1[c] = 1; b1[80] = 1;
+        S.board = b1; S.tray = [{ id: 'o1' }, { id: 'o1' }, { id: 'o1' }]; FX.length = 0;
+        window.__game.act('place', 0, 0, 8);
+        const fl1 = FX.find(f => f.type === 'flash'), sh1 = FX.find(f => f.type === 'shake');
+        // G=2 clear
+        const b2 = new Array(81).fill(0); for (let c = 0; c < 8; c++) { b2[c] = 1; b2[9 + c] = 1; } b2[80] = 1;
+        S.board = b2; S.tray = [{ id: 'i2v' }, { id: 'o1' }, { id: 'o1' }]; FX.length = 0;
+        window.__game.act('place', 0, 0, 8);
+        const fl2 = FX.find(f => f.type === 'flash'), sh2 = FX.find(f => f.type === 'shake');
+        // Sample shakeOffset envelope at q=0.5 (quadratic decay => amp * 0.25 = 1.4, strictly <= 1.45)
+        const halfPts = [];
+        for (let dt = 0; dt <= 50; dt += 5) {
+          const [ox, oy] = shakeOffset(sh2.t0 + sh2.dur * 0.5 + dt * 0.1);
+          halfPts.push(Math.hypot(ox, oy));
+        }
+        const maxAtHalf = Math.max(...halfPts);
+        // Stronger/weaker shake superseding: a weaker single shake must not downgrade an active double shake
+        addFx({ type: 'shake', dur: 120, amp: 1.5 });
+        const shakesAfterWeak = FX.filter(f => f.type === 'shake').map(f => ({ dur: f.dur, amp: f.amp }));
+        return {
+          antic1: fl1 ? fl1.antic : -1,
+          sh1: sh1 ? { dur: sh1.dur, amp: sh1.amp } : null,
+          antic2: fl2 ? fl2.antic : -1,
+          sh2: sh2 ? { dur: sh2.dur, amp: sh2.amp } : null,
+          maxAtHalf,
+          shakesAfterWeak,
+        };
+      });
+      t.equal(clearAndShake.antic1, 0, 'G=1 clear launches immediately (antic = 0 ms, CD-WF4-01)');
+      t.equal(clearAndShake.sh1, { dur: 120, amp: 1.5 }, 'G=1 preserves S1-11 SINGLE_SHAKE metadata');
+      t.equal(clearAndShake.antic2, 42, 'G=2 clear applies purely visual 42 ms ceramic-gold anticipation beat');
+      t.equal(clearAndShake.sh2, { dur: 300, amp: 5.6 }, 'G=2 preserves S1-11 double-clear shake metadata');
+      t.expect(clearAndShake.maxAtHalf > 0.2 && clearAndShake.maxAtHalf <= 5.6 * 0.26, 'shakeOffset uses quadratic (1-q)^2 decay (' + clearAndShake.maxAtHalf.toFixed(2) + ' <= 1.46)');
+      t.equal(clearAndShake.shakesAfterWeak, [{ dur: 300, amp: 5.6 }], 'weaker shake does not downgrade stronger active shake');
+
+      // 5. Damped 220ms gauges (UI.dispHeat & #h-score) + Springs vent-pop + Trail staggered #win-stars
+      await t.game('newGame', { mode: 'springs', seed: 19 });
+      const bSp = EMPTY(); for (let c = 0; c < 8; c++) bSp[c] = 1; bSp[80] = 1;
+      await t.game('setState', { board: bSp, tray: [{ id: 'o1' }, null, null], score: 100, heat: 0 });
+      const gaugeAndVent = await t.page.evaluate(() => {
+        window.__game.act('place', 0, 0, 8); // clears row 0 (+heat, +score) & triggers newRound -> spawns vent(s)
+        const hasHeatAnim = !!UI.heatAnim, hasScoreAnim = !!UI.scoreAnim;
+        const hasVentPop = FX.some(f => f.type === 'vent-pop');
+        drawInfo(performance.now() + 80);
+        const midHeat = UI.dispHeat;
+        // Under reducedMotion, gauges snap instantaneously
+        setSetting('motion', 'reduced');
+        syncGauges(false);
+        const redHeatAnim = UI.heatAnim, redScoreAnim = UI.scoreAnim;
+        setSetting('motion', 'system');
+        return { hasHeatAnim, hasScoreAnim, hasVentPop, midHeat, targetHeat: S.heat, redHeatAnim, redScoreAnim };
+      });
+      t.equal(gaugeAndVent.hasHeatAnim, true, 'heat change starts damped 220ms UI.heatAnim');
+      t.equal(gaugeAndVent.hasScoreAnim, true, 'score change starts damped 220ms UI.scoreAnim');
+      t.expect(gaugeAndVent.midHeat > 0 && gaugeAndVent.midHeat < gaugeAndVent.targetHeat, 'UI.dispHeat eases smoothly between 0 and ' + gaugeAndVent.targetHeat + ' (' + gaugeAndVent.midHeat.toFixed(2) + ')');
+      t.equal(gaugeAndVent.hasVentPop, true, 'Springs newly surfaced vent spawns buoyant 240ms vent-pop FX');
+      t.equal([gaugeAndVent.redHeatAnim, gaugeAndVent.redScoreAnim], [null, null], 'reducedMotion() snaps gauges instantaneously');
+
+      // 6. Trail win staggers earned #win-stars by 120ms while preserving aria-label
+      await t.game('newGame', { mode: 'trail', level: 'display-spring' });
+      await t.game('act', 'place', 0, 8, 3);
+      await t.page.waitForFunction(() => window.__game.getState().scene === 'win', null, { timeout: 6000 });
+      const starStagger = await t.page.evaluate(() => {
+        const wrap = document.querySelector('#win-stars .stars');
+        const spans = [...document.querySelectorAll('#win-stars .star.lit')];
+        return {
+          label: wrap ? wrap.getAttribute('aria-label') : '',
+          delays: spans.map(s => s.style.animationDelay),
+        };
+      });
+      t.equal(starStagger.label, '3 of 3 stars', '#win-stars preserves exact aria-label');
+      t.equal(starStagger.delays, ['0ms', '120ms', '240ms'], '#win-stars staggers earned stars by 120ms');
+    },
+  },
 ];
