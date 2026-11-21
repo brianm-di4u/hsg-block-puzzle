@@ -180,21 +180,160 @@ export const tests = [
     },
   },
   {
-    name: 'W6-S6-05 built-in contrastReport WCAG gate across Light and Dark screens',
+    name: 'W6-S6-05 W6-S4-06 built-in contrastReport WCAG gate across ALL Light and Dark screens + Warm Bathhouse Dark Mode, #144A52 focus, outer diamonds & type hierarchy',
     viewports: ['desktop'],
     async run(t) {
-      // Activates run.mjs's built-in t.contrastReport({ fail: true }) in CI (Wave 2 W2-B03 expands with Warm Bathhouse Dark Mode).
+      // Seed rich state so locked & unlocked cards, goals, recent games, and Game Over / Win / Pause / Confirm all check real content.
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('setState', { board: EMPTY(), score: 1200, era: 3, heat: 12, groups: 14, placed: 35 });
+
       for (const theme of ['light', 'dark']) {
         await t.game('act', 'setting', 'theme', theme);
         await t.game('scene', 'title');
         const titleRep = await t.contrastReport({ fail: true, selector: '#sc-title .panel *', fallbackBg: [10, 24, 28] });
         t.expect(titleRep.checked > 0, `${theme} title panel checked (${titleRep.checked})`);
-        for (const sc of ['settings', 'help', 'cards', 'records', 'trail']) {
+        for (const sc of ['settings', 'help', 'cards', 'records', 'trail', 'pause', 'over']) {
           await t.game('scene', sc);
-          const rep = await t.contrastReport({ fail: true, fallbackBg: [10, 24, 28] });
+          const rep = await t.contrastReport({ fail: true, selector: `#sc-${sc} *`, fallbackBg: [10, 24, 28] });
           t.expect(rep.checked > 0, `${theme} ${sc} checked (${rep.checked})`);
         }
+        // Also check #sc-win and #sc-confirm contrast
+        await t.game('newGame', { mode: 'trail', level: 'display-spring' });
+        await t.game('scene', 'win');
+        const winRep = await t.contrastReport({ fail: true, selector: '#sc-win *', fallbackBg: [10, 24, 28] });
+        t.expect(winRep.checked > 0, `${theme} win checked (${winRep.checked})`);
+        await t.page.evaluate(() => askConfirm('Start a new game?', 'Your saved Classic run will be replaced.', 'Start new game', 'Keep my saved run', () => {}));
+        const cfRep = await t.contrastReport({ fail: true, selector: '#sc-confirm *', fallbackBg: [10, 24, 28] });
+        t.expect(cfRep.checked > 0, `${theme} confirm checked (${cfRep.checked})`);
+        await t.page.evaluate(() => closeConfirm(false));
       }
+
+      // Explicitly verify WCAG >= 5.5:1 on disabled Trail buttons & locked cards and >= 3.0:1 on Light/Dark focus rings & unchecked toggles.
+      const extraWcag = await t.page.evaluate(() => {
+        const parse = c => (c.match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+        const lum = ([r, g, b]) => { const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
+        const ratio = (a, b) => { const la = lum(a), lb = lum(b); return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05); };
+        const out = {};
+        for (const theme of ['light', 'dark']) {
+          setSetting('theme', theme);
+          showScene('trail');
+          const dis = document.querySelector('#levels button:disabled');
+          const disSt = dis.querySelector('.st');
+          const disRatio = ratio(parse(getComputedStyle(disSt).color), parse(getComputedStyle(dis).backgroundColor));
+          showScene('cards');
+          const lc = document.querySelector('#sc-cards .card.locked');
+          const lcP = lc.querySelector('p');
+          const lockRatio = ratio(parse(getComputedStyle(lcP).color), parse(getComputedStyle(lc).backgroundColor));
+          showScene('settings');
+          const panelBg = parse(getComputedStyle(document.querySelector('#sc-settings .panel')).backgroundColor);
+          const focusCol = parse(getComputedStyle(document.documentElement).getPropertyValue('--color-highlight').trim().replace(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i, (_, r, g, b) => `${parseInt(r, 16)},${parseInt(g, 16)},${parseInt(b, 16)}`));
+          const focusRatio = ratio(focusCol, panelBg);
+          const cb = document.getElementById('s-big');
+          const wasChecked = cb.checked; cb.checked = false;
+          const toggleRatio = ratio(parse(getComputedStyle(cb).borderTopColor), panelBg);
+          cb.checked = wasChecked;
+          out[theme] = { disRatio: +disRatio.toFixed(2), lockRatio: +lockRatio.toFixed(2), focusRatio: +focusRatio.toFixed(2), toggleRatio: +toggleRatio.toFixed(2) };
+        }
+        return out;
+      });
+      for (const theme of ['light', 'dark']) {
+        t.expect(extraWcag[theme].disRatio >= 5.5, `${theme} disabled Trail text >= 5.5:1 (${extraWcag[theme].disRatio}:1)`);
+        t.expect(extraWcag[theme].lockRatio >= 5.5, `${theme} locked card text >= 5.5:1 (${extraWcag[theme].lockRatio}:1)`);
+        t.expect(extraWcag[theme].focusRatio >= 8.0, `${theme} focus ring >= 8.0:1 (${extraWcag[theme].focusRatio}:1)`);
+        t.expect(extraWcag[theme].toggleRatio >= 3.5, `${theme} unchecked toggle border >= 3.5:1 (${extraWcag[theme].toggleRatio}:1)`);
+      }
+
+      // Verify locked Warm Bathhouse Dark Mode tokens, #144A52 Light focus ring, unified .play/primary, solid disabled/locked cards, outer diamonds & type hierarchy.
+      await t.game('act', 'setting', 'theme', 'light');
+      await t.game('scene', 'title');
+      const lightInfo = await t.page.evaluate(() => {
+        const cs = getComputedStyle(document.documentElement);
+        return { highlight: cs.getPropertyValue('--color-highlight').trim().toUpperCase(), panel: getComputedStyle(document.querySelector('#sc-title .panel')).backgroundColor };
+      });
+      t.equal(lightInfo.highlight, '#144A52', 'Light Mode focus ring is deep bathhouse teal-slate #144A52 (OQ-WF5-02)');
+      t.equal(lightInfo.panel, 'rgb(242, 239, 232)', 'Light Mode preserves warm travertine #F2EFE8 (CD-WF5-04)');
+
+      await t.game('act', 'setting', 'theme', 'dark');
+      await t.game('scene', 'title');
+      const darkInfo = await t.page.evaluate(() => {
+        const cs = getComputedStyle(document.documentElement);
+        const play = document.querySelector('#sc-title .play');
+        const playCs = getComputedStyle(play);
+        const playSvg = getComputedStyle(play.querySelector('svg')).fill;
+        return {
+          bg: cs.getPropertyValue('--color-bg').trim().toUpperCase(),
+          surface: cs.getPropertyValue('--color-surface').trim().toUpperCase(),
+          panel: getComputedStyle(document.querySelector('#sc-title .panel')).backgroundColor,
+          primary: cs.getPropertyValue('--color-primary').trim().toUpperCase(),
+          highlight: cs.getPropertyValue('--color-highlight').trim().toUpperCase(),
+          playBg: playCs.backgroundColor,
+          playInk: playCs.color,
+          playSvg,
+        };
+      });
+      t.equal(darkInfo.bg, '#131C1E', 'Dark Mode bg is thermal slate #131C1E (CD-WF2-05)');
+      t.equal(darkInfo.surface, '#1B272A', 'Dark Mode surface is oiled bronze #1B272A (CD-WF2-05)');
+      t.equal(darkInfo.panel, 'rgb(24, 35, 38)', 'Dark Mode panel is #182326 (CD-WF2-05)');
+      t.equal(darkInfo.primary, '#DFB858', 'Dark Mode primary is antique brass #DFB858 (CD-WF2-05)');
+      t.equal(darkInfo.highlight, '#7ADCC9', 'Dark Mode focus ring is mineral aqua #7ADCC9 (CD-WF2-05)');
+      t.equal(darkInfo.playBg, 'rgb(223, 184, 88)', 'Dark Mode .play unifies with antique brass button.primary');
+      t.equal(darkInfo.playInk, 'rgb(19, 28, 30)', 'Dark Mode .play ink is #131C1E');
+      t.equal(darkInfo.playSvg, 'rgb(19, 28, 30)', 'Dark Mode .play icon matches #131C1E ink');
+
+      // Verify outer non-scrolling flex .panel keeping 4 corner diamonds above .ov-hero, type hierarchy h3 > h4, editorial serif .card .yr, solid locked/disabled opacity=1, and #rec-recent active-ink class.
+      await t.game('scene', 'cards');
+      const domChecks = await t.page.evaluate(() => {
+        const cardsPanel = document.querySelector('#sc-cards .panel');
+        const cardsBody = document.querySelector('#sc-cards .panel-body');
+        const h3 = document.querySelector('#sc-cards h3');
+        const h4 = document.querySelector('#sc-cards .card h4');
+        const lockedCard = document.querySelector('#sc-cards .card.locked');
+        const h3Cs = getComputedStyle(h3), h4Cs = getComputedStyle(h4);
+        const yrBox = document.createElement('div'); yrBox.className = 'card'; yrBox.innerHTML = '<div class="yr">1921–1946</div>';
+        document.getElementById('sc-cards').appendChild(yrBox);
+        const yrCs = getComputedStyle(yrBox.firstChild);
+        const yrStyle = { fam: yrCs.fontFamily, italic: yrCs.fontStyle, weight: yrCs.fontWeight, size: parseFloat(yrCs.fontSize) };
+        yrBox.remove();
+
+        showScene('over');
+        const ovPanel = document.querySelector('#sc-over .panel');
+        const ovHero = document.getElementById('ov-hero');
+        const ovPr = ovPanel.getBoundingClientRect(), ovHr = ovHero.getBoundingClientRect();
+        const ovDiamonds = (getComputedStyle(ovPanel).backgroundImage.match(/data:image\/svg\+xml/g) || []).length;
+
+        showScene('trail');
+        const disBtn = document.querySelector('#levels button:disabled');
+        const disOpacity = disBtn ? parseFloat(getComputedStyle(disBtn).opacity) : 1;
+
+        showScene('records');
+        const recent = document.getElementById('rec-recent');
+
+        return {
+          cardsOverflow: getComputedStyle(cardsPanel).overflowY,
+          bodyOverflow: getComputedStyle(cardsBody).overflowY,
+          h3Size: parseFloat(h3Cs.fontSize),
+          h4Size: parseFloat(h4Cs.fontSize),
+          h3Fam: h3Cs.fontFamily,
+          lockedOpacity: lockedCard ? parseFloat(getComputedStyle(lockedCard).opacity) : 1,
+          disOpacity,
+          yrStyle,
+          ovDiamonds,
+          ovHeroInsideGutter: ovHr.top >= ovPr.top + 16 && ovHr.left >= ovPr.left + 16,
+          recentClass: recent.className,
+        };
+      });
+      t.equal(domChecks.cardsOverflow, 'hidden', 'outer .panel does not scroll (4 corner diamonds stay clear of scrolling text)');
+      t.equal(domChecks.bodyOverflow, 'auto', 'inner .panel-body owns scrolling');
+      t.expect(domChecks.h3Size > domChecks.h4Size, `.panel h3 (${domChecks.h3Size}px) > .card h4 (${domChecks.h4Size}px)`);
+      t.expect(/Fraunces/.test(domChecks.h3Fam), '.panel h3 uses Fraunces display face: ' + domChecks.h3Fam);
+      t.expect(/Palatino|Georgia/.test(domChecks.yrStyle.fam) && domChecks.yrStyle.italic === 'italic', '.card .yr uses lighter italic editorial serif (S4-05)');
+      t.equal(domChecks.lockedOpacity, 1, '.card.locked uses solid >=5.5:1 tokens (no multiplicative opacity)');
+      t.equal(domChecks.disOpacity, 1, 'disabled Trail buttons use solid >=5.5:1 tokens (no multiplicative opacity)');
+      t.equal(domChecks.ovDiamonds, 4, '#sc-over .panel retains all 4 corner diamonds');
+      t.equal(domChecks.ovHeroInsideGutter, true, '.ov-hero sits inside the 20px .panel gutter so top corner diamonds stay unobstructed');
+      t.equal(domChecks.recentClass, 'recent-list', '#rec-recent uses dedicated active-ink .recent-list instead of muted .goals');
+
       await t.game('act', 'setting', 'theme', 'system');
     },
   },
@@ -447,6 +586,58 @@ export const tests = [
       t.equal(check.tipBeforeContent, 'none', '#tip has no static CSS ::before arrow');
       t.equal(check.ch1Ch2Overlap, false, 'Channel 1 and Channel 2 have 0 px² overlap');
       t.equal(check.slotsOverlapTip, false, '#tip never overlaps tray slots');
+    },
+  },
+  {
+    name: 'W6-S1-02 concise <=10-word era arrival cues (preserving C4-03 Postcards), opening all 47 vents copy, & dynamic portrait tipRoom',
+    async run(t) {
+      await t.game('newGame', { mode: 'classic' });
+      const info = await t.page.evaluate(() => {
+        const wordCount = s => s.trim().split(/\s+/).filter(Boolean).length;
+        const cueCounts = ERAS.map(e => ({ id: e.id, words: wordCount(e.cue || ''), capLen: e.cap.length }));
+        const g7 = GOALS.find(g => g[0] === 'every-spring');
+        return { cueCounts, g7Desc: g7 ? g7[2] : '' };
+      });
+      for (const c of info.cueCounts) {
+        t.expect(c.words > 0 && c.words <= 10, `${c.id} in-play cue <= 10 words (${c.words})`);
+        t.expect(c.capLen >= 40, `${c.id} full C4-03 Postcard caption preserved`);
+      }
+      t.equal(info.g7Desc, 'Win Springs by opening all 47 vents.', 'GOALS[7] uses opening all 47 vents');
+
+      // Reaching Era 3 (roaring) after first-era hint uses the concise cue instead of the 34-word Postcard lecture.
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.page.evaluate(() => { SAVE.hints = { ...SAVE.hints, era: true }; });
+      await t.game('setState', { board: EMPTY(), score: 799, era: 2, tray: [{ id: 'o1' }, { id: 'o1' }, { id: 'o1' }] });
+      await t.game('act', 'hideToast');
+      await t.game('act', 'place', 0, 4, 4);
+      const bodyWords = await t.page.evaluate(() => {
+        const el = document.getElementById('toast');
+        const b = el.querySelector('b');
+        const full = el.textContent || '';
+        const body = (b ? full.slice(b.textContent.length) : full).replace(/\s*Postcard added to Fact cards\.?\s*$/, '').trim();
+        return { body, words: body.split(/\s+/).filter(Boolean).length };
+      });
+      t.expect(bodyWords.words <= 10, `Roaring arrival cue <= 10 words (${bodyWords.words}: "${bodyWords.body}")`);
+
+      // On compact portrait 375x667, dynamic tipRoom prevents #tip from overlapping tray slots, and reclaims space once tipsSeen=true.
+      if (t.viewport === 'mobile') {
+        await t.page.setViewportSize({ width: 375, height: 667 });
+        await t.game('act', 'setting', 'tipsSeen', false);
+        await t.game('newGame', { mode: 'classic' });
+        await t.waitFrames(2);
+        const withTip = await t.page.evaluate(() => {
+          const hit = (a, b) => a.width > 0 && b.width > 0 && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+          const tr = document.getElementById('tip').getBoundingClientRect();
+          const overlap = LAY.slots.some(s => hit(tr, { left: s.x, top: s.y, right: s.x + s.w, bottom: s.y + s.h, width: s.w, height: s.h }));
+          return { overlap, boardSize: LAY.board.size };
+        });
+        t.equal(withTip.overlap, false, '375x667 #tip has 0 px² overlap with tray slots');
+        await t.page.click('#tip-skip');
+        await t.waitFrames(2);
+        const afterSkip = await t.page.evaluate(() => ({ boardSize: LAY.board.size }));
+        t.expect(afterSkip.boardSize > withTip.boardSize, `Reclaiming tipRoom after Skip expands 375x667 board (${withTip.boardSize} -> ${afterSkip.boardSize})`);
+        await t.page.setViewportSize({ width: 390, height: 844 });
+      }
     },
   },
 ];

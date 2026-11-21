@@ -403,14 +403,14 @@ export const tests = [
         icon: document.querySelector('link[rel~=icon]') && document.querySelector('link[rel~=icon]').getAttribute('href'),
         manifest: document.querySelector('link[rel=manifest]') && document.querySelector('link[rel=manifest]').getAttribute('href'),
       }));
-      t.equal(h.theme, '#14121F', 'theme-color is the dark ground of the menus');
+      t.equal(h.theme, '#131C1E', 'theme-color is the warm bathhouse dark ground of the menus');
       t.expect(h.icon && h.icon.startsWith('data:image/svg+xml,'), 'an inline icon, so no /favicon.ico request');
       t.expect(decodeURIComponent(h.icon.slice('data:image/svg+xml,'.length)).includes('<rect'), 'the icon is a drawing of tiles');
       t.expect(h.manifest && h.manifest.startsWith('data:application/manifest+json,'), 'an inline manifest');
       const m = JSON.parse(decodeURIComponent(h.manifest.slice('data:application/manifest+json,'.length)));
       t.equal(m.name, 'Thermal Blocks', 'the manifest names the game');
       t.equal(m.display, 'standalone', 'and opens full screen from a home-screen icon');
-      t.equal(m.theme_color, '#14121F', 'with the same theme colour');
+      t.equal(m.theme_color, '#131C1E', 'with the same warm bathhouse theme colour');
       t.expect(m.icons.length > 0 && m.icons[0].src.startsWith('data:image/svg+xml,'), 'and carries the icon');
       const cdp = await t.page.context().newCDPSession(t.page);   // the browser itself reads the manifest without complaint
       const parsed = await cdp.send('Page.getAppManifest');
