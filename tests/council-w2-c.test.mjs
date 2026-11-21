@@ -217,7 +217,7 @@ export const tests = [
       t.expect(toast.x >= 0 && toast.x + toast.w <= t.vp.width, 'the toast fits the screen');
       await t.shot('S3-02-goal-toast');
       const before = JSON.stringify((await goals(t)).earned);
-      await t.game('setState', { board: rowReady(), ...setTray(['o1', 'o1', 'o1']) });
+      await t.game('setState', { board: rowReady(), score: 0, heat: 0, ...setTray(['o1', 'o1', 'o1']) });
       await place(t, 'o1', 0, 0);
       t.equal(JSON.stringify((await goals(t)).earned), before, 'a goal already earned keeps its record');
       t.equal((await readSave(t)).ach['first-soak'], await today(t), 'in localStorage');

@@ -154,7 +154,7 @@ export const tests = [
       let c = await cards();
       t.expect(c.sub.startsWith('1 of 7 collected'), 'a new player has the first: ' + c.sub);
       t.equal(c.open, [true, false, false, false, false, false, false], 'only Ancient Valley is open');
-      t.expect(c.text.includes('Reach 150 points in Classic, Springs or Daily Soak.'), 'a locked one says what opens it');
+      t.expect(c.text.includes('Reach 150 points in Classic.'), 'a locked one says Classic opens it');
       await t.game('newGame', { mode: 'classic' });
       await t.game('act', 'setting', 'tipsSeen', true);
       await t.game('setState', { board: empty(), score: 149, ...setTray(['o1', 'o1', 'o1']) });
@@ -179,19 +179,19 @@ export const tests = [
     },
   },
   {
-    name: 'S4-17 a save from before keeps every postcard its best scores reached',
+    name: 'S4-17 a save from before keeps every postcard its Classic best scores reached (Springs/Daily bests stay separate)',
     async run(t) {
       const save = await t.game('act', 'save');
-      delete save.eraMax; save.best.classic = 2600; save.best.diff.master.springs = 5000;
+      delete save.eraMax; save.best.classic = 2600; save.best.diff.master.classic = 5000; save.best.diff.master.springs = 5000;
       await storeAndReload(t, save);
       await t.game('scene', 'cards');
       const open = await t.page.evaluate(() => [...document.querySelectorAll('#cards-era .card')].map(c => !c.classList.contains('locked')));
-      t.equal(open, [true, true, true, true, true, true, true], 'a 5,000-point Master Springs best opens all seven');
-      const lower = await t.game('act', 'save'); lower.best.diff.master.springs = 0; lower.best.classic = 900;
+      t.equal(open, [true, true, true, true, true, true, true], 'a 5,000-point Master Classic best opens all seven');
+      const lower = await t.game('act', 'save'); lower.best.diff.master.classic = 0; lower.best.classic = 900; lower.best.diff.master.springs = 9000; lower.best.daily = { '2026-11-12': 9000 };
       await storeAndReload(t, lower);
       await t.game('scene', 'cards');
       const open2 = await t.page.evaluate(() => [...document.querySelectorAll('#cards-era .card')].map(c => !c.classList.contains('locked')));
-      t.equal(open2, [true, true, true, true, false, false, false], 'a 900-point best opens up to Roaring Spa Town');
+      t.equal(open2, [true, true, true, true, false, false, false], 'a 900-point Classic best opens up to Roaring Spa Town; Springs/Daily bests do not unlock Classic postcards');
     },
   },
 
@@ -200,9 +200,9 @@ export const tests = [
     name: 'S2-02 the first time the water cools it says why, once, and an older save is not told',
     async run(t) {
       const toastOn = () => t.page.evaluate(() => { const e = document.getElementById('toast'); return e.classList.contains('on') ? e.textContent : ''; });
-      const dry = async () => {   // a piece that clears nothing on a warm board
+      const dry = async () => {   // a piece that clears nothing on a hot board (above HEAT_SLOW_BELOW=6)
         await t.game('act', 'hideToast');
-        await t.game('setState', { board: empty(), heat: 5, dry: 0, ...setTray(['o1', 'o1', 'o1']) });
+        await t.game('setState', { board: empty(), heat: 7, dry: 0, ...setTray(['o1', 'o1', 'o1']) });
         await t.game('act', 'place', 0, 4, 4);
       };
       await t.game('newGame', { mode: 'classic' });

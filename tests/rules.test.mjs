@@ -54,7 +54,7 @@ export const tests = [
       let s = await t.state();
       t.equal(s.board.filter(Boolean).length, 0, 'row cleared');
       t.equal(s.heat, 1, 'heat 1');
-      t.equal(s.score, 1 + Math.round(18 * 1.25) + 300, 'row clear score with ×1.25 and clear-spring bonus');
+      t.equal(s.score, 1 + Math.round(18 * 1.25) + Math.round(300 * 1.25), 'row clear score with ×1.25 and heat-coupled clear-spring bonus');
 
       // 3×3 box clear (top-left) only
       const b2 = EMPTY();
@@ -87,10 +87,10 @@ export const tests = [
     async run(t) {
       await t.seed(5);
       await t.game('newGame', { mode: 'classic' });
-      await t.game('setState', { board: EMPTY(), tray: [{ id: 'o1' }, { id: 'o1' }, { id: 'o4' }], heat: 5, score: 0 });
+      await t.game('setState', { board: EMPTY(), tray: [{ id: 'o1' }, { id: 'o1' }, { id: 'o4' }], heat: 7, score: 0 });
       await t.game('act', 'place', 0, 0, 0);
       let s = await t.state();
-      t.equal(s.heat, 4, 'non-clearing placement cools by 1');
+      t.equal(s.heat, 6, 'non-clearing placement cools by 1 above HEAT_SLOW_BELOW=6');
       await t.game('setState', { heat: 11 });
       const b = EMPTY();
       for (let c = 1; c < 9; c++) { b[idx(0, c)] = 2; b[idx(c, 0)] = 3; }
@@ -99,9 +99,17 @@ export const tests = [
       await t.game('act', 'place', 0, 0, 0);
       s = await t.state();
       t.equal(s.heat, 12, 'heat caps at 12');
+      t.equal(s.boilHold, 1, 'reaching 143°F grants 1-placement Boil-Hold grace');
       t.equal(s.temp, 143, '143°F at max heat');
       await t.game('act', 'hideToast');
       await t.shot('13-heat-boiling');
+      // Boil-Hold holds 143°F for one dry placement, then cools on the second dry placement
+      await t.game('act', 'place', 1, 5, 5);
+      s = await t.state();
+      t.equal([s.heat, s.boilHold], [12, 0], 'first dry move at 143°F consumes Boil-Hold without cooling');
+      await t.game('act', 'place', 2, 5, 0);
+      s = await t.state();
+      t.equal(s.heat, 11, 'second dry move cools from 12 to 11');
     },
   },
   {

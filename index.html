@@ -297,7 +297,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
     <div class="modes">
       <button data-mode="daily"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg><b>Daily Soak</b><span id="daily-sub">Today’s board on this device.</span></button>
       <button data-mode="springs"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4c-2 2 2 3 0 6M12 3c-2 2 2 3 0 6M16 4c-2 2 2 3 0 6"/><ellipse cx="12" cy="17" rx="8" ry="3.5"/></svg><b>Springs</b><span>Open 47 hot-spring vents.</span></button>
-      <button data-go="trail"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-6.2-6-11a6 6 0 0112 0c0 4.8-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/></svg><b>Spring Trail</b><span id="trail-sub">24 puzzles at real places.</span></button>
+      <button data-go="trail"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-6.2-6-11a6 6 0 0112 0c0 4.8-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/></svg><b>Spring Trail</b><span id="trail-sub">12 Bathhouse Row + 12 Spring Science puzzles.</span></button>
     </div>
     <div class="links">
       <button data-go="cards">Fact cards</button><button data-go="records">Records</button>
@@ -420,16 +420,16 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
       <ul>
         <li>+1 for each tile you place.</li>
         <li>Clearing 1 group scores 18, 2 at once 72, 3 at once 162 (18 × groups²), times the heat multiplier.</li>
-        <li>Every clear heats the water. Cool water takes two placements in a row that clear nothing to lose a step; warm water loses one with each. Heat multiplies clear points up to ×4 at 143°F, the springs' average temperature (NPS). At the top the meter reads "Boiling", after William Dunbar's 1804 name for them: "the boiling springs".</li>
-        <li>Empty the whole floor with a clear for a +300 clear-spring bonus.</li>
+        <li>Every clear heats the water (back-to-back clears warm cool water faster; each opened vent adds +1 heat; dissolving a tufa stone scores +20 × multiplier). Below 102°F cool water takes two dry placements in a row to lose a step. Heat multiplies clear points up to ×4 at 143°F, the springs' average temperature (NPS). Reaching 143°F ("Boiling", after William Dunbar's 1804 name: "the boiling springs") grants one dry-placement Boil-Hold grace before cooling begins.</li>
+        <li>Empty the whole floor with a clear for a +300 × heat multiplier clear-spring bonus.</li>
       </ul>
       <h3>Modes</h3>
       <ul>
-        <li><b>Classic</b>: endless. Score carries you through the town’s seven eras (0 to 4,000), changing the backdrop, music and ambience; higher scores also bring trickier pieces up through High Flow (5,500) and Peak Flow (8,000).</li>
-        <li><b>Daily Soak</b>: today’s board is made on this device from your clock’s date, with the same tufa stones and the same pieces for anyone playing that date. A new board comes at your midnight, and one best score per day counts.</li>
-        <li><b>Springs</b>: vents sit on the floor. Clear a vent's row, column or pool to open it (+40 × the heat multiplier). Open all 47 to win. Hot Springs is usually said to have 47 springs; one source says 43 still flow, and NPS says "about four dozen".</li>
+        <li><b>Classic</b>: endless, exclusive home of the 7-era climb (0 to 4,000) and Era Postcards, transforming the backdrop, music and ambience; higher scores also bring trickier pieces up through High Flow (5,500) and Peak Flow (8,000).</li>
+        <li><b>Daily Soak</b>: today’s board is made on this device from your clock’s date under a date-seeded Era of the Day, with 8 opening tufa stones (+150 bonus and +1 heat when all 8 dissolve), escalating rounds, Bronze/Silver/Gold par milestones, and the exact same board-independent pieces for anyone playing that date. A new board comes at your midnight, and one best score per day counts; finish without Undo or Hint for a Pure Soak badge.</li>
+        <li><b>Springs</b>: a 3-Act Valley of Vapors geothermal surge (Acts I–III across 0–19, 20–35, and the Final 10 surge at 36–47). Clear a vent's row, column or pool to open it (+40 × heat multiplier and +1 heat). Open all 47 to win. Hot Springs is usually said to have 47 springs; one source says 43 still flow, and NPS says "about four dozen".</li>
         <li><b>Difficulty</b> (Settings): Relaxed serves more small pieces and keeps the rescue deal strong; Master serves more big ones and thins it. It applies to Classic and Springs, each difficulty keeps its own best, and Daily Soak and Spring Trail are the same for everyone.</li>
-        <li><b>Spring Trail</b>: hand-made puzzles with a goal and a fixed set of pieces. Undo is unlimited there, but each puzzle earns up to three stars: fewer undos, more stars.</li>
+        <li><b>Spring Trail</b>: 12 Bathhouse Row landmarks plus 12 Spring Science mastery boards — pure spatial deduction with a visible Up Next piece queue, zero arcade Score or Heat, and unlimited Undo graded by stars (earn Row Walker on Ring 1 and Trail Master on all 24).</li>
       </ul>
       <h3>Controls</h3>
       <table class="keys">
@@ -438,7 +438,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
         <tr><td>Keyboard</td><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> or <kbd>Tab</kbd> pick a piece · arrows move · <kbd>Enter</kbd>/<kbd>Space</kbd> place · <kbd>U</kbd> undo · <kbd>H</kbd> hint · <kbd>M</kbd> mute · <kbd>P</kbd> pause · <kbd>Esc</kbd> cancel or pause</td></tr>
         <tr><td>Gamepad</td><td>D-pad or left stick moves · <b>A</b> places · <b>B</b> undoes (or goes back) · <b>LB</b>/<b>RB</b> pick a piece · <b>Y</b> hint · <b>Start</b> pauses</td></tr>
       </table>
-      <p class="muted">Undo: one per round by default (change it in Settings). Stuck? The lightbulb button (or <kbd>H</kbd>) shows one good move, once for each tray, in Classic, Daily Soak and Springs.</p>
+      <p class="muted">Undo: one per round by default in Classic and Springs (change it in Settings), fixed at one per round in Daily Soak. Stuck? The lightbulb button (or <kbd>H</kbd>) shows one good move, once for each tray, in Classic, Daily Soak and Springs.</p>
       <div class="row"><button id="b-tips-help" type="button">Show tips again</button></div>
       <h3>Sources</h3>
       <p class="muted">The facts in the tickers, cards and Records come from National Park Service (NPS) pages (Maurice Historic Display Spring; History &amp; Culture; Hot Springs &amp; North Mountain Trails; Traditional Baths; Experience the Water; Superior Bathhouse; Ozark Bathhouse; a 1920 brochure), USGS tritium and carbon-14 dating, the Encyclopedia of Arkansas, Wikipedia (Bathhouse Row; Hot Springs National Park; Hot Springs, Arkansas), and the history pages of the Arlington Hotel and the Superior Bathhouse Brewery. Each card keeps its own source in the game files.</p>
@@ -692,8 +692,26 @@ const MERCY_TRIES = [12, 12, 12, 12, 5, 3, 1];            // by era; was 12 in e
 // game; Master the reverse, with a thin mercy deal. To retune, edit these three lines; to remove the options, set all to 1 / 12.
 const DIFFICULTIES = ['relaxed', 'standard', 'master'];
 const DIFF_EASY = { relaxed: 1.6, standard: 1, master: 0.6 };      // scales the small helper pieces' weight
-const DIFF_HARD = { relaxed: 0.5, standard: 1, master: 1.5 };      // scales the big and awkward pieces' weight
+const DIFF_HARD = { relaxed: 0.5, standard: 1, master: 1.6 };      // scales the big and awkward pieces' weight
 const DIFF_MERCY = { relaxed: [12, 12, 12, 12, 12, 12, 12], master: [4, 4, 4, 3, 2, 1, 1] };   // mercy tries by era; standard uses MERCY_TRIES
+// Daily Soak round-indexed pressure ramp (W6-S3-03 / PREC-06) and offline par milestones (Bronze/Silver/Gold).
+const DAILY_PRESSURE_ROUNDS = [0, 12, 24, 38, 54, 72, 92];
+const DAILY_GIANT_CAP_STEP = 5;   // deterministic board-independent <=1 giant (>=5 cells) cap in early/mid rounds (CD-WF1-05)
+const DAILY_PAR = [{ name: 'Bronze', at: 2500 }, { name: 'Silver', at: 5500 }, { name: 'Gold', at: 9000 }];
+function dailyPressureStep(round) { let e = 0; for (let i = 0; i < DAILY_PRESSURE_ROUNDS.length; i++) if (round >= DAILY_PRESSURE_ROUNDS[i]) e = i; return e; }
+function dailyPar(score) { let best = null; for (const p of DAILY_PAR) if (score >= p.at) best = p; return best; }
+function dateSeed(s) { return parseInt(String(s || '2026-01-01').replace(/-/g, ''), 10) >>> 0; }
+// Springs 3-Act geothermal surge (W6-S3-02 / CD-WF1-04): Act I (0-19) keeps baseline weights, Act II (20-35) rises mildly, Act III (36-47) surges.
+const SPRINGS_ACT_EASY = [1.0, 0.9, 0.52];
+const SPRINGS_ACT_HARD = [1.0, 1.15, 2.0];
+const SPRINGS_FATIGUE_ROUND = 36;
+const SPRINGS_ACTS = [
+  null,
+  { id: 1, name: 'Valley of Vapors', sub: 'Act I · Opening Vents', range: '0–19' },
+  { id: 2, name: 'Rising Vapors',    sub: 'Act II · Halfway Surge', range: '20–35' },
+  { id: 3, name: 'Final 10 Springs', sub: 'Act III · Full Surge', range: '36–47' },
+];
+function springsAct(n) { return n >= 36 ? 3 : n >= 20 ? 2 : 1; }
 function diffOf(g) { return (g.mode === 'classic' || g.mode === 'springs') && DIFFICULTIES.includes(g.diff) ? g.diff : 'standard'; }
 function weightsFor(easy, hard) {
   const w = PIECE_DEFS.map(d => d[1] * (EASY_PIECES.includes(d[0]) ? easy : HARD_PIECES.includes(d[0]) ? hard : 1));
@@ -701,26 +719,44 @@ function weightsFor(easy, hard) {
 }
 const ERA_WEIGHTS = ERA_EASY_MULT.map((easy, e) => weightsFor(easy, ERA_HARD_MULT[e]));
 const DIFF_ERA_WEIGHTS = Object.fromEntries(DIFFICULTIES.map(d => [d, ERA_EASY_MULT.map((easy, e) => weightsFor(easy * DIFF_EASY[d], ERA_HARD_MULT[e] * DIFF_HARD[d]))]));
+const DIFF_SPRINGS_WEIGHTS = Object.fromEntries(DIFFICULTIES.map(d => [d, [0, 1, 2].map(a => weightsFor(SPRINGS_ACT_EASY[a] * DIFF_EASY[d], SPRINGS_ACT_HARD[a] * DIFF_HARD[d]))]));
 const DIFF_PLAIN_WEIGHTS = Object.fromEntries(DIFFICULTIES.map(d => [d, weightsFor(DIFF_EASY[d], DIFF_HARD[d])]));
 function pickPiece(g) {
   const d = diffOf(g);
-  let t = g.mode === 'classic' ? ERA_WEIGHTS[pressureEra(g.score)] : { w: PIECE_DEFS.map(d => d[1]), sum: WEIGHT_SUM };
-  if (d !== 'standard') t = g.mode === 'classic' ? DIFF_ERA_WEIGHTS[d][pressureEra(g.score)] : DIFF_PLAIN_WEIGHTS[d];
+  let t;
+  if (g.mode === 'classic') {
+    t = d === 'standard' ? ERA_WEIGHTS[pressureEra(g.score)] : DIFF_ERA_WEIGHTS[d][pressureEra(g.score)];
+  } else if (g.mode === 'springs') {
+    const act = springsAct(g.springs || 0) - 1;
+    const rd = g.round || 0;
+    if (rd >= SPRINGS_FATIGUE_ROUND) {
+      const ex = Math.min(1.8, 1 + (rd - SPRINGS_FATIGUE_ROUND + 1) * 0.05);
+      const ee = Math.max(0.4, 1 - (rd - SPRINGS_FATIGUE_ROUND + 1) * 0.035);
+      t = weightsFor(SPRINGS_ACT_EASY[act] * DIFF_EASY[d] * ee, SPRINGS_ACT_HARD[act] * DIFF_HARD[d] * ex);
+    } else {
+      t = DIFF_SPRINGS_WEIGHTS[d][act];
+    }
+  } else if (g.mode === 'daily') {
+    t = ERA_WEIGHTS[dailyPressureStep(g.round || 0)];
+  } else {
+    t = { w: PIECE_DEFS.map(x => x[1]), sum: WEIGHT_SUM };
+  }
   let x = rand(g) * t.sum;
   for (let i = 0; i < PIECE_DEFS.length; i++) { x -= t.w[i]; if (x < 0) return PIECE_DEFS[i][0]; }
   return PIECE_DEFS[PIECE_DEFS.length - 1][0];
 }
-// Heat (P-N01). Below HEAT_SLOW_BELOW steps the water needs HEAT_SLOW_DRY placements in a row that clear nothing to cool one
-// step; from there up every such placement cools one, as before. It was 1 everywhere, which sent a player who clears once a
-// round straight back to 60°F. To undo the retune set HEAT_SLOW_DRY to 1.
-const HEAT_SLOW_BELOW = 3, HEAT_SLOW_DRY = 2;
+// Heat calibration (W6-S3-04 / OQ-WF1-02):
+// Classic & Daily hold cool/warm water below HEAT_SLOW_BELOW=6 for 2 dry moves and boost back-to-back clears while < 6;
+// Springs grants +1 heat per opened vent and vents excess steam faster when dry (>=5 cools by 2);
+// Reaching 143°F Boiling (heat===12) grants 1 dry-placement Boil-Hold grace before cooling begins.
+const HEAT_SLOW_BELOW = 6, HEAT_SLOW_DRY = 2, HEAT_CHAIN_BELOW = 4;
+const HEAT_SPRINGS_SLOW_BELOW = 0, HEAT_SPRINGS_COOL_AT = 6;
 function heatMult(heat) { return 1 + heat * 0.25; }
 function tempF(heat) { return Math.round(60 + heat * 83 / 12); }
-// Era postcards (S4-17): one per era, collected the first time any game reaches it. A save from before this existed already
-// reached whatever its best scores reach, so those postcards are open from the start; nothing is lost or lowered.
+// Era postcards (S4-17 / W6-S1-01 / CD-WF1-04): Classic exclusively owns the 7-era climb & Era Postcards.
 function eraReached() {
-  const b = SAVE.best, diff = Object.values(b.diff || {}).flatMap(d => [d.classic, d.springs]);
-  const top = Math.max(b.classic, b.springs, ...Object.values(b.daily), ...diff, 0);
+  const b = SAVE.best, diff = Object.values(b.diff || {}).map(d => (d && d.classic) || 0);
+  const top = Math.max(b.classic || 0, ...diff, 0);
   return Math.max(SAVE.eraMax, eraFor(top));
 }
 function hintOnce(id) {   // true the first time only, and never for a save that predates the hints
@@ -766,11 +802,28 @@ function jointlyPlaceable(board, ids) {
 function dealTray(g) {
   if (g.mode === 'trail') {
     g.tray = [0, 1, 2].map(() => (g.queue.length ? { id: g.queue.shift() } : null));
+  } else if (g.mode === 'daily') {
+    // Shared-date 100% board-independent deterministic fair dealing (CD-WF1-05 / W6-S3-03):
+    // Never conditions draws on g.board so clean and messy players receive identical trays every round.
+    g.tray = [0, 1, 2].map(() => ({ id: pickPiece(g) }));
+    if (dailyPressureStep(g.round || 0) < DAILY_GIANT_CAP_STEP) {
+      let giants = 0;
+      for (let k = 0; k < 3; k++) {
+        if (PIECES[g.tray[k].id].n >= 5 && ++giants > 1) {
+          for (let tr = 0; tr < 8; tr++) {
+            const nid = pickPiece(g);
+            if (PIECES[nid].n < 5) { g.tray[k] = { id: nid }; break; }
+          }
+        }
+      }
+    }
   } else {
     g.tray = [0, 1, 2].map(() => ({ id: pickPiece(g) }));
-    const d = diffOf(g), tries = d !== 'standard' ? (g.mode === 'classic' ? DIFF_MERCY[d][pressureEra(g.score)] : DIFF_MERCY[d][0]) : g.mode === 'classic' ? MERCY_TRIES[pressureEra(g.score)] : 12;
+    const d = diffOf(g);
+    const step = g.mode === 'classic' ? pressureEra(g.score) : (springsAct(g.springs || 0) === 3 ? 4 : 0);
+    const tries = d !== 'standard' ? DIFF_MERCY[d][step] : MERCY_TRIES[step];
     const biggest = () => { let slot = 0; g.tray.forEach((t, i) => { if (PIECES[t.id].n > PIECES[g.tray[slot].id].n) slot = i; }); return slot; };
-    if (g.mode !== 'daily' && !g.tray.some(t => fitsAnywhere(g.board, t.id))) {
+    if (!g.tray.some(t => fitsAnywhere(g.board, t.id))) {
       // mercy deal: redraw the biggest piece until something fits (the tries come from the pressure ramp)
       const slot = biggest();
       for (let k = 0; k < tries; k++) {
@@ -779,28 +832,32 @@ function dealTray(g) {
       }
     }
     // forced-loss guard (S1-01): when no order places all three, redraw the piece that needs the most room, keeping a redraw only
-    // if it makes the tray playable, with the same tries as the mercy deal. Daily Soak draws its redraws from a side stream seeded by
-    // the round, so the main piece stream, and so everyone's deal that day, is untouched.
+    // if it makes the tray playable, with the same tries as the mercy deal.
     if (!jointlyPlaceable(g.board, g.tray.map(t => t.id))) {
-      const side = g.mode === 'daily' ? { mode: 'daily', score: g.score, diff: 'standard', rng: (g.rng ^ Math.imul(g.round + 1, 0x9E3779B1)) >>> 0 } : g;
       const slot = (() => { const nofit = g.tray.findIndex(t => !fitsAnywhere(g.board, t.id)); return nofit >= 0 ? nofit : biggest(); })();
-      for (let k = 0; k < (g.mode === 'daily' ? 12 : tries); k++) {
-        const ids = g.tray.map(t => t.id); ids[slot] = pickPiece(side);
+      for (let k = 0; k < tries; k++) {
+        const ids = g.tray.map(t => t.id); ids[slot] = pickPiece(g);
         if (jointlyPlaceable(g.board, ids)) { g.tray[slot] = { id: ids[slot] }; break; }
       }
     }
   }
   g.round++;
 }
-function spawnVent(g) {
-  if (count(g.board, 8) >= 6) return -1;
+function spawnVent(g, cap) {
+  const maxCap = cap != null ? cap : Math.min(springsAct(g.springs || 0) >= 3 ? 7 : 6, Math.max(0, 47 - (g.springs || 0)));
+  if (count(g.board, 8) >= maxCap) return -1;
   const empty = [];
-  g.board.forEach((v, i) => { if (!v) empty.push(i); });
+  for (let i = 0; i < 81; i++) if (!g.board[i]) empty.push(i);
   if (!empty.length) return -1;
-  const i = empty[randInt(g, empty.length)];
-  g.board[i] = 8;
-  if (findClears(g.board).length) { g.board[i] = 0; return -1; }
-  return i;
+  // Shuffled-empty retry prevents silent spawn drops on accidental-clear collisions (W6-S3-02).
+  for (let k = 0; k < empty.length; k++) {
+    const j = k + randInt(g, empty.length - k);
+    const cell = empty[j]; empty[j] = empty[k]; empty[k] = cell;
+    g.board[cell] = 8;
+    if (!findClears(g.board).length) return cell;
+    g.board[cell] = 0;
+  }
+  return -1;
 }
 function goalMet(g) {
   if (g.mode === 'springs') return g.springs >= 47;
@@ -826,14 +883,12 @@ function applyMove(g, slot, r, c) {
   const placedCells = p.cells.map(([dr, dc]) => (r + dr) * 9 + (c + dc));
   for (const i of placedCells) g.board[i] = p.color;
   g.placed++;
-  let points = p.n, clearPts = 0, ventPts = 0, bonus = 0;
+  let points = p.n, clearPts = 0, ventPts = 0, stonePts = 0, bonus = 0, tufaSweep = 0;
   const groups = findClears(g.board);
   const G = groups.length;
   const cleared = [];
   let vents = 0, stones = 0;
   if (G) {
-    g.heat = Math.min(12, g.heat + G); g.dry = 0;
-    const mult = heatMult(g.heat);
     const set = new Set();
     for (const gr of groups) for (const i of gr.cells) set.add(i);
     for (const i of set) {
@@ -842,35 +897,81 @@ function applyMove(g, slot, r, c) {
       if (g.board[i] === 7) stones++;
       g.board[i] = 0;
     }
+    g.clearRun = (g.clearRun | 0) + 1;
+    const chainHeat = g.mode !== 'springs' && g.mode !== 'trail' && g.clearRun >= 2 && g.heat < HEAT_CHAIN_BELOW ? 1 : 0;
+    let sweepHeat = 0;
+    if (g.mode === 'daily' && stones > 0 && !g.tufaSwept && count(g.board, 7) === 0) {
+      g.tufaSwept = true; tufaSweep = 150; sweepHeat = 1;
+    }
+    // Single-clear coupling (CD-WF1-01 / W6-S3-04): +1 heat per opened vent, back-to-back cool warmth, +1 on Daily 8-tufa sweep.
+    g.heat = Math.min(12, g.heat + G + vents + chainHeat + sweepHeat);
+    g.dry = 0;
+    if (g.heat >= 12) g.boilHold = 1;
+    const mult = heatMult(g.heat);
     clearPts = Math.round(18 * G * G * mult);
     ventPts = Math.round(40 * vents * mult);
-    g.springs += vents;
+    stonePts = g.mode === 'trail' ? 0 : Math.round(20 * stones * mult);
+    g.springs = g.mode === 'springs' ? Math.min(47, g.springs + vents) : g.springs + vents;
     g.groups += G;
-    if (g.board.every(v => !v)) bonus = 300;
+    if (g.board.every(v => !v)) bonus = Math.round(300 * mult);
   } else {
-    g.dry = (g.dry | 0) + 1;
-    if (g.dry >= (g.heat >= HEAT_SLOW_BELOW ? 1 : HEAT_SLOW_DRY)) { if (g.heat > 0) g.cooled = (g.cooled | 0) + 1; g.heat = Math.max(0, g.heat - 1); g.dry = 0; }
+    g.clearRun = 0;
+    if (g.heat >= 12 && g.boilHold > 0) {
+      // 1-placement Boil-Hold grace at 143°F before cooling begins (W6-S3-04 / OQ-WF1-02).
+      g.boilHold = 0;
+      g.dry = 0;
+    } else {
+      g.dry = (g.dry | 0) + 1;
+      const slowBelow = g.mode === 'springs' ? HEAT_SPRINGS_SLOW_BELOW : HEAT_SLOW_BELOW;
+      if (g.dry >= (g.heat >= slowBelow ? 1 : HEAT_SLOW_DRY)) {
+        if (g.heat > 0) g.cooled = (g.cooled | 0) + 1;
+        const drop = g.mode === 'springs' && g.heat >= HEAT_SPRINGS_COOL_AT ? 2 : 1;
+        g.heat = Math.max(0, g.heat - drop);
+        g.dry = 0;
+      }
+    }
   }
   g.bestHeat = Math.max(g.bestHeat, g.heat);
-  points += clearPts + ventPts + bonus;
+  points += clearPts + ventPts + stonePts + bonus + tufaSweep;
   g.score += points;
-  g.ptsPlace = (g.ptsPlace | 0) + p.n; g.ptsClear = (g.ptsClear | 0) + clearPts + ventPts; g.ptsBonus = (g.ptsBonus | 0) + bonus;   // where the score came from (S3-12)
+  g.ptsPlace = (g.ptsPlace | 0) + p.n;
+  g.ptsClear = (g.ptsClear | 0) + clearPts + ventPts + stonePts;
+  g.ptsBonus = (g.ptsBonus | 0) + bonus + tufaSweep;   // where the score came from (S3-12)
   g.tray[slot] = null;
   let newRound = false, vent = -1;
-  if (!g.tray.some(Boolean) && (g.mode !== 'trail' || g.queue.length)) {
-    dealTray(g); newRound = true;
-    if (g.mode === 'springs') vent = spawnVent(g);
+  const ventsSpawned = [];
+  // Step 2 (W6-S3-02): evaluate goalMet() BEFORE any tray refill or vent spawn so wins never phantom-deal or overshoot.
+  if (goalMet(g)) {
+    g.won = true; g.over = true;
+  } else {
+    if (!g.tray.some(Boolean) && (g.mode !== 'trail' || g.queue.length)) {
+      // Step 3 (W6-S3-02): in Springs, spawnVent() runs strictly BEFORE dealTray() so dealt trays are guaranteed playable around new vents.
+      if (g.mode === 'springs') {
+        const act = springsAct(g.springs);
+        const cap = Math.min(act >= 3 ? 7 : 6, Math.max(0, 47 - g.springs));
+        const active = count(g.board, 8);
+        const perRound = act >= 2 ? 2 : (active <= 3 ? 2 : 1);
+        const floor = act >= 2 ? 3 : 2;
+        const want = Math.min(Math.max(0, cap - active), Math.max(perRound, floor - active));
+        for (let k = 0; k < want; k++) {
+          const vi = spawnVent(g, cap);
+          if (vi >= 0) { if (vent < 0) vent = vi; ventsSpawned.push(vi); }
+        }
+      }
+      dealTray(g); newRound = true;
+    }
+    checkEnd(g);
   }
-  checkEnd(g);
   return { ok: true, id: t.id, placedCells, groups: groups.map(gr => ({ type: gr.type, i: gr.i })), G, cleared,
-           points, clearPts, ventPts, bonus, vents, stones, mult: heatMult(g.heat), newRound, vent };
+           points, clearPts, ventPts, stonePts, bonus, tufaSweep, vents, stones, mult: heatMult(g.heat), newRound, vent, ventsSpawned, boilHold: g.boilHold | 0 };
 }
 
 function freshLedger() { return { games: 0, lines: 0, springs: 0, boiled: 0, recentIdx: -1, recentScore: null }; }
 function freshGame(mode) {
   return { v: 1, mode, board: new Array(81).fill(0), tray: [null, null, null], queue: [], score: 0, heat: 0, bestHeat: 0,
-    groups: 0, placed: 0, round: 0, refilledRound: 1, undoLeft: 1, undosUsed: 0, undoStack: [], era: 0, springs: 0, level: null, goal: null,
-    daily: null, over: false, won: false, rng: 1, diff: 'standard', dry: 0, cooled: 0, ptsPlace: 0, ptsClear: 0, ptsBonus: 0,
+    groups: 0, placed: 0, round: 0, refilledRound: 1, undoLeft: 1, undosUsed: 0, hintsUsed: 0, undoStack: [], era: 0, springs: 0, level: null, goal: null,
+    daily: null, over: false, won: false, rng: 1, diff: 'standard', dry: 0, cooled: 0, clearRun: 0, boilHold: 0, tufaSwept: false,
+    ptsPlace: 0, ptsClear: 0, ptsBonus: 0,
     priorBest: 0, bestCommitted: false, hintRound: -1, ledger: freshLedger() };
 }
 function setupGame(g, opts) {
@@ -878,6 +979,8 @@ function setupGame(g, opts) {
     const L = LEVELS.find(l => l.id === opts.level) || LEVELS[0];
     g.level = L.id; g.goal = L.goal; g.board = parseLevel(L); g.queue = L.pieces.slice(); g.era = L.era;
   } else if (g.mode === 'daily') {
+    // Date-seeded Era of the Day (CD-WF1-04 / W6-S1-01).
+    g.era = (g.daily ? dateSeed(g.daily) : (g.rng >>> 0)) % ERAS.length;
     let placed = 0, guard = 0;
     while (placed < 8 && guard++ < 200) {
       const i = randInt(g, 81);
@@ -887,7 +990,8 @@ function setupGame(g, opts) {
       placed++;
     }
   } else if (g.mode === 'springs') {
-    for (let k = 0; k < 4; k++) spawnVent(g);
+    g.era = 0;
+    for (let k = 0; k < 4; k++) spawnVent(g, 6);
   }
   dealTray(g);
   checkEnd(g);
@@ -1175,6 +1279,10 @@ function validResume(r, modes = ['classic', 'springs']) {
   if (!Number.isInteger(r.era) || r.era < 0 || r.era >= ERAS.length) return false;
   if (r.diff !== undefined && !DIFFICULTIES.includes(r.diff)) return false;
   if (r.undosUsed !== undefined && !(Number.isInteger(r.undosUsed) && r.undosUsed >= 0)) return false;
+  if (r.hintsUsed !== undefined && !(Number.isInteger(r.hintsUsed) && r.hintsUsed >= 0)) return false;
+  if (r.clearRun !== undefined && !(Number.isInteger(r.clearRun) && r.clearRun >= 0)) return false;
+  if (r.boilHold !== undefined && !(Number.isInteger(r.boilHold) && r.boilHold >= 0)) return false;
+  if (r.tufaSwept !== undefined && typeof r.tufaSwept !== 'boolean') return false;
   if (r.hintRound !== undefined && !(Number.isInteger(r.hintRound) && r.hintRound >= -1)) return false;
   if (r.refilledRound !== undefined && !(Number.isInteger(r.refilledRound) && r.refilledRound >= 0)) return false;
   if (r.priorBest !== undefined && !count(r.priorBest)) return false;
@@ -1380,8 +1488,7 @@ function todayStr(d = new Date()) {
   const p = n => String(n).padStart(2, '0');
   return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
 }
-function dateSeed(s) { return parseInt(s.replace(/-/g, ''), 10) >>> 0; }
-function undoMax() { return S.mode === 'trail' ? Infinity : SAVE.settings.undo; }
+function undoMax() { return S.mode === 'trail' ? Infinity : S.mode === 'daily' ? 1 : SAVE.settings.undo; }
 // Classic and Springs keep one best per difficulty: Standard in best.classic / best.springs (as before), the others in best.diff.
 function bestSlot(mode, diff) { return diff && diff !== 'standard' && SAVE.best.diff && SAVE.best.diff[diff] ? SAVE.best.diff[diff] : SAVE.best; }
 function readBestFromObj(best, mode, diff, daily) {
@@ -1404,7 +1511,11 @@ function rollbackBestInMemory(rb) {
     if (sl[rb.mode] === rb.written) sl[rb.mode] = rb.restore;
   }
 }
-function eraId() { return ERAS[S.era].id; }
+function eraId() {
+  // Springs exclusively inhabits the Valley of Vapors (era-ancient.webp) across its 3-Act geothermal surge (CD-WF1-04 / W6-S1-01).
+  if (S && S.mode === 'springs') return 'ancient';
+  return (ERAS[S.era] || ERAS[0]).id;
+}
 
 // ===================================================================== AUDIO (WebAudio synthesis)
 // Cues are one-shot oscillators and noise (sfx). Music and ambience come from the generative kit below, which
@@ -1469,11 +1580,12 @@ function applyVolume() {
   if (AU.kit) { AU.kit.music.level(musicLevel()); AU.kit.amb.level(ambienceLevel()); }
 }
 // Which music and ambience belong to the screen: the title piece off the board (winter bath-ancient, zero heat/intensity),
-// the era's piece in a run, a results piece at the end (calm heat=0, inten=0). The pause card (and a hidden tab) fades both beds out.
+// the mode's exclusive soundscape in a run (Classic 7-era climb, Springs Valley of Vapors 3-Act surge, Daily Era of the Day,
+// Trail landmark era at calm inten=0 per CD-WF4-03), and calm results music at the end (heat=0, inten=0 per CD-WF6-04).
 function audioMood() {
   const k = AU.kit;
   if (!k) return;
-  const sc = S.scene, era = ERAS[S.era].id;
+  const sc = S.scene, era = eraId();
   const onTitle = !inGame() && sc !== 'over' && sc !== 'win';
   const piece = sc === 'over' || sc === 'win' ? (S.won ? 'win' : 'over') : inGame() ? era : 'title';
   const ambId = onTitle ? 'bath-ancient' : 'bath-' + era;
@@ -1481,7 +1593,11 @@ function audioMood() {
   k.music.play(SCORES[piece], { fade: piece === 'win' || piece === 'over' ? 1.5 : 2.5 });
   k.amb.play(SCENES[ambId], { fade: 3, season });
   k.amb.set('season', season);
-  const heatLvl = (onTitle || sc === 'over' || sc === 'win' || S.mode === 'trail') ? 0 : Math.min(1, S.heat / 12);
+  let heatLvl = (onTitle || sc === 'over' || sc === 'win' || S.mode === 'trail') ? 0 : Math.min(1, S.heat / 12);
+  if (!onTitle && sc !== 'over' && sc !== 'win' && S.mode === 'springs') {
+    const act = springsAct(S.springs || 0);
+    heatLvl = Math.max(heatLvl, act === 3 ? 0.55 : act === 2 ? 0.25 : 0);
+  }
   k.amb.set('heat', heatLvl);
   if (onTitle || sc === 'over' || sc === 'win') k.music.intensity(0);
   else audioPressure();
@@ -1489,8 +1605,19 @@ function audioMood() {
   if (hold && !k.held) k.hold(); else if (!hold && k.held) k.release();
 }
 function boardFill() { let n = 0; for (const v of S.board) if (v) n++; return n / 81; }
-// A filling board lifts the music a little (tempo and brightness through kit intensity); a clean one settles it.
-function audioPressure() { if (AU.kit) AU.kit.music.intensity(Math.max(0, Math.min(1, (boardFill() - 0.35) / 0.4))); }
+// A filling board (and Springs Act II/III surge) lifts the music; Spring Trail stays at calm inten=0 (CD-WF4-03).
+function audioPressure() {
+  if (!AU.kit) return;
+  if (S.mode === 'trail') { AU.kit.music.intensity(0); return; }
+  const base = Math.max(0, Math.min(1, (boardFill() - 0.35) / 0.4));
+  if (S.mode === 'springs') {
+    const act = springsAct(S.springs || 0);
+    const boost = (act === 3 ? 0.48 : act === 2 ? 0.20 : 0) + (S.heat / 12) * 0.18;
+    AU.kit.music.intensity(Math.max(0, Math.min(1, base + boost)));
+    return;
+  }
+  AU.kit.music.intensity(Math.max(0, Math.min(1, base + (S.heat / 12) * 0.12)));
+}
 // Live harmonic unity (W6-S1-03 / wf-4:161): transposes live tonal SFX onto bright consonant major-pentatonic degrees
 // of the active score strictly when live music is audible (musicLevel() > 0 && AU.kit && !AU.kit.held).
 // Always falls back to concert A=440 / E=330 when offline (AU.kit === null) or music is muted (S5-04 / S5-14 parity).
@@ -2609,7 +2736,8 @@ function ensureBg(id) {
   const land = LAY ? !!LAY.land : (VW > VH * 1.05);
   const side = SAVE.settings.traySide === 'left' ? 'left' : 'right';
   const sl0 = LAY && LAY.slots ? Math.round(LAY.slots[0].x) + ',' + Math.round(LAY.slots[0].y) : '';
-  const key = id + '|' + VW + 'x' + VH + '|' + DPR + '|' + drawName + '|' + land + '|' + side + '|' + sl0;
+  const spAct = (id !== 'title' && S && S.mode === 'springs') ? springsAct(S.springs || 0) : 0;
+  const key = id + '|' + spAct + '|' + VW + 'x' + VH + '|' + DPR + '|' + drawName + '|' + land + '|' + side + '|' + sl0;
   if (bgKey === key) return;
   bgKey = key;
   const BD = Math.min(DPR, 1.25); // the backdrop is an upscaled painting: no need for full device resolution
@@ -2628,12 +2756,16 @@ function ensureBg(id) {
       ts.addColorStop(0, 'rgba(14,18,28,.34)'); ts.addColorStop(1, 'rgba(14,18,28,0)');
       g.fillStyle = ts; g.fillRect(0, 0, VW, VH * 0.22);
     }
-  } else { // play view: calm era-keyed value attenuation + deepened daylight HUD sky scrim + localized tray-column shadow
+  } else { // play view: calm era-keyed value attenuation + Springs 3-Act Valley of Vapors dusk grading + deepened daylight HUD sky scrim + localized tray-column shadow
     const atten = ERA_ATTEN[id] || 0;
     const v = g.createRadialGradient(VW / 2, VH / 2, Math.min(VW, VH) * 0.3, VW / 2, VH / 2, Math.max(VW, VH) * 0.75);
     v.addColorStop(0, 'rgba(6,16,20,' + (0.28 + atten).toFixed(2) + ')');
     v.addColorStop(1, 'rgba(6,16,20,' + (0.48 + atten).toFixed(2) + ')');
     g.fillStyle = v; g.fillRect(0, 0, VW, VH);
+    if (spAct >= 2) {
+      g.fillStyle = spAct === 3 ? 'rgba(182,72,26,.16)' : 'rgba(155,84,34,.09)';
+      g.fillRect(0, 0, VW, VH);
+    }
     const hudScrim = atten >= 0.06 ? 0.68 : 0.56; // deepened daylight sky scrim so #F7CF62 Best clears >= 6.0:1
     const top = g.createLinearGradient(0, 0, 0, (LAY ? LAY.hud : 64) + 64);
     top.addColorStop(0, 'rgba(6,16,20,' + hudScrim + ')'); top.addColorStop(1, 'rgba(6,16,20,0)');
@@ -2803,7 +2935,7 @@ function text(t, x, y, size, col = W8.text, align = 'left', font = 'sans', weigh
   ctx.fillStyle = col; ctx.fillText(t, x, y);
 }
 function goalText() {
-  if (S.mode === 'springs') return 'Springs opened ' + S.springs + ' / 47';
+  if (S.mode === 'springs') return 'Springs opened ' + Math.min(47, S.springs) + ' / 47';
   if (S.mode === 'trail') {
     const left = S.tray.filter(Boolean).length + S.queue.length;
     let g = '';
@@ -2835,6 +2967,11 @@ function infoLine() {
   if (S.mode === 'classic') {
     const fl = classicFlowLabel(S.score);
     if (fl) return base + ' · ' + fl;
+  }
+  if (S.mode === 'daily') {
+    const tufaLeft = count(S.board, 7);
+    const par = dailyPar(S.score);
+    return base + (tufaLeft > 0 ? ' · ' + tufaLeft + ' tufa' : par ? ' · ' + par.name + ' par' : ' · Tufa cleared');
   }
   return base;
 }
@@ -2962,7 +3099,7 @@ function drawInfo(now) {
     }
     ctx.strokeStyle = 'rgba(255,240,200,.8)'; ctx.lineWidth = 1.5;
     for (let k = 0; k <= 4; k++) { const yy = ty + 4 + (th - 8) * (1 - k / 4); ctx.beginPath(); ctx.moveTo(cx + tw / 2 + 7, yy); ctx.lineTo(cx + tw / 2 + 13, yy); ctx.stroke(); }
-    const w = heatWord(S.heat);
+    const w = boiling && S.boilHold > 0 ? 'Boil-Hold' : heatWord(S.heat);
     if (w) {
       const capY = ty + th + bulb * 1.6 + 6;
       const wTxt = measureW('700 13px ' + FONT_SANS, w);
@@ -2971,15 +3108,29 @@ function drawInfo(now) {
       ctx.fillStyle = hot; ctx.beginPath(); ctx.arc(cx - wTxt / 2 - 5, capY + 12, 3.5, 0, Math.PI * 2); ctx.fill();
       text(w, cx + 4, capY + 12, 13, '#FFF7E0', 'center', 'sans', '700', false);
     }
-    // caption under the board
-    const C = LAY.cap, nx = ERAS[S.era + 1];
-    let nextNote = nx ? ' · next era at ' + nx.at.toLocaleString('en-US') : '';
-    if (S.mode === 'classic' && !nx) {
-      if (S.score >= 8000) nextNote = ' · Peak Flow';
-      else if (S.score >= 5500) nextNote = ' · High Flow · Peak Flow at 8,000';
-      else nextNote = ' · High Flow at 5,500';
+    // caption under the board: exclusive per-mode world framing (CD-WF1-04 / W6-S1-01)
+    const C = LAY.cap;
+    let cap = '';
+    if (S.mode === 'springs') {
+      const act = springsAct(S.springs || 0), actInfo = SPRINGS_ACTS[act];
+      const rem = Math.max(0, 47 - Math.min(47, S.springs));
+      const actNote = act === 1 ? ' · Act II at 20' : act === 2 ? ' · Final 10 at 36' : rem > 0 ? ' · ' + rem + ' left' : ' · All flowing';
+      cap = actInfo.name + ' · Act ' + ['', 'I', 'II', 'III'][act] + ' · ' + goalText() + actNote;
+    } else if (S.mode === 'daily') {
+      const tufaLeft = count(S.board, 7), par = dailyPar(S.score);
+      const tufaNote = tufaLeft > 0 ? ' · ' + tufaLeft + ' tufa left' : ' · Tufa cleared';
+      const parNote = par ? ' · ' + par.name + ' par' : ' · Bronze at 2,500';
+      cap = era.name + ' (Era of the Day) · ' + goalText() + tufaNote + parNote;
+    } else {
+      const nx = ERAS[S.era + 1];
+      let nextNote = nx ? ' · next era at ' + nx.at.toLocaleString('en-US') : '';
+      if (!nx) {
+        if (S.score >= 8000) nextNote = ' · Peak Flow';
+        else if (S.score >= 5500) nextNote = ' · High Flow · Peak Flow at 8,000';
+        else nextNote = ' · High Flow at 5,500';
+      }
+      cap = era.name + ' · ' + era.years + ' · ' + goalText() + nextNote;
     }
-    const cap = era.name + ' · ' + era.years + ' · ' + goalText() + nextNote;
     let cfs = 15, capW = 0;
     const capLim = Math.min(VW - 24, Math.max(C.w, VW - 32));
     for (; cfs > 12; cfs--) { capW = measureW(cfs + 'px ' + FONT_SANS, cap); if (capW + 28 <= capLim) break; }
@@ -2992,14 +3143,15 @@ function drawInfo(now) {
     const hl = 'Heat ' + temp;   // the label rides with the reading (S2-02)
     text(hl, I.x + 14, I.y + 14, 16, '#FFFFFF', 'left', 'display', '700');
     const tw0 = measureW('700 16px ' + FONT_DISPLAY, hl);
-    text(mtxt, I.x + 22 + tw0, I.y + 14, 13, '#F7CF62', 'left', 'sans', '700');
+    text(boiling && S.boilHold > 0 ? mtxt + ' · Hold' : mtxt, I.x + 22 + tw0, I.y + 14, 13, '#F7CF62', 'left', 'sans', '700');
     const bw = I.w - 28, bx = I.x + 14, by = I.y + I.h - 14;
     ctx.fillStyle = '#0B2227'; rr(ctx, bx, by, bw, 7, 3.5); ctx.fill();
     let lg = GRAD_CACHE.stripFill;
     if (!lg) { lg = ctx.createLinearGradient(bx, 0, bx + bw, 0); lg.addColorStop(0, '#4FC3D9'); lg.addColorStop(0.5, '#F2A541'); lg.addColorStop(1, '#FF4A2B'); GRAD_CACHE.stripFill = lg; }
     ctx.fillStyle = lg; rr(ctx, bx, by, Math.max(7, bw * frac), 7, 3.5); ctx.fill();
     const rx = I.x + I.w - 14;
-    text(era.name, rx, I.y + 13, 14, '#FFFFFF', 'right', 'display', '700');
+    const rightTitle = S.mode === 'springs' ? SPRINGS_ACTS[springsAct(S.springs || 0)].name : era.name;
+    text(rightTitle, rx, I.y + 13, 14, '#FFFFFF', 'right', 'display', '700');
     const line = infoLine(); let lfs = 14;
     for (; lfs > 12; lfs--) { if (measureW(lfs + 'px ' + FONT_SANS, line) <= I.w - 28) break; }
     text(line, I.x + 14, I.y + 33, lfs, '#E2DDD0', 'left', 'sans');
@@ -3313,7 +3465,12 @@ function spawnClearFx(res) {
     if (lite && (ci & 1)) continue; // deterministic stride scaling under liteFx()
     const { i, code } = res.cleared[ci];
     const x = b.gx + (i % 9 + 0.5) * cell, y = b.gy + (Math.floor(i / 9) + 0.5) * cell;
-    if (R() < 0.35) { const a = -Math.PI / 2 + (R() - 0.5) * 2.2, sp = cell * (1.6 + R() * 2.4); // ceramic glaze chips (~70/30 Frontier timber splinters, CD-WF1-08)
+    if (code === 7) { // matte travertine crumble feedback on dissolved tufa stones (W6-S3-04)
+      for (let tci = 0; tci < 2; tci++) {
+        const a = -Math.PI / 2 + (R() - 0.5) * 2.4, sp = cell * (1.2 + R() * 1.9);
+        addFx({ type: 'shard', code: 7, x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - cell * 1.5, rot: R() * 6, vr: (R() - 0.5) * 8, s: cell * (0.17 + R() * 0.1), dur: 580 + R() * 220, delay: 40, plank: false });
+      }
+    } else if (R() < 0.35) { const a = -Math.PI / 2 + (R() - 0.5) * 2.2, sp = cell * (1.6 + R() * 2.4); // ceramic glaze chips (~70/30 Frontier timber splinters, CD-WF1-08)
       addFx({ type: 'shard', code, x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - cell * 2, rot: R() * 6, vr: (R() - 0.5) * 10, s: cell * (0.16 + R() * 0.1), dur: 600 + R() * 250, delay: 60, plank: !!ef.plank && code <= 6 && R() < 0.3 }); }
     for (let k = 0; k < 2; k++) { const a = -Math.PI / 2 + (R() - 0.5) * 1.8, sp = cell * (2.5 + R() * 3); // hot droplets
       addFx({ type: 'drop', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: cell * (0.035 + R() * 0.04), dur: 520 + R() * 260, delay: 40 }); }
@@ -3358,7 +3515,7 @@ function clearFeedback(res, cx, cy, prevHeat) {
   const springsWin = S.mode === 'springs' && S.won;
   const word = heatWord(S.heat), rose = word && word !== heatWord(prevHeat);
   const head = COMBO_WORDS[Math.min(5, res.G)], banner = !springsWin && !!(head || rose || res.bonus);
-  const pts = '+' + (res.clearPts + res.ventPts), psize = Math.max(12, Math.round(cell * 0.62 + res.G * 3));
+  const pts = '+' + (res.clearPts + res.ventPts + (res.stonePts || 0)), psize = Math.max(12, Math.round(cell * 0.62 + res.G * 3));
   let px = 0, py = 0; for (const { i } of res.cleared) { px += i % 9 + 0.5; py += Math.floor(i / 9) + 0.5; }
   px = b.gx + px / res.cleared.length * cell; py = b.gy + py / res.cleared.length * cell;
   if (banner || springsWin) { const by = b.y + b.size * 0.42, bs = bannerSize(Math.min(5, res.G)); if (Math.abs(py - by) < bs * 1.6) py = by + bs * 1.9; }
@@ -3366,9 +3523,13 @@ function clearFeedback(res, cx, cy, prevHeat) {
   if (!banner && !springsWin) popup(res.G + (res.G > 1 ? ' groups' : ' group') + ' · heat ×' + res.mult.toFixed(2).replace(/0$/, ''), px, py + psize * 0.95, '#E9F4F1', Math.max(12, Math.round(cell * 0.3)), { delay: reducedMotion() ? 0 : 120, rise: true });   // why this many points (S3-12)
   if (banner) {
     const main = res.bonus ? 'Clear Spring!' : head || word + '!';
-    const sub = res.bonus ? '+300' : (head ? res.G + ' groups · ' : '') + (head && word ? word + ' · ×' : '×') + res.mult.toFixed(2).replace(/0$/, '');
+    const mStr = res.mult.toFixed(2).replace(/0$/, '');
+    const sub = res.bonus
+      ? '+' + res.bonus + ' · ' + res.G + (res.G > 1 ? ' groups' : ' group') + ' · ×' + mStr
+      : (head ? res.G + ' groups · ' : '') + (head && word ? word + ' · ×' : '×') + mStr;
     addFx({ type: 'banner', text: main, sub, level: Math.min(5, res.G + (S.heat >= 12 ? 1 : 0)), dur: reducedMotion() ? 900 : 1300 });
   }
+  if (res.tufaSweep) popup('8-Tufa Cleared! +' + res.tufaSweep, b.x + b.size / 2, b.y + b.size * 0.25, '#F7CF62', Math.max(14, Math.round(cell * 0.42)), { delay: reducedMotion() ? 0 : 160, dur: reducedMotion() ? 900 : 1400 });
   if (res.vents && !springsWin) popup(res.vents + (res.vents > 1 ? ' springs' : ' spring') + ' opened', cx, cy - cell * 1.1, '#9FF2E4', Math.max(12, Math.round(cell * 0.32)));
 }
 function bannerSize(level) { const b = LAY.board; return Math.min(b.size * 0.13, b.cell * (0.75 + level * 0.08)); }
@@ -4017,6 +4178,11 @@ function newGame(opts = {}) {
     g = Object.assign(freshGame(mode), JSON.parse(JSON.stringify(kept)), { undoStack: [] });
     if (!DIFFICULTIES.includes(g.diff)) g.diff = 'standard';
     if (!Number.isInteger(g.undosUsed) || g.undosUsed < 0) g.undosUsed = 0;
+    if (!Number.isInteger(g.hintsUsed) || g.hintsUsed < 0) g.hintsUsed = 0;
+    if (!Number.isInteger(g.clearRun) || g.clearRun < 0) g.clearRun = 0;
+    if (!Number.isInteger(g.boilHold) || g.boilHold < 0) g.boilHold = 0;
+    g.tufaSwept = !!g.tufaSwept;
+    if (mode === 'daily') g.undoLeft = Math.min(1, g.undoLeft);
     if (!Number.isInteger(g.hintRound) || g.hintRound < -1) g.hintRound = -1;
     if (!Number.isInteger(g.refilledRound) || g.refilledRound < 1) g.refilledRound = Math.max(1, g.round || 1);
     if (!hasPriorBest) g.priorBest = bestForState(g);
@@ -4042,7 +4208,7 @@ function newGame(opts = {}) {
     else if (opts.seed != null) g.rng = opts.seed >>> 0;
     else if (SEED_PENDING != null) g.rng = SEED_PENDING >>> 0;
     else g.rng = (Date.now() ^ Math.floor(Math.random() * 0xFFFFFFFF)) >>> 0;
-    g.undoLeft = mode === 'trail' ? 999 : SAVE.settings.undo;
+    g.undoLeft = mode === 'trail' ? 999 : mode === 'daily' ? 1 : SAVE.settings.undo;
     g.diff = (mode === 'classic' || mode === 'springs') && DIFFICULTIES.includes(SAVE.settings.difficulty) ? SAVE.settings.difficulty : 'standard';
     g.priorBest = bestForState(g);
     g.bestCommitted = false;
@@ -4095,7 +4261,7 @@ function doPlace(slot, r, c) {
   S.undoStack.push(snap);
   UI.hint = null;
   if (S.undoStack.length > (S.mode === 'trail' ? 60 : 3)) S.undoStack.shift();
-  if (res.newRound && S.mode !== 'trail' && S.round > (S.refilledRound || 1)) { S.undoLeft = SAVE.settings.undo; S.refilledRound = S.round; }
+  if (res.newRound && S.mode !== 'trail' && S.round > (S.refilledRound || 1)) { S.undoLeft = S.mode === 'daily' ? 1 : SAVE.settings.undo; S.refilledRound = S.round; }
   UI.sel = -1; UI.ghost = null; UI.cur = null;
   const b = LAY.board, cell = b.cell;
   const cx = b.gx + (c + PIECES[res.id].wd / 2) * cell, cy = b.gy + (r + PIECES[res.id].h / 2) * cell;
@@ -4103,7 +4269,7 @@ function doPlace(slot, r, c) {
   const pn = PIECES[res.id];
   const pan = (c + pn.wd / 2 - 4.5) / 4.5 * 0.6;
   sfx('place', { n: pn.n, pan });
-  CLEAR_RUN.set(S, res.G ? (CLEAR_RUN.get(S) || 0) + 1 : 0);
+  CLEAR_RUN.set(S, S.clearRun || 0);
   S.bestG = Math.max(S.bestG || 0, res.G);
   landFx(res.id, r, c);
   if (res.G) {
@@ -4112,21 +4278,40 @@ function doPlace(slot, r, c) {
     clearFeedback(res, cx, cy, snap.heat);
     if (heatTier(S.heat) > heatTier(snap.heat)) setTimeout(() => sfx('heat', { tier: heatTier(S.heat) }), 180);
     if (res.vents) sfx('vent');
-    if (res.bonus) sfx('bonus');
+    if (res.bonus || res.tufaSweep) sfx('bonus');
+  }
+  if (res.ventsSpawned && res.ventsSpawned.length) {
+    const red = reducedMotion();
+    for (const vi of res.ventsSpawned) {
+      const vc = vi % 9, vr = Math.floor(vi / 9);
+      if (WATER.on) WATER.ripple((vc + 0.5) / 9, (vr + 0.5) / 9, red ? 0.35 : 0.75);
+      if (!red && !liteFx()) addFx({ type: 'steam', x: b.gx + (vc + 0.5) * cell, y: b.gy + (vr + 0.5) * cell, dur: 820, h: cell * 1.15, ph: vi * 0.7, w: cell * 0.55, delay: 40 });
+    }
   }
   if (res.newRound) {
     [0, 1, 2].forEach(k => addFx({ type: 'deal', slot: k, dur: reducedMotion() ? 1 : 260 }));
     setTimeout(() => sfx('deal'), 120);
   }
-  if (S.mode !== 'trail') {
+  if (S.mode === 'classic') {
     S.era = Math.max(S.era, eraFor(S.score));
     if (S.era !== prevEra) {
       const e = ERAS[S.era], fresh = noteEra(S.era);
       toast(e.name + ' · ' + e.years, (hintOnce('era') ? 'Your score moved the town forward; higher scores also bring trickier pieces. ' : '') + (e.cue || e.cap) + (fresh ? ' Postcard added to Fact cards.' : ''), 5500);
       sfx('era', { score: SCORES[e.id] }); bgKey = ''; loadArt('era-' + e.id); audioMood();
     }
+  } else if (S.mode === 'springs' && !S.won) {
+    const actNow = springsAct(S.springs), actPrev = springsAct(snap.springs);
+    if (actNow > actPrev) {
+      const info = SPRINGS_ACTS[actNow];
+      toast(info.name + ' · Act ' + ['', 'I', 'II', 'III'][actNow], actNow === 3 ? 'Final 10 surge: vents rise faster across the valley.' : 'Valley pressure rises; two vents surface each round.', 4800);
+      sfx('heat', { tier: actNow + 2 }); bgKey = ''; boardKey = ''; audioMood();
+    }
   }
-  audioPressure(); if (AU.kit) AU.kit.amb.set('heat', S.mode === 'trail' ? 0 : Math.min(1, S.heat / 12));
+  audioPressure();
+  if (AU.kit) {
+    const spFloor = S.mode === 'springs' ? (springsAct(S.springs) === 3 ? 0.55 : springsAct(S.springs) === 2 ? 0.25 : 0) : 0;
+    AU.kit.amb.set('heat', S.mode === 'trail' ? 0 : Math.max(spFloor, Math.min(1, S.heat / 12)));
+  }
   const deadNow = S.tray.filter(x => x && !fitsAnywhere(S.board, x.id)).length;
   const deadBefore = res.newRound ? 0 : snap.tray.filter((x, k) => x && k !== slot && !fitsAnywhere(snap.board, x.id)).length;
   const newlyDoomed = !UI.doomed && trayDoomed();
@@ -4134,7 +4319,7 @@ function doPlace(slot, r, c) {
   if (S.mode !== 'trail' && !res.G && S.heat < snap.heat && hintOnce('cool')) toast('The water cooled', 'A piece that clears nothing cools the water, and cooler water scores less. Clear a group to heat it up.', 5000);
   goalsOnPlace(res); tipAfterPlace(res);
   let msg = 'Placed. ';
-  if (res.G) msg += S.mode === 'trail' ? 'Cleared ' + res.G + (res.G > 1 ? ' groups. ' : ' group. ') : 'Cleared ' + res.G + (res.G > 1 ? ' groups' : ' group') + ' for ' + (res.clearPts + res.ventPts + res.bonus) + '. ';
+  if (res.G) msg += S.mode === 'trail' ? 'Cleared ' + res.G + (res.G > 1 ? ' groups. ' : ' group. ') : 'Cleared ' + res.G + (res.G > 1 ? ' groups' : ' group') + ' for ' + (res.clearPts + res.ventPts + (res.stonePts || 0) + res.bonus + (res.tufaSweep || 0)) + '. ';
   if (S.mode === 'trail') msg += goalText() + '. ';
   else msg += 'Score ' + S.score + '. Heat ' + tempF(S.heat) + ' degrees. ';
   if (S.over) msg += S.won ? 'Goal reached!' : 'No room left. Game over.';
@@ -4195,7 +4380,7 @@ function useHint() {
   if (!hintAvail()) { sfx('invalid'); announce(currentHintRound() >= S.round ? 'You have used the hint for this tray.' : 'No piece has room for a hint.'); return { ok: false }; }
   const h = findHint(S);
   if (!h) { sfx('invalid'); return { ok: false }; }
-  UI.hint = h; S.hintRound = Math.max(currentHintRound(), S.round); UI.hintRound = S.hintRound; UI.sel = -1; UI.ghost = null; UI.lastInput = performance.now();
+  UI.hint = h; S.hintRound = Math.max(currentHintRound(), S.round); S.hintsUsed = (S.hintsUsed | 0) + 1; UI.hintRound = S.hintRound; UI.sel = -1; UI.ghost = null; UI.lastInput = performance.now();
   if (S.placed > 0) saveResume();
   sfx('pick'); announce('Hint: piece ' + (h.slot + 1) + ' goes at row ' + (h.r + 1) + ', column ' + (h.c + 1) + '.');
   updateHud(); dirty = true;
@@ -4218,7 +4403,7 @@ function doUndo() {
   UI.hint = null;
   const snap = S.undoStack.pop();
   UI.skipEnd = false;
-  const stack = S.undoStack, left = S.undoLeft, used = S.undosUsed || 0;
+  const stack = S.undoStack, left = S.undoLeft, used = S.undosUsed || 0, hintsUsed = S.hintsUsed || 0;
   const priorBest = Number.isFinite(S.priorBest) ? S.priorBest : bestFor(S.mode);
   const provBest = S.provBest || null;
   const hintRound = Math.max(currentHintRound(), Number.isInteger(snap.hintRound) ? snap.hintRound : -1);
@@ -4226,7 +4411,7 @@ function doUndo() {
   const ledger = normalizeLedger(S.ledger);
   const wasOver = S.scene === 'over' || $('sc-over').classList.contains('on');
   const scene = S.scene === 'over' ? 'game' : S.scene;
-  S = Object.assign(snap, { scene, undoStack: stack, priorBest, bestCommitted: false, provBest: null, hintRound, refilledRound, ledger });
+  S = Object.assign(snap, { scene, undoStack: stack, priorBest, bestCommitted: false, provBest: null, hintRound, refilledRound, ledger, hintsUsed });
   UI.overAt = 0; UI.hintRound = currentHintRound();
   if (provBest) {
     rollbackBestInMemory(provBest);
@@ -4234,15 +4419,19 @@ function doUndo() {
   }
   if (wasOver) showScene('game');
   clearGoalToasts();
+  S.undosUsed = used + 1;
   if (S.mode !== 'trail') { S.undoLeft = left - 1; if (hintOnce('undo')) toast('Undo used', 'Undo refills with each new tray.', 3500); }
   else {
-    S.undosUsed = used + 1;
     const was = trailStars(used), now = trailStars(used + 1);
     if (now < was) toast('Undo used', 'This puzzle is now worth ' + now + (now === 1 ? ' star.' : ' stars.'), 2500);
   }
   UI.sel = -1; UI.ghost = null; UI.pausedAt = null; UI.lastInput = performance.now(); FX.length = 0; WATER.clear();
-  bgKey = '';
-  sfx('undo'); audioMood(); if (AU.kit) AU.kit.amb.set('heat', S.mode === 'trail' ? 0 : Math.min(1, S.heat / 12));
+  bgKey = ''; boardKey = '';
+  sfx('undo'); audioMood();
+  if (AU.kit) {
+    const spFloor = S.mode === 'springs' ? (springsAct(S.springs) === 3 ? 0.55 : springsAct(S.springs) === 2 ? 0.25 : 0) : 0;
+    AU.kit.amb.set('heat', S.mode === 'trail' ? 0 : Math.max(spFloor, Math.min(1, S.heat / 12)));
+  }
   announce('Undone. ' + (S.mode === 'trail' ? 'Worth ' + trailStars(S.undosUsed) + ' stars now. ' : 'Score ' + S.score + '. ') + trayDesc());
   saveResume(); updateHud(); dirty = true;
   return { ok: true };
@@ -4254,8 +4443,8 @@ const GOALS = [
   ['four-at-once', 'Four at Once', 'Clear 4 groups with a single piece.'],
   ['boiling', 'Boiling Point', 'Bring the water to 143°F, Boiling.'],
   ['bathhouse-regular', 'Bathhouse Regular', 'Reach Boiling in 10 games.'],
-  ['gilded-spa', 'Gilded Spa', 'Reach the Gilded Spa era.'],
-  ['modern-spa-city', 'Modern Spa City', 'Reach the Modern Spa City era.'],
+  ['gilded-spa', 'Gilded Spa', 'Reach the Gilded Spa era in Classic.'],
+  ['modern-spa-city', 'Modern Spa City', 'Reach the Modern Spa City era in Classic.'],
   ['clear-spring', 'Clear Spring', 'Empty the whole floor with one clear.'],
   ['every-spring', 'Every Spring Flowing', 'Win Springs by opening all 47 vents.'],
   ['steady-hand', 'Steady Hand', 'Solve a Spring Trail puzzle with no undos.'],
@@ -4318,7 +4507,9 @@ function goalsOnPlace(res) {
     if (res.G >= 4) earn('four-at-once');
     if (S.heat >= 12) earn('boiling');
     if (res.bonus) earn('clear-spring');
-    if (S.era >= 3) earn('gilded-spa');
+  }
+  if (S.mode === 'classic') {
+    if (S.era >= 2) earn('gilded-spa');
     if (S.era >= 6) earn('modern-spa-city');
   }
 }
@@ -4524,11 +4715,23 @@ function showEnd() {
 function fillOver() {
   const won = S.won;
   const trail = S.mode === 'trail', outOf = trail && !S.tray.some(Boolean);
+  const spAct = S.mode === 'springs' ? springsAct(S.springs || 0) : 1;
+  const spCount = Math.min(47, S.springs || 0);
   $('ov-title').textContent = won ? 'All 47 springs flowing!' : outOf ? 'Out of pieces' : 'No room left';
   $('ov-sub').textContent = trail ? (LEVELS.find(l => l.id === S.level).name + ' · goal not reached. Undo a move or try again.')
     : modeLabel() + (S.mode === 'daily' ? ' · ' + dayLabel(S.daily) : '') + (won ? ' · you opened every spring' : ' · none of your pieces fits');
   const era = ERAS[S.era];
-  $('ov-era').textContent = trail ? '' : won ? ERAS[0].cap : 'You reached ' + era.name + ' (' + era.years + '). ' + era.cap;
+  if (trail) {
+    $('ov-era').textContent = '';
+  } else if (S.mode === 'springs') {
+    $('ov-era').textContent = won
+      ? 'All 47 thermal springs are flowing across the Valley of Vapors — 143°F water rising from the Ouachita hills after 4,400 years underground.'
+      : 'Valley of Vapors · ' + SPRINGS_ACTS[spAct].sub + '. ' + spCount + ' of 47 springs opened.';
+  } else if (S.mode === 'daily') {
+    $('ov-era').textContent = 'Era of the Day: ' + era.name + ' (' + era.years + '). ' + era.cap;
+  } else {
+    $('ov-era').textContent = 'You reached ' + era.name + ' (' + era.years + '). ' + era.cap;
+  }
   $('b-ovundo').style.display = undoAvail() ? '' : 'none';
   $('b-again').textContent = trail ? 'Try again' : 'Play again';
   $('ov-score').textContent = S.score.toLocaleString('en-US');
@@ -4542,16 +4745,32 @@ function fillOver() {
   countUp($('ov-count'), S.score);
   $('ov-new').textContent = UI.newBest ? 'New best!' : 'Best: ' + bestFor(S.mode).toLocaleString('en-US');
   $('ov-new').classList.toggle('hit', !!UI.newBest);
-  const rows = [['Groups cleared', S.groups], ['Pieces placed', S.placed], ['Hottest water', S.bestHeat >= 12 ? '143°F (boiling)' : tempF(S.bestHeat) + '°F'], ['Era reached', ERAS[S.era].name]];
-  if (S.mode === 'springs') rows.unshift(['Springs opened', S.springs + ' / 47']);
-  if (!trail) {   // how close the next era and the best were (S3-08)
-    if (!won && S.era < ERAS.length - 1) rows.splice(rows.findIndex(r => r[0] === 'Era reached') + 1, 0, ['To ' + ERAS[S.era + 1].name, (ERAS[S.era + 1].at - S.score).toLocaleString('en-US') + ' points']);
+  const rows = [['Groups cleared', S.groups], ['Pieces placed', S.placed]];
+  if (!trail) {
+    rows.push(['Hottest water', S.bestHeat >= 12 ? '143°F (boiling)' : tempF(S.bestHeat) + '°F']);
+    if (S.mode === 'classic') rows.push(['Era reached', ERAS[S.era].name]);
+    else if (S.mode === 'springs') rows.push(['Act reached', SPRINGS_ACTS[spAct].name]);
+    else if (S.mode === 'daily') rows.push(['Era of the Day', era.name]);
+  }
+  if (S.mode === 'springs') rows.unshift(['Springs opened', spCount + ' / 47']);
+  if (!trail) {   // exclusive Classic era distance + per-mode best delta (S3-08 / W6-S1-01)
+    const anchor = rows.findIndex(r => r[0] === 'Era reached' || r[0] === 'Act reached' || r[0] === 'Era of the Day');
+    const at = anchor >= 0 ? anchor + 1 : rows.length;
+    if (S.mode === 'classic' && !won && S.era < ERAS.length - 1) rows.splice(at, 0, ['To ' + ERAS[S.era + 1].name, (ERAS[S.era + 1].at - S.score).toLocaleString('en-US') + ' points']);
     const prev = UI.prevBest | 0;
-    if (prev > 0) rows.splice(rows.findIndex(r => r[0] === 'Era reached') + 1, 0, UI.newBest ? ['Best beaten by', (S.score - prev).toLocaleString('en-US') + ' points'] : ['Short of best by', (prev - S.score).toLocaleString('en-US') + ' points']);
+    if (prev > 0) rows.splice(at, 0, UI.newBest ? ['Best beaten by', (S.score - prev).toLocaleString('en-US') + ' points'] : ['Short of best by', (prev - S.score).toLocaleString('en-US') + ' points']);
   }
   const pp = S.ptsPlace | 0, pc = S.ptsClear | 0, pb = S.ptsBonus | 0;
-  if (pp + pc + pb === S.score && S.score > 0) { rows.splice(1, 0, ['Points from clears', pc.toLocaleString('en-US')], ['Points from placing', pp.toLocaleString('en-US')]); if (pb) rows.splice(3, 0, ['Clear-spring bonus', pb.toLocaleString('en-US')]); }
-  if (S.mode === 'daily') rows.push(['Daily streak', dailyStreak(S.daily) + (dailyStreak(S.daily) === 1 ? ' day' : ' days')]);
+  if (!trail && pp + pc + pb === S.score && S.score > 0) {
+    rows.splice(1, 0, ['Points from clears', pc.toLocaleString('en-US')], ['Points from placing', pp.toLocaleString('en-US')]);
+    if (pb) rows.splice(3, 0, [S.mode === 'daily' && S.tufaSwept ? 'Bonus points' : 'Clear-spring bonus', pb.toLocaleString('en-US')]);
+  }
+  if (S.mode === 'daily') {
+    const par = dailyPar(S.score);
+    rows.push(['Daily par', par ? par.name + ' (' + par.at.toLocaleString('en-US') + '+)' : 'Next: Bronze (2,500)']);
+    if ((S.undosUsed || 0) === 0 && (S.hintsUsed || 0) === 0 && S.placed > 0) rows.push(['Badge', 'Pure Soak (no undo or hint)']);
+    rows.push(['Daily streak', dailyStreak(S.daily) + (dailyStreak(S.daily) === 1 ? ' day' : ' days')]);
+  }
   if (UI.earned && UI.earned.length) rows.push(['Goals earned', UI.earned.join(', ')]);
   if (UI.newCards && UI.newCards.length) rows.push(['Fact card collected', UI.newCards.join(', ')]);
   $('ov-tip').textContent = won || trail ? '' : overTip();
@@ -4562,6 +4781,7 @@ function fillOver() {
 function overTip() {
   const cooled = S.cooled | 0;
   if (S.placed < 8) return 'Early losses come from scattered pieces. Keep the board open and build toward a full row.';
+  if (S.mode === 'springs' && S.springs < 47 && count(S.board, 8) >= 4) return 'Build lines straight across active vents — each opened vent clears space and adds +1 heat.';
   if (S.groups > 0 && (S.bestG || 0) <= 1) return 'Try setting up two groups for one piece: 2 at once scores 72, against 18 for a single.';
   if (cooled >= 6 && S.bestHeat < 6) return 'The water cooled ' + cooled + ' times. Clearing on back-to-back pieces keeps it hot and multiplies your points.';
   if (S.groups === 0) return 'Nothing cleared this game. Fill a whole row, column or 3×3 pool to clear it.';
@@ -4597,7 +4817,7 @@ function showWinTrail() {
   const how = w.undos === 0 ? 'No undos used.' : w.undos + (w.undos === 1 ? ' undo' : ' undos') + ' used.';
   const next = w.stars < 3 ? ' Solve it again with ' + (w.stars === 2 ? 'no undos' : 'two undos or fewer') + ' for ' + (w.stars + 1) + ' stars.' : '';
   const best = w.stars > w.prev && w.prev > 0 ? ' New best: up from ' + w.prev + '.' : '';
-  const crown = w.crown === 'all' ? LEVELS[idx].name + ' was the last one: every puzzle is solved. ' : w.crown === 'title' ? LEVELS[idx].name + ' was the last of the first ring, and every first-ring puzzle is solved. ' : '';
+  const crown = w.crown === 'all' ? LEVELS[idx].name + ' was the last one: every puzzle is solved. You earned the ' + TRAIL_MASTER_TITLE + ' title. ' : w.crown === 'title' ? LEVELS[idx].name + ' was the last of the first ring, and every first-ring puzzle is solved. ' : '';
   const hasNext = idx >= 0 && idx < LEVELS.length - 1 && unlocked(idx + 1);
   const gateNote = idx >= 0 && idx < LEVELS.length - 1 && !hasNext && ring2Gate(idx + 1) ? ' Earn ' + Math.max(0, TRAIL_RING2_STARS - trailStarTotal()) + ' more stars to open the second ring.' : '';
   $('win-sub').textContent = crown + how + best + next + ' ' + SAVE.trail.done.length + ' of ' + LEVELS.length + ' solved, ' + trailStarTotal() + ' stars.' + gateNote;
@@ -4656,7 +4876,7 @@ function back() {
 }
 // The goal of Springs and of each Trail puzzle as a number beside the score (S4-14): [label, value], or null where the goal is score.
 function hudGoal() {
-  if (S.mode === 'springs') return ['Vents', S.springs + '/47'];
+  if (S.mode === 'springs') return ['Vents', Math.min(47, S.springs) + '/47'];
   if (S.mode !== 'trail') return null;
   if (S.goal === 'stones+vents') return ['Left', count(S.board, 7) + count(S.board, 8)];
   if (S.goal === 'stones') return ['Tufa left', count(S.board, 7)];
@@ -4749,12 +4969,12 @@ function fillRowStrip() {
 function fillTrail() {
   const box = $('levels'); box.innerHTML = '';
   const total = trailStarTotal();
-  $('trail-intro').textContent = LEVELS.length + ' puzzles named for Hot Springs places. Each has a fixed set of pieces and one goal. Solve one to open the next. Finish with no undos for three stars, up to two for two, more for one. ' + TRAIL_RING2_STARS + ' stars open the second ring. You have ' + total + '.';
+  $('trail-intro').textContent = '12 Bathhouse Row landmarks plus 12 Spring Science mastery boards. Each has a fixed set of pieces and one goal, with an Up Next queue and no Score or Heat. Finish with no undos for three stars, up to two for two, more for one. ' + TRAIL_RING2_STARS + ' stars open the second ring. You have ' + total + '.';
   fillRowStrip();
   LEVELS.forEach((L, i) => {
     if (ring2Gate(i)) {
       const h = document.createElement('h3'); h.className = 'ring';
-      h.textContent = 'Second ring' + (total >= TRAIL_RING2_STARS ? '' : ' · locked until ' + TRAIL_RING2_STARS + ' stars');
+      h.textContent = 'Second ring · Spring Science Mastery' + (total >= TRAIL_RING2_STARS ? '' : ' · locked until ' + TRAIL_RING2_STARS + ' stars');
       box.appendChild(h);
     }
     const b = document.createElement('button');
@@ -4771,10 +4991,11 @@ function fillTrail() {
     box.appendChild(b);
   });
 }
-// The first ring is Bathhouse Row's own puzzles; solving all of them earns the title (S4-04). Nothing is saved for it: it is read from the solved list.
+// Ring 1 is Bathhouse Row's 12 puzzles ('Row Walker'); solving all 24 puzzles upgrades the persistent title to 'Trail Master' (W6-S1-01 / CD-WF1-03).
 const TRAIL_TITLE = 'Row Walker';
-function trailTitle() { return LEVELS.every(l => l.ring || SAVE.trail.done.includes(l.id)) ? TRAIL_TITLE : ''; }
+const TRAIL_MASTER_TITLE = 'Trail Master';
 function trailAllDone() { return LEVELS.every(l => SAVE.trail.done.includes(l.id)); }
+function trailTitle() { return trailAllDone() ? TRAIL_MASTER_TITLE : LEVELS.every(l => l.ring || SAVE.trail.done.includes(l.id)) ? TRAIL_TITLE : ''; }
 function goalLabel(g) { return g === 'stones+vents' ? 'Clear tufa & vents' : g === 'stones' ? 'Clear the tufa' : g === 'vents' ? 'Open the vents' : 'Clear ' + g.slice(6) + ' groups'; }
 function waterCardEl(c) {
   const open = waterCardOpen(c), el = document.createElement('article'); el.className = 'card' + (open ? '' : ' locked');
@@ -4790,14 +5011,14 @@ function eraCardEl(k) {
   const h = document.createElement('h4'); h.textContent = e.name; el.appendChild(h);
   const y = document.createElement('div'); y.className = 'yr'; y.textContent = e.years; el.appendChild(y);
   const p = document.createElement('p'); p.style.margin = '6px 0 0'; if (!open) p.className = 'muted';
-  p.textContent = open ? e.cap : 'Reach ' + e.at.toLocaleString('en-US') + ' points in Classic, Springs or Daily Soak.';
+  p.textContent = open ? e.cap : 'Reach ' + e.at.toLocaleString('en-US') + ' points in Classic.';
   el.appendChild(p);
   return el;
 }
 function fillCards() {
   const ebox = $('cards-era'); ebox.innerHTML = '';
   ERAS.forEach((_, k) => ebox.appendChild(eraCardEl(k)));
-  $('cards-era-sub').textContent = (eraReached() + 1) + ' of ' + ERAS.length + ' collected. Score in Classic, Springs or Daily Soak to move the town forward.';
+  $('cards-era-sub').textContent = (eraReached() + 1) + ' of ' + ERAS.length + ' collected. Score in Classic to move the town forward.';
   const wbox = $('cards-water'); wbox.innerHTML = '';
   WATER_CARDS.forEach(c => wbox.appendChild(waterCardEl(c)));
   $('cards-water-sub').textContent = WATER_CARDS.filter(c => waterCardOpen(c)).length + ' of ' + WATER_CARDS.length + ' collected. Clear groups in any mode and keep a Daily Soak streak going.';
@@ -4936,7 +5157,7 @@ function applySettings(changedKey = null) {
 }
 function setSetting(k, v) {
   SAVE.settings[k] = v; persist();
-  if (k === 'undo' && S.mode !== 'trail' && S.placed === 0 && S.undoStack.length === 0) S.undoLeft = v;
+  if (k === 'undo' && S.mode !== 'trail' && S.mode !== 'daily' && S.placed === 0 && S.undoStack.length === 0) S.undoLeft = v;
   applySettings(k);
   return SAVE.settings;
 }
@@ -5060,6 +5281,10 @@ function resumeSaved(preferredMode = null) {
   S = Object.assign(freshGame(r.mode), JSON.parse(JSON.stringify(r)), { scene: 'game', undoStack: [] });
   if (!DIFFICULTIES.includes(S.diff)) S.diff = 'standard';
   if (!Number.isInteger(S.undosUsed) || S.undosUsed < 0) S.undosUsed = 0;
+  if (!Number.isInteger(S.hintsUsed) || S.hintsUsed < 0) S.hintsUsed = 0;
+  if (!Number.isInteger(S.clearRun) || S.clearRun < 0) S.clearRun = 0;
+  if (!Number.isInteger(S.boilHold) || S.boilHold < 0) S.boilHold = 0;
+  S.tufaSwept = !!S.tufaSwept;
   if (!Number.isInteger(S.hintRound) || S.hintRound < -1) S.hintRound = -1;
   if (!Number.isInteger(S.refilledRound) || S.refilledRound < 1) S.refilledRound = Math.max(1, S.round || 1);
   if (!hasPriorBest) S.priorBest = bestFor(S.mode);
@@ -5381,7 +5606,9 @@ window.__game = {
     Object.assign(S, JSON.parse(JSON.stringify(s)));
     if (s.board) S.board = s.board.slice();
     if (s.round !== undefined && s.refilledRound === undefined) S.refilledRound = Math.max(1, S.round || 1);
-    UI.sel = -1; UI.ghost = null; UI.pausedAt = null; UI.lastInput = performance.now(); FX.length = 0; WATER.clear(); bgKey = '';
+    if (s.heat !== undefined && s.clearRun === undefined) S.clearRun = 0;
+    if (s.heat !== undefined && s.boilHold === undefined) S.boilHold = s.heat >= 12 ? 1 : 0;
+    UI.sel = -1; UI.ghost = null; UI.pausedAt = null; UI.lastInput = performance.now(); FX.length = 0; WATER.clear(); bgKey = ''; boardKey = '';
     if (!S.over) { checkEnd(S); if (S.over) endGame(); }
     if (s.scene) showScene(s.scene);
     updateHud(); dirty = true; return true;

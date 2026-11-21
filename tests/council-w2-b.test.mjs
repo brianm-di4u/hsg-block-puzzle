@@ -5,10 +5,11 @@ const R = loadRules();
 const HARD = ['x5', 'u5a', 'u5b', 'v5a', 'v5b', 'v5c', 'v5d', 'o9', 'r6h', 'r6v', 'i5h', 'i5v'];
 const EASY = ['o1', 'i2h', 'i2v'];
 
-function share(mode, score, ids, n = 6000) {
+function share(mode, score, ids, n = 6000, extra = null) {
   const g = R.freshGame(mode);
   g.score = score;
   g.rng = 99;
+  if (extra) Object.assign(g, extra);
   let k = 0;
   for (let i = 0; i < n; i++) if (ids.includes(R.pickPiece(g))) k++;
   return k / n;
@@ -64,8 +65,15 @@ export const tests = [
         t.expect(easy[e] < easy[e - 1], `small pieces get rarer in era ${e}`);
       }
       t.expect(hard[6] > hard[0] * 2, 'last era serves at least twice the hard pieces');
-      t.expect(Math.abs(share('daily', 9000, HARD) - hard[0]) < 0.02, 'Daily keeps the old weights at any score');
-      t.expect(Math.abs(share('springs', 9000, HARD) - hard[0]) < 0.02, 'Springs keeps the old weights at any score');
+      // PREC-06 synchronized migration (W6-S3-03 / W6-S3-02): Daily escalates strictly by round (score-independent),
+      // and Springs escalates by 3-Act vent progress (Act I matches baseline; Act III Final 10 surges).
+      t.expect(Math.abs(share('daily', 9000, HARD, 6000, { round: 0 }) - hard[0]) < 0.02, 'Daily ignores score at round 0');
+      const dailyLate = share('daily', 0, HARD, 6000, { round: 92 });
+      t.expect(dailyLate > hard[0] * 2, 'Daily escalates hard pieces by round (round 92 >= 2x baseline: ' + dailyLate.toFixed(3) + ')');
+      t.expect(Math.abs(share('springs', 9000, HARD, 6000, { springs: 0, round: 0 }) - hard[0]) < 0.02, 'Springs Act I keeps baseline weights regardless of score');
+      const springsAct3 = share('springs', 0, HARD, 6000, { springs: 38, round: 28 });
+      const springsAct3Easy = share('springs', 0, EASY, 6000, { springs: 38, round: 28 });
+      t.expect(springsAct3 > hard[0] * 1.5 && springsAct3Easy < easy[0] * 0.75, 'Springs Act III surges hard pieces and trims helpers (' + springsAct3.toFixed(3) + ' / ' + springsAct3Easy.toFixed(3) + ')');
     },
   },
   {
