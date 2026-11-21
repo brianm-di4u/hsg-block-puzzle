@@ -5,8 +5,7 @@ New research for the visual pass (2026-10-28/29). Facts reused from the shared c
 
 ## 1. The view
 
-All eight paintings show one real view: from the lower east slope of West Mountain, above the west side of
-Central Avenue, looking east across Bathhouse Row to Hot Springs Mountain.
+The initial Blender elevation guide (`art-src/blender/backdrop.py`) modeled one east-facing reference view from the lower east slope of West Mountain, above the west side of Central Avenue, looking east across Bathhouse Row to Hot Springs Mountain; the final shipped painted WebP vistas (`assets/era-*.webp` and `assets/title-hero.webp`) adapt that terrain and Row order into picturesque hill views highlighting Maurice, Fordyce, Quapaw, the 1933 Army & Navy General Hospital spire, and north-valley Arlington Hotel cues (detailed per painting in §3 and §4).
 
 | Item | Value | Source |
 |---|---|---|

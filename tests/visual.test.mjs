@@ -1330,4 +1330,148 @@ export const tests = [
       t.equal(trailWin.allOpaque, true, 'Trail 3-star win settles with all 3 .star.lit spans at opacity === 1 (count=' + trailWin.count + ')');
     },
   },
+  {
+    name: 'W6-S4-07 3-state debossed glaze relief medallions (quatrefoil rosette on code 6, micro-LOD <26px), ?gl=0 soft caustics & ?art=0 specular parity',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.game('newGame', { mode: 'classic', seed: 3 });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('act', 'hideToast');
+      await t.waitFrames(2);
+
+      // 1. Settings 3-state selector options & default ('relief')
+      await t.game('scene', 'settings');
+      const selInfo = await t.page.evaluate(() => {
+        const sel = document.getElementById('s-patterns');
+        return {
+          tag: sel.tagName,
+          val: sel.value,
+          opts: [...sel.options].map(o => [o.value, o.textContent.trim()]),
+        };
+      });
+      t.equal(selInfo.tag, 'SELECT', '#s-patterns is a 3-state <select>');
+      t.equal(selInfo.val, 'relief', 'default pattern mode is Glaze relief');
+      t.equal(selInfo.opts, [['relief', 'Glaze relief'], ['high', 'High-contrast marks'], ['off', 'Off']], '3-state selector carries exact canonical labels');
+
+      // 2. Compare tile-6 sprite pixels across 'off', 'relief', and 'high' (verify subtle debossed relief, no '+' crossbars at center, and micro-LOD < 26px).
+      await t.game('scene', 'game');
+      const patAudit = await t.page.evaluate(() => {
+        const measureDiff = (a, b) => {
+          let sum = 0, maxD = 0, n = a.length / 4;
+          for (let i = 0; i < a.length; i += 4) {
+            if (a[i + 3] < 200 && b[i + 3] < 200) continue;
+            const d = (Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2])) / 3;
+            sum += d; if (d > maxD) maxD = d;
+          }
+          return { avg: sum / n, maxD };
+        };
+        const getData = (code, sz, mode) => {
+          SAVE.settings.patterns = mode;
+          invalidateTileCode(String(code));
+          const sp = tileSprite(code, sz, 0);
+          const ctx2 = sp.c.getContext('2d');
+          return { data: ctx2.getImageData(0, 0, sp.c.width, sp.c.height).data, w: sp.c.width, h: sp.c.height, sp };
+        };
+        const sz = LAY.board.cell;
+        const off6 = getData(6, sz, 'off');
+        const rel6 = getData(6, sz, 'relief');
+        const hi6 = getData(6, sz, 'high');
+        // Check exact center pixel of code 6 (quatrefoil rosette has an OPEN center, unlike a '+' cross which paints directly through (cx,cy)!)
+        const cxPx = Math.round((-rel6.sp.ox + sz / 2) * DPR);
+        const cyPx = Math.round((-rel6.sp.oy + sz / 2) * DPR);
+        const ci = (cyPx * rel6.w + cxPx) * 4;
+        const centerDiffRel = Math.max(Math.abs(rel6.data[ci] - off6.data[ci]), Math.abs(rel6.data[ci + 1] - off6.data[ci + 1]), Math.abs(rel6.data[ci + 2] - off6.data[ci + 2]));
+        const centerDiffHi = Math.max(Math.abs(hi6.data[ci] - off6.data[ci]), Math.abs(hi6.data[ci + 1] - off6.data[ci + 1]), Math.abs(hi6.data[ci + 2] - off6.data[ci + 2]));
+        // Micro-LOD (<26 px) on code 6 renders cleanly without throwing and differs from 'off'
+        const microOff = getData(6, 22, 'off');
+        const microRel = getData(6, 22, 'relief');
+        // ?art=0 drawTileShape upper-left corner should be brighter than lower-right corner (Cycles upper-left specular parity)
+        const cVec = document.createElement('canvas'); cVec.width = cVec.height = 64;
+        const gVec = cVec.getContext('2d');
+        drawTileShape(gVec, 3, 0, 0, 64);
+        const tl = gVec.getImageData(16, 14, 4, 4).data, br = gVec.getImageData(44, 44, 4, 4).data;
+        const avgLum = d => { let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2]; return s / (d.length / 4 * 3); };
+        const vecSpecDelta = avgLum(tl) - avgLum(br);
+
+        SAVE.settings.patterns = 'relief';
+        invalidateTileCode('6');
+        warmSprites();
+        return {
+          relVsOff: measureDiff(rel6.data, off6.data),
+          hiVsOff: measureDiff(hi6.data, off6.data),
+          centerDiffRel,
+          centerDiffHi,
+          microDiff: measureDiff(microRel.data, microOff.data),
+          vecSpecDelta,
+        };
+      });
+      t.expect(patAudit.relVsOff.maxD >= 14 && patAudit.relVsOff.maxD < patAudit.hiVsOff.maxD, 'debossed relief is visible yet calmer than high-contrast marks (rel=' + patAudit.relVsOff.maxD.toFixed(1) + ', hi=' + patAudit.hiVsOff.maxD.toFixed(1) + ')');
+      t.expect(patAudit.centerDiffRel <= 8 && patAudit.centerDiffHi <= 14, 'code 6 quatrefoil rosette keeps open center (zero + crossbars; center diff rel=' + patAudit.centerDiffRel + ', hi=' + patAudit.centerDiffHi + ')');
+      t.expect(patAudit.microDiff.maxD >= 10, 'micro-LOD (<26px) stays distinct and legible (' + patAudit.microDiff.maxD.toFixed(1) + ')');
+      t.expect(patAudit.vecSpecDelta >= 25, '?art=0 drawTileShape upper-left specular aligns with Cycles key light (TL-BR delta=' + patAudit.vecSpecDelta.toFixed(1) + ')');
+    },
+  },
+  {
+    name: 'W6-S4-08 desktop & landscape Title wordmark spire clearance, portrait Title sky scrim & honest backdrop-notes sync',
+    async run(t) {
+      await t.game('scene', 'title');
+      await t.game('act', 'loadAllArt');
+      await t.page.waitForFunction(() => window.__game.isIdle(), null, { timeout: 10000 });
+      await t.waitFrames(2);
+
+      if (t.viewport === 'desktop') {
+        // 1. Desktop 1280x800: #sc-title .brand sits cleanly left of the 1933 Army & Navy Hospital spire (~58% width).
+        await t.shot('w4b03-title-desktop');
+        const desk = await t.page.evaluate(() => {
+          const r = document.querySelector('#sc-title .brand').getBoundingClientRect();
+          const pr = document.querySelector('#sc-title .panel').getBoundingClientRect();
+          return { left: r.left, right: r.right, bottom: r.bottom, vw: innerWidth, vh: innerHeight, panelTop: pr.top, panelBottom: pr.bottom };
+        });
+        t.expect(desk.right < desk.vw * 0.57, `desktop Title wordmark right (${desk.right.toFixed(1)}px) clears Hospital spire (< ${(desk.vw * 0.57).toFixed(1)}px)`);
+        t.expect(desk.panelBottom <= desk.vh + 1, 'desktop Title panel fits inside viewport with zero overflow');
+
+        // 2. Landscape phone 844x390 (returning state): wordmark clears Hospital spire AND 0px vertical overflow (CD-WF1-08).
+        await t.page.setViewportSize({ width: 844, height: 390 });
+        await t.page.evaluate(() => {
+          SAVE.resume = Object.assign(snapshot(), { mode: 'classic', score: 320, placed: 5, over: false, tray: [{ id: 'o1' }, { id: 'o4' }, null], undoStack: [] });
+          fillTitle();
+          resize();
+        });
+        await t.waitFrames(2);
+        await t.shot('w4b03-title-land844');
+        const land844 = await t.page.evaluate(() => {
+          const sc = document.getElementById('sc-title');
+          const br = sc.querySelector('.brand').getBoundingClientRect();
+          const pr = sc.querySelector('.panel').getBoundingClientRect();
+          return {
+            returning: document.getElementById('cta-row').classList.contains('returning'),
+            brandRight: br.right, vw: innerWidth, vh: innerHeight,
+            panelBottom: pr.bottom,
+            overflowY: sc.scrollHeight - sc.clientHeight,
+          };
+        });
+        await t.page.evaluate(() => { SAVE.resume = null; fillTitle(); });
+        await t.page.setViewportSize({ width: 1280, height: 800 });
+        t.equal(land844.returning, true, '844x390 returning Title mounts single-row Continue+New CTA');
+        t.expect(land844.brandRight < land844.vw * 0.57, `844x390 Title wordmark right (${land844.brandRight.toFixed(1)}px) clears Hospital spire (< ${(land844.vw * 0.57).toFixed(1)}px)`);
+        t.expect(land844.panelBottom <= land844.vh + 1 && land844.overflowY <= 1, `844x390 returning Title has 0px vertical overflow (bottom=${land844.panelBottom.toFixed(1)}/${land844.vh})`);
+
+        // 3. Verify research/backdrop-notes.md no longer claims all 8 paintings lock to one single east-facing camera (CD-WF3-06).
+        const notes = fs.readFileSync(path.join(GAME, 'research', 'backdrop-notes.md'), 'utf8');
+        t.expect(!/All eight paintings show one real view/i.test(notes), 'research/backdrop-notes.md truthfully distinguishes Blender guide from shipped vistas');
+        t.expect(/1933 Army & Navy General Hospital/i.test(notes) && /1924 Arlington/i.test(notes), 'research/backdrop-notes.md names shipped landmarks');
+      } else {
+        // Portrait mobile: ERA_CROP.title.port tuned to fx~0.55, fy~0.42 + centered brand + subtle top sky scrim.
+        await t.shot('w4b03-title-mobile');
+        const mob = await t.page.evaluate(() => {
+          const br = document.querySelector('#sc-title .brand').getBoundingClientRect();
+          const crop = ERA_CROP.title.port;
+          const centerDelta = Math.abs((br.left + br.right) / 2 - innerWidth / 2);
+          return { crop, centerDelta };
+        });
+        t.expect(Math.abs(mob.crop[0] - 0.55) <= 0.02 && Math.abs(mob.crop[1] - 0.42) <= 0.02, 'portrait Title crop tuned to fx~0.55, fy~0.42: ' + JSON.stringify(mob.crop));
+        t.expect(mob.centerDelta <= 4, 'portrait Title brand stays centered (delta ' + mob.centerDelta.toFixed(1) + 'px)');
+      }
+    },
+  },
 ];

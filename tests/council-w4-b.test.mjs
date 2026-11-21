@@ -616,7 +616,8 @@ tests.push(
         const heads = [...document.querySelectorAll('#sc-settings .set-head')].map(h => h.textContent.trim());
         const controls = [...document.querySelectorAll('#sc-settings .panel-body select, #sc-settings .panel-body input, #sc-settings .panel-body button')].map(e => e.id);
         const tipsParentTag = document.getElementById('b-tips').parentElement.tagName;
-        const switchesOk = ['s-patterns', 's-big', 's-tapplace', 's-sound', 's-sfx', 's-music', 's-ambience'].every(id => document.getElementById(id).getAttribute('role') === 'switch');
+        const switchesOk = ['s-big', 's-tapplace', 's-sound', 's-sfx', 's-music', 's-ambience'].every(id => document.getElementById(id).getAttribute('role') === 'switch')
+          && document.getElementById('s-patterns').tagName === 'SELECT';
         const noteBefore = document.getElementById('s-diff-note').hidden;
         setSetting('difficulty', 'master');
         const noteAfter = document.getElementById('s-diff-note').hidden;

@@ -78,10 +78,13 @@ export const tests = [
       await t.game('act', 'hideToast');
       await t.shot('62-patterns');
       const h1 = await t.game('act', 'canvasHash');
+      await t.game('act', 'setting', 'patterns', 'high');
+      const hHigh = await t.game('act', 'canvasHash');
+      t.expect(h1 !== hHigh, 'high-contrast marks differ from default glaze relief');
       await t.game('act', 'setting', 'patterns', false);
       await t.shot('63-patterns-off');
       const h2 = await t.game('act', 'canvasHash');
-      t.expect(h1 !== h2, 'patterns toggle changes the tiles');
+      t.expect(h1 !== h2 && hHigh !== h2, 'patterns toggle changes the tiles across all 3 states');
       await t.game('act', 'setting', 'patterns', true);
     },
   },
@@ -89,7 +92,7 @@ export const tests = [
     name: 'settings persist',
     async run(t) {
       await t.game('scene', 'settings');
-      await t.page.click('#s-patterns');
+      await t.page.selectOption('#s-patterns', 'off');
       await t.page.selectOption('#s-motion', 'reduced');
       await t.page.selectOption('#s-undo', '3');
       await t.page.click('#s-big');
@@ -101,7 +104,7 @@ export const tests = [
       await t.page.reload();
       await t.page.waitForFunction(() => !!window.__game);
       const s = (await t.game('act', 'save')).settings;
-      t.equal([s.patterns, s.motion, s.undo, s.bigText, s.theme], [false, 'reduced', 3, true, 'dark'], 'settings survive reload');
+      t.equal([s.patterns, s.motion, s.undo, s.bigText, s.theme], ['off', 'reduced', 3, true, 'dark'], 'settings survive reload');
       const bg = await t.page.evaluate(() => getComputedStyle(document.querySelector('#sc-title .panel')).backgroundColor);
       t.equal(bg, 'rgb(24, 35, 38)', 'dark theme applied from setting');
       const g = await t.game('newGame', { mode: 'classic' });
@@ -216,11 +219,13 @@ export const tests = [
       await t.game('scene', 'settings');
       await t.game('act', 'clearCues');
       await t.page.selectOption('#s-theme', 'dark');
-      await t.page.click('#s-patterns');
+      await t.page.selectOption('#s-patterns', 'high');
       await t.page.selectOption('#s-theme', 'system');
-      await t.page.click('#s-patterns');
+      await t.page.selectOption('#s-patterns', 'relief');
+      await t.page.click('#s-big');
+      await t.page.click('#s-big');
       const settingsClicks = (await t.game('act', 'cues')).filter(c => c === 'click').length;
-      t.expect(settingsClicks >= 4, 'Settings selects and toggles emit ceramic/brass click feedback (' + settingsClicks + ')');
+      t.expect(settingsClicks >= 6, 'Settings selects and toggles emit ceramic/brass click feedback (' + settingsClicks + ')');
 
       // 4. doUndo() across era & heat boundary immediately syncs era music, ambience, and heat level.
       await t.game('newGame', { mode: 'classic' });

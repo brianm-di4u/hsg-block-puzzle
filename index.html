@@ -200,9 +200,10 @@ button.primary:active:not(:disabled){transform:translateY(2px);box-shadow:inset 
 /* Title: logo on the painting, a compact menu panel (bottom right; a bottom sheet on phones) */
 #sc-title{flex-direction:column;align-items:stretch;justify-content:space-between;padding:max(clamp(16px,4vh,40px),env(safe-area-inset-top)) max(clamp(16px,4vw,48px),env(safe-area-inset-right)) max(clamp(16px,4vh,40px),env(safe-area-inset-bottom)) max(clamp(16px,4vw,48px),env(safe-area-inset-left))}
 #sc-title.on .brand,#sc-title.on .panel{animation:titleIn var(--dur-panel) var(--ease-settle) both}
-#sc-title .brand{align-self:center;text-align:center;margin-left:min(18vw,240px)}
+#sc-title .brand{align-self:flex-start;text-align:center;margin-left:clamp(0px,2vw,48px)}
 .logo{font-family:var(--font-display);font-weight:900;font-size:clamp(2.6em,7vw,4.6em);margin:0;color:#FFF3D6;letter-spacing:.01em;line-height:.95;
   text-shadow:0 2px 0 #8E3622,0 4px 0 #5C2416,0 10px 24px rgba(20,8,4,.6)}
+:root.lay-land .logo{font-size:clamp(2.2em,5.4vw,4.4em)}
 .logo small{display:block;width:max-content;max-width:100%;box-sizing:border-box;font-family:var(--font-sans);font-weight:700;font-size:.24em;letter-spacing:.32em;text-transform:uppercase;color:#FFF3D6;margin:.9em auto 0;padding:.45em 1.1em .45em 1.4em;border-radius:999px;background:rgba(26,12,6,.72);text-shadow:0 1px 2px rgba(0,0,0,.8)}
 #sc-title .panel{display:block;overflow:auto;align-self:flex-end;margin:auto 0;width:min(400px,100%);padding:18px;text-align:left;border:2px solid #C9A23F;box-shadow:0 18px 50px rgba(0,0,0,.5),inset 0 0 0 1px rgba(255,255,255,.25)}
 #sc-title .panel>*+*{margin-top:10px}
@@ -241,11 +242,11 @@ button.big{width:100%;font-size:1.1em;padding:12px}
 .ticker:hover{border-color:var(--color-border);background:rgba(120,100,60,.08)}
 .ticker:active:not(:disabled){transform:none}
 .ticker.swap{opacity:0}
-:root:not(.lay-land) #sc-title .brand{margin-left:0;margin-top:2vh}
+:root:not(.lay-land) #sc-title .brand{align-self:center;margin-left:0;margin-top:2vh}
 :root:not(.lay-land) #sc-title .panel{align-self:stretch;width:100%;margin:auto 0 0}
 :root:not(.lay-land) .logo{font-size:clamp(2.4em,12vw,3.6em)}
 @media (max-width:760px){
-  #sc-title .brand{margin-left:0;margin-top:2vh}
+  #sc-title .brand{align-self:center;margin-left:0;margin-top:2vh}
   #sc-title .panel{align-self:stretch;width:100%;margin:auto 0 0}
   .logo{font-size:clamp(2.4em,12vw,3.6em)}
 }
@@ -724,7 +725,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
       <label class="set"><span>Undos per round</span><select id="s-undo"><option value="0">0</option><option value="1">1</option><option value="3">3</option></select></label>
       <div class="set"><span>First-game tips</span><button id="b-tips" type="button">Show tips again</button></div>
       <h3 class="set-head">Controls &amp; Accessibility</h3>
-      <label class="set"><span>Tile patterns (colorblind aid)</span><input type="checkbox" role="switch" id="s-patterns"></label>
+      <label class="set"><span>Tile patterns (colorblind aid)</span><select id="s-patterns"><option value="relief">Glaze relief</option><option value="high">High-contrast marks</option><option value="off">Off</option></select></label>
       <label class="set"><span>Large text</span><input type="checkbox" role="switch" id="s-big"></label>
       <label class="set"><span>Motion</span><select id="s-motion"><option value="system">Follow system</option><option value="full">Full</option><option value="reduced">Reduced</option></select></label>
       <label class="set"><span>Tap to place (touch)</span><input type="checkbox" role="switch" id="s-tapplace"></label>
@@ -826,9 +827,9 @@ const LEVELS = [
   { id:'quapaw-bathhouse', name:'Quapaw Bathhouse', era:3, goal:'stones', hint:'The tufa cave hides under three rows.',
     board:['.........','.........','.........','.........','.........','.........','sss.sssss','ss...ssss','s..ssss..'],
     pieces:['i2h','t4b','i2h','c3a'] },
-  { id:'ozark-bathhouse', name:'Ozark Bathhouse', era:3, goal:'lines:4', hint:'Twin towers: one piece can clear four groups at once.',
-    board:['..s...s..','..s...s..','..s...s..','..sssss..','ss.....ss','..sssss..','..s...s..','..s...s..','..s...s..'],
-    pieces:['o1','i3h','i5h'] },
+  { id:'ozark-bathhouse', name:'Ozark Bathhouse', era:3, goal:'lines:4', hint:'Twin towers: frame the center pool first, then bridge it to clear four groups at once.',
+    board:['..s...s..','..s...s..','..s...s..','..s...s..','ss.....ss','..s...s..','..s...s..','..s...s..','..s...s..'],
+    pieces:['i3h','i3h','i5h'] },
   { id:'lamar-bathhouse', name:'Lamar Bathhouse', era:3, goal:'stones', hint:'Complete the Row: every stone must go.',
     board:['.........','.........','.........','ss.ss..ss','ss.ss..ss','sssss..ss','..ss.sss.','..ss.sss.','..s..ssss'],
     pieces:['r6v','i2v','j4a','r6v','i2v','i3h'] },
@@ -1046,27 +1047,57 @@ const PRESSURE_AT = [0, 400, 1000, 2000, 3500, 5500, 8000];
 function pressureEra(score) { let e = 0; for (let i = 0; i < PRESSURE_AT.length; i++) if (score >= PRESSURE_AT[i]) e = i; return e; }
 function count(board, code) { let n = 0; for (const v of board) if (v === code) n++; return n; }
 
-// Can these pieces all be placed, in some order, on this board, honouring the clears each placement makes? (S1-01)
-// A bounded search; if the budget runs out it says yes, so a deal is never held back by a slow answer.
+// Can these pieces all be placed, in some order, on this board, honouring the clears each placement makes? (S1-01 / W6-S3-07)
+// Ordered largest-first with exact single-remaining-piece and max-group-fill pruning so synthetic boards never trip budget false positives.
 function jointlyPlaceable(board, ids) {
   let budget = 1500;
+  const maxGroupFill = b => {
+    let m = 0;
+    for (let i = 0; i < 9; i++) {
+      let rc = 0, cc = 0, bc = 0;
+      const br = Math.floor(i / 3) * 3, bc0 = (i % 3) * 3;
+      for (let k = 0; k < 9; k++) {
+        if (b[i * 9 + k]) rc++;
+        if (b[k * 9 + i]) cc++;
+        if (b[(br + Math.floor(k / 3)) * 9 + bc0 + (k % 3)]) bc++;
+      }
+      if (rc > m) m = rc; if (cc > m) m = cc; if (bc > m) m = bc;
+    }
+    return m;
+  };
+  const ordered = ids.slice().sort((a, b) => (PIECES[b].n - PIECES[a].n) || (PIECES[b].h * PIECES[b].wd - PIECES[a].h * PIECES[a].wd));
   const go = (b, left) => {
     if (!left.length) return true;
+    if (left.length === 1) return fitsAnywhere(b, left[0]);
+    const fits = left.map(id => fitsAnywhere(b, id));
+    if (!fits.every(Boolean)) {
+      const totalCells = left.reduce((s, id) => s + PIECES[id].n, 0);
+      const maxF = maxGroupFill(b);
+      for (let i = 0; i < left.length; i++) {
+        if (!fits[i] && maxF + (totalCells - PIECES[left[i]].n) < 9) return false;
+      }
+    }
     for (let i = 0; i < left.length; i++) {
+      if (!fits[i]) continue;
       if (left.indexOf(left[i]) < i) continue;
       const p = PIECES[left[i]], rest = left.filter((_, j) => j !== i);
+      const restOne = rest.length === 1;
+      const restFits = restOne ? fits[i === 0 ? 1 : 0] : true;
       for (let r = 0; r <= 9 - p.h; r++) for (let c = 0; c <= 9 - p.wd; c++) {
         if (!canPlace(b, p.id, r, c)) continue;
         if (--budget < 0) return true;
         const nb = b.slice();
         for (const [dr, dc] of p.cells) nb[(r + dr) * 9 + c + dc] = 1;
-        for (const gr of findClears(nb)) for (const x of gr.cells) nb[x] = 0;
+        const clears = findClears(nb);
+        if (restOne && !restFits && !clears.length) continue;
+        for (const gr of clears) for (const x of gr.cells) nb[x] = 0;
+        if (restOne) { if (fitsAnywhere(nb, rest[0])) return true; continue; }
         if (go(nb, rest)) return true;
       }
     }
     return false;
   };
-  return go(board, ids);
+  return go(board, ordered);
 }
 function dealTray(g) {
   if (g.mode === 'trail') {
@@ -1238,7 +1269,7 @@ function applyMove(g, slot, r, c) {
 function freshLedger() { return { games: 0, lines: 0, springs: 0, boiled: 0, recentIdx: -1, recentScore: null }; }
 function freshGame(mode) {
   return { v: 1, mode, board: new Array(81).fill(0), tray: [null, null, null], queue: [], score: 0, heat: 0, bestHeat: 0,
-    groups: 0, placed: 0, round: 0, refilledRound: 1, undoLeft: 1, undosUsed: 0, hintsUsed: 0, undoStack: [], era: 0, springs: 0, level: null, goal: null,
+    groups: 0, placed: 0, round: 0, refilledRound: 1, undoLeft: 1, undoSpent: false, undosUsed: 0, hintsUsed: 0, undoStack: [], era: 0, springs: 0, level: null, goal: null,
     daily: null, over: false, won: false, rng: 1, diff: 'standard', dry: 0, cooled: 0, clearRun: 0, boilHold: 0, tufaSwept: false,
     ptsPlace: 0, ptsClear: 0, ptsBonus: 0,
     priorBest: 0, bestCommitted: false, hintRound: -1, ledger: freshLedger() };
@@ -1356,8 +1387,8 @@ const W8 = { pool:'#1F5F6B', pool2:'#25697A'/*d*/, surface:'#174A54', algae:'#2A
 // ===================================================================== STATE + SAVE
 const STORE_KEY = 'hs-thermal-blocks-v1';
 function defaultSave() {
-  return { v: 1, settings: { sound: true, volume: 0.7, sfx: true, music: true, musicVol: 0.5, ambience: true, ambVol: 0.5, motion: 'system', patterns: true, undo: 1, bigText: false, theme: 'system', effects: 'full', traySide: 'right', tapPlace: false, tipsSeen: false, haptics: true, difficulty: 'standard' },
-    best: { classic: 0, springs: 0, daily: {}, diff: { relaxed: { classic: 0, springs: 0 }, master: { classic: 0, springs: 0 } } }, trail: { done: [], stars: {} }, stats: { games: 0, lines: 0, bestHeat: 0, springs: 0, bestCombo: 0, longest: 0, recent: { classic: [], springs: [], daily: [] } },
+  return { v: 1, settings: { sound: true, volume: 0.7, sfx: true, music: true, musicVol: 0.5, ambience: true, ambVol: 0.5, motion: 'system', patterns: 'relief', undo: 1, bigText: false, theme: 'system', effects: 'full', traySide: 'right', tapPlace: false, tipsSeen: false, haptics: true, difficulty: 'standard' },
+    best: { classic: 0, springs: 0, daily: {}, diff: { relaxed: { classic: 0, springs: 0 }, master: { classic: 0, springs: 0 } } }, trail: { done: [], stars: {} }, stats: { games: 0, lines: 0, bestHeat: 0, springs: 0, bestCombo: 0, longest: 0, recent: { classic: [], springs: [], daily: [] }, recentDiff: { relaxed: { classic: [], springs: [] }, master: { classic: [], springs: [] } } },
     daily: { longest: 0, played: [] }, ach: {}, goals: { boiled: 0 }, eraMax: 0, hints: {}, resume: null };
 }
 // SAVE MERGE CORE (portable regression extracts this same function)
@@ -1375,6 +1406,11 @@ function createSaveStore(storage, defaults, revision, known = { save: 1 }) {
     // A save written before first-run tips existed belongs to someone who already knows the game: no tips for them.
     if (Object.hasOwn(def.settings, 'tipsSeen') && !(object(data.settings) && Object.hasOwn(data.settings, 'tipsSeen'))) out.settings.tipsSeen = true;
     for (const [key, value] of Object.entries(def.settings)) {
+      if (key === 'patterns' && typeof value === 'string') {
+        const pv = out.settings.patterns;
+        out.settings.patterns = pv === true || pv === 'relief' ? 'relief' : pv === 'high' ? 'high' : (pv === false || pv === 'off') ? 'off' : value;
+        continue;
+      }
       if (typeof out.settings[key] !== typeof value || (typeof value === 'number' && !number(out.settings[key]))) out.settings[key] = value;
     }
     for (const key of ['classic', 'springs']) if (!number(out.best[key])) out.best[key] = 0;
@@ -1391,6 +1427,11 @@ function createSaveStore(storage, defaults, revision, known = { save: 1 }) {
     if (object(def.stats.recent)) {
       const r = object(out.stats.recent) ? out.stats.recent : {};
       out.stats.recent = Object.fromEntries(Object.keys(def.stats.recent).map(m => [m, (Array.isArray(r[m]) ? r[m].filter(number) : []).slice(-10)]));
+    }
+    // Pure per-difficulty recent lists for Relaxed and Master Classic/Springs (Standard keeps stats.recent, W6-S3-08).
+    if (object(def.stats.recentDiff)) {
+      const rd = object(out.stats.recentDiff) ? out.stats.recentDiff : {};
+      out.stats.recentDiff = Object.fromEntries(Object.keys(def.stats.recentDiff).map(name => [name, Object.fromEntries(['classic', 'springs'].map(m => [m, (object(rd[name]) && Array.isArray(rd[name][m]) ? rd[name][m].filter(number) : []).slice(-10)]))]));
     }
     // Return loop: daily history, goals earned (id -> date) and lifetime goal counters. Damaged parts fall back to empty.
     const day = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
@@ -1502,12 +1543,25 @@ function createSaveStore(storage, defaults, revision, known = { save: 1 }) {
         while (o > 0 && !equal(a.slice(a.length - o), b.slice(0, o))) o--;
         merged.stats.recent[m] = [...merged.stats.recent[m], ...b.slice(o)].slice(-10);
       }
-      if (opts && opts.replaceRecent && Object.hasOwn(merged.stats.recent, opts.replaceRecent.mode) && number(opts.replaceRecent.to)) {
-        const list = merged.stats.recent[opts.replaceRecent.mode];
-        const idx = list.lastIndexOf(opts.replaceRecent.from);
-        if (idx >= 0) list[idx] = opts.replaceRecent.to;
-        else if (list.length) list[list.length - 1] = opts.replaceRecent.to;
-        else list.push(opts.replaceRecent.to);
+      if (object(def.stats.recentDiff) && object(merged.stats.recentDiff)) {
+        for (const name of Object.keys(def.stats.recentDiff)) for (const m of ['classic', 'springs']) {
+          const a = base.stats.recentDiff[name][m], b = value.stats.recentDiff[name][m];
+          let o = Math.min(a.length, b.length);
+          while (o > 0 && !equal(a.slice(a.length - o), b.slice(0, o))) o--;
+          merged.stats.recentDiff[name][m] = [...merged.stats.recentDiff[name][m], ...b.slice(o)].slice(-10);
+        }
+      }
+      if (opts && opts.replaceRecent && number(opts.replaceRecent.to)) {
+        const rr = opts.replaceRecent;
+        const list = (rr.diff && rr.diff !== 'standard' && object(merged.stats.recentDiff) && object(merged.stats.recentDiff[rr.diff]) && Array.isArray(merged.stats.recentDiff[rr.diff][rr.mode]))
+          ? merged.stats.recentDiff[rr.diff][rr.mode]
+          : Object.hasOwn(merged.stats.recent, rr.mode) ? merged.stats.recent[rr.mode] : null;
+        if (list) {
+          const idx = list.lastIndexOf(rr.from);
+          if (idx >= 0) list[idx] = rr.to;
+          else if (list.length) list[list.length - 1] = rr.to;
+          else list.push(rr.to);
+        }
       }
     }
     let wroteResume = false, conflict = false;
@@ -1554,6 +1608,7 @@ function validResume(r, modes = ['classic', 'springs']) {
   if (!Number.isInteger(r.era) || r.era < 0 || r.era >= ERAS.length) return false;
   if (r.diff !== undefined && !DIFFICULTIES.includes(r.diff)) return false;
   if (r.undosUsed !== undefined && !(Number.isInteger(r.undosUsed) && r.undosUsed >= 0)) return false;
+  if (r.undoSpent !== undefined && typeof r.undoSpent !== 'boolean') return false;
   if (r.hintsUsed !== undefined && !(Number.isInteger(r.hintsUsed) && r.hintsUsed >= 0)) return false;
   if (r.clearRun !== undefined && !(Number.isInteger(r.clearRun) && r.clearRun >= 0)) return false;
   if (r.boilHold !== undefined && !(Number.isInteger(r.boilHold) && r.boilHold >= 0)) return false;
@@ -1771,6 +1826,11 @@ function todayStr(d = new Date()) {
 function undoMax() { return S.mode === 'trail' ? Infinity : S.mode === 'daily' ? 1 : SAVE.settings.undo; }
 // Classic and Springs keep one best per difficulty: Standard in best.classic / best.springs (as before), the others in best.diff.
 function bestSlot(mode, diff) { return diff && diff !== 'standard' && SAVE.best.diff && SAVE.best.diff[diff] ? SAVE.best.diff[diff] : SAVE.best; }
+function recentSlot(mode, diff) {
+  return (mode === 'classic' || mode === 'springs') && diff && diff !== 'standard' && SAVE.stats.recentDiff && SAVE.stats.recentDiff[diff]
+    ? SAVE.stats.recentDiff[diff]
+    : SAVE.stats.recent;
+}
 function readBestFromObj(best, mode, diff, daily) {
   if (!best || mode === 'trail') return 0;
   if (mode === 'daily') return (best.daily && best.daily[daily]) || 0;
@@ -3167,25 +3227,68 @@ const SKYLINE = { near: [0.7,0.38,0.02,-0.42,-0.67,-0.88,-0.91,-0.69,-0.47,-0.19
 // violet stained glass). Eras change the backdrop and frame, never the tiles, so pieces are learned once.
 const TILE_HEX = ['#B8381F', '#E09A1E', '#2450B8', '#1F8A4C', '#E9DFC6', '#7A3FB4'];
 const TILE_IMG = { body: 0.9 / 1.19, cy: 0.5 - 0.035 / 1.19 }; // tile body share and centre in the render (art-src/blender/tiles.py)
-function drawPattern(g, k, cx, cy, s, col) { // pressed into the glaze: dark lower-right edge, light upper-left edge
-  const light = lum(col) > 0.55, u = s * 0.15, o = Math.max(0.8, s * 0.02);
+function patternMode() {
+  const p = SAVE.settings.patterns;
+  return p === 'high' ? 'high' : (p === false || p === 'off') ? 'off' : 'relief';
+}
+function drawPattern(g, k, cx, cy, s, col, mode = patternMode()) {
+  // Default-on top-left-lit debossed self-glaze relief medallions (~26-30%) + scale-aware micro-LOD (<26 px) + high-contrast mode (CD-WF2-04 / W6-S4-07).
+  if (mode === 'off') return;
+  const L = lum(col), light = L > 0.55, midWarm = !light && L > 0.32;
+  const u = s * 0.145, micro = s < 26, hi = mode === 'high';
+  const o = Math.max(0.65, s * 0.018);
   const path = () => {
     g.beginPath();
     switch (k) {
-      case 1: g.arc(cx, cy, s * 0.1, 0, Math.PI * 2); break;                                                         // dot
-      case 2: g.moveTo(cx - u, cy - u * 0.45); g.lineTo(cx + u, cy - u * 0.45); g.moveTo(cx - u, cy + u * 0.45); g.lineTo(cx + u, cy + u * 0.45); break; // bars
-      case 3: g.moveTo(cx - u, cy - u * 0.45); g.lineTo(cx, cy + u * 0.55); g.lineTo(cx + u, cy - u * 0.45); break;   // chevron (Quapaw dome)
+      case 1: g.arc(cx, cy, s * 0.095, 0, Math.PI * 2); break;                                                         // dot
+      case 2: g.moveTo(cx - u, cy - u * 0.44); g.lineTo(cx + u, cy - u * 0.44); g.moveTo(cx - u, cy + u * 0.44); g.lineTo(cx + u, cy + u * 0.44); break; // twin bars
+      case 3: g.moveTo(cx - u, cy - u * 0.42); g.lineTo(cx, cy + u * 0.52); g.lineTo(cx + u, cy - u * 0.42); break;   // chevron (Quapaw dome)
       case 4: g.moveTo(cx, cy - u); g.lineTo(cx + u, cy); g.lineTo(cx, cy + u); g.lineTo(cx - u, cy); g.closePath(); break; // lozenge (Fordyce brick)
-      case 5: g.moveTo(cx - u * 1.1, cy); g.bezierCurveTo(cx - u * 0.5, cy - u, cx - u * 0.1, cy - u, cx, cy); g.bezierCurveTo(cx + u * 0.1, cy + u, cx + u * 0.5, cy + u, cx + u * 1.1, cy); break; // wave
-      case 6: g.moveTo(cx - u, cy); g.lineTo(cx + u, cy); g.moveTo(cx, cy - u); g.lineTo(cx, cy + u); break;           // cross
+      case 5: g.moveTo(cx - u * 1.05, cy); g.bezierCurveTo(cx - u * 0.48, cy - u * 0.96, cx - u * 0.08, cy - u * 0.96, cx, cy); g.bezierCurveTo(cx + u * 0.08, cy + u * 0.96, cx + u * 0.48, cy + u * 0.96, cx + u * 1.05, cy); break; // spring wave
+      case 6: {                                                                                                        // bathhouse quatrefoil rosette (replaces '+' per CD-WF2-04 / G07-P03)
+        const rOut = u * 1.24, rWaist = u * 0.50;
+        for (let a = 0; a < 4; a++) {
+          const a0 = a * Math.PI * 0.5, aMid = a0 + Math.PI * 0.25, a1 = a0 + Math.PI * 0.5;
+          const sx = cx + Math.cos(a0) * rWaist, sy = cy + Math.sin(a0) * rWaist;
+          const ex = cx + Math.cos(a1) * rWaist, ey = cy + Math.sin(a1) * rWaist;
+          const c1x = cx + Math.cos(aMid - 0.34) * rOut, c1y = cy + Math.sin(aMid - 0.34) * rOut;
+          const c2x = cx + Math.cos(aMid + 0.34) * rOut, c2y = cy + Math.sin(aMid + 0.34) * rOut;
+          if (a === 0) g.moveTo(sx, sy);
+          g.bezierCurveTo(c1x, c1y, c2x, c2y, ex, ey);
+        }
+        g.closePath();
+        break;
+      }
     }
   };
-  g.save(); g.lineCap = 'round'; g.lineJoin = 'round'; g.lineWidth = Math.max(1.6, s * 0.07);
+  g.save(); g.lineCap = 'round'; g.lineJoin = 'round';
   const fill = k === 1;
-  const mark = (dx, dy, st) => { g.translate(dx, dy); path(); if (fill) { g.fillStyle = st; g.fill(); } else { g.strokeStyle = st; g.stroke(); } g.translate(-dx, -dy); };
-  mark(-o, -o, light ? 'rgba(255,255,255,.55)' : 'rgba(0,0,0,.35)');
-  mark(o, o, light ? 'rgba(80,60,30,.35)' : 'rgba(255,255,255,.45)');
-  mark(0, 0, light ? 'rgba(60,45,25,.42)' : 'rgba(255,255,255,.5)');
+  const mark = (dx, dy, st, lw) => {
+    g.translate(dx, dy);
+    if (lw) g.lineWidth = lw;
+    path();
+    if (fill) { g.fillStyle = st; g.fill(); } else { g.strokeStyle = st; g.stroke(); }
+    g.translate(-dx, -dy);
+  };
+  if (hi) {
+    const lw = micro ? Math.max(1.1, s * 0.075) : Math.max(1.5, s * 0.08);
+    const ink = (light || midWarm) ? 'rgba(28,20,12,.86)' : 'rgba(255,253,246,.90)';
+    const halo = (light || midWarm) ? 'rgba(255,252,244,.65)' : 'rgba(0,0,0,.58)';
+    if (!micro) mark(0, 0, halo, lw + Math.max(1.2, s * 0.028));
+    mark(0, 0, ink, lw);
+  } else {
+    g.lineWidth = Math.max(0.85, s * 0.06);
+    if (micro) {
+      // Clean single-pass micro-LOD below 26 px so narrow mobile tray bars stay crisp without muddiness
+      const core = light ? 'rgba(74,56,30,.32)' : midWarm ? 'rgba(78,44,6,.30)' : 'rgba(255,248,236,.30)';
+      mark(0, 0, core);
+    } else {
+      // Physically grounded top-left-lit debossed ceramic groove: upper-left wall catches shadow, lower-right catches glaze light
+      mark(-o, -o, light ? 'rgba(68,50,24,.28)' : midWarm ? 'rgba(58,34,4,.28)' : 'rgba(10,6,4,.30)');
+      mark(o, o, light ? 'rgba(255,252,242,.36)' : midWarm ? 'rgba(255,248,215,.28)' : 'rgba(255,250,238,.26)');
+      mark(0, 0, light ? 'rgba(82,62,32,.28)' : midWarm ? 'rgba(92,52,6,.26)' : 'rgba(255,248,235,.27)');
+    }
+  }
   g.restore();
 }
 function drawTufaCreviceRim(g, ox, oy, s) {
@@ -3250,17 +3353,25 @@ function drawVentCollar(g, cx, cy, s) {
   g.beginPath(); g.arc(cx, cy, rCore * 1.05, Math.PI * 1.08, Math.PI * 1.58); g.stroke();
   g.restore();
 }
-function drawTileShape(g, code, x, y, s) { // vector fallback
+function drawTileShape(g, code, x, y, s) { // vector fallback aligned to Cycles upper-left key light (W6-S4-07 / wf-3:24)
   const pad = Math.max(1, s * 0.04), w = s - pad * 2, r = s * 0.16;
   if (code >= 1 && code <= 6) {
     const col = TILE_HEX[code - 1];
-    g.fillStyle = 'rgba(0,0,0,.4)'; rr(g, x + pad + s * 0.03, y + pad + s * 0.06, w, w, r); g.fill();
-    const gr = g.createLinearGradient(x, y, x + s * 0.4, y + s);
-    gr.addColorStop(0, mix(col, '#FFFFFF', 0.3)); gr.addColorStop(0.45, col); gr.addColorStop(1, mix(col, '#000000', 0.3));
+    g.fillStyle = 'rgba(0,0,0,.36)'; rr(g, x + pad + LIGHT_SHADOW_DIR.dx * s * 0.075, y + pad + LIGHT_SHADOW_DIR.dy * s * 0.075, w, w, r); g.fill();
+    const gr = g.createLinearGradient(x + pad, y + pad, x + pad + w, y + pad + w);
+    gr.addColorStop(0, mix(col, '#FFFFFF', 0.28)); gr.addColorStop(0.45, col); gr.addColorStop(1, mix(col, '#000000', 0.28));
     g.fillStyle = gr; rr(g, x + pad, y + pad, w, w, r); g.fill();
-    g.strokeStyle = mix(col, '#000000', 0.5); g.lineWidth = 1; g.stroke();
-    g.fillStyle = mix(col, '#000000', 0.12); rr(g, x + s * 0.22, y + s * 0.22, s * 0.56, s * 0.56, s * 0.06); g.fill();
-    g.strokeStyle = 'rgba(255,255,255,.22)'; g.lineWidth = Math.max(1, s * 0.03); g.stroke();
+    g.strokeStyle = mix(col, '#000000', 0.48); g.lineWidth = 1; g.stroke();
+    // Soft pillowed inner bevel (0.16 alpha so relief medallions never collide with bright inset boxes)
+    g.fillStyle = mix(col, '#000000', 0.09); rr(g, x + s * 0.20, y + s * 0.20, s * 0.60, s * 0.60, s * 0.10); g.fill();
+    g.strokeStyle = 'rgba(255,255,255,.16)'; g.lineWidth = Math.max(0.8, s * 0.022); g.stroke();
+    // Upper-left clearcoat specular glint matching Cycles key light (-2.6, 2.9, 2.4)
+    g.save(); rr(g, x + pad, y + pad, w, w, r); g.clip();
+    const sx = x + pad + w * 0.24, sy = y + pad + w * 0.20, sr = w * 0.36;
+    const sp = g.createRadialGradient(sx, sy, 0, sx, sy, sr);
+    sp.addColorStop(0, 'rgba(255,255,255,.32)'); sp.addColorStop(0.55, 'rgba(255,255,255,.08)'); sp.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = sp; g.fillRect(x + pad, y + pad, w, w);
+    g.restore();
   } else if (code === 7) {
     g.fillStyle = 'rgba(0,0,0,.4)'; rr(g, x + pad + s * 0.03, y + pad + s * 0.06, w, w, r); g.fill();
     g.fillStyle = W8.tufa; rr(g, x + pad, y + pad, w, w, r); g.fill();
@@ -3292,8 +3403,9 @@ function drawTufaOverlay(g, ox, oy, s, v) {
 }
 function tileSprite(code, s, variant = 0) {
   const art = artReady('tile-' + code);
+  const pm = code <= 6 ? patternMode() : 'off';
   const v = (code === 7 && LAY && Math.abs(s - LAY.board.cell) < 0.5) ? (variant & 3) : 0;
-  const key = code + '|' + Math.round(s * 10) + '|' + (code <= 6 ? SAVE.settings.patterns : 0) + '|' + art + (v ? '|v' + v : '');
+  const key = code + '|' + Math.round(s * 10) + '|' + pm + '|' + art + (v ? '|v' + v : '');
   let sp = spriteCache.get(key);
   if (!sp) {
     const D = s * 0.96 / TILE_IMG.body, ox = s / 2 - D / 2, oy = s / 2 - TILE_IMG.cy * D;
@@ -3321,7 +3433,7 @@ function tileSprite(code, s, variant = 0) {
       if (v > 0) drawTufaOverlay(g, ox, oy, s, v);
     }
     if (code === 8 && art) drawVentCollar(g, -ox + s / 2, -oy + s / 2, s);
-    if (code <= 6 && SAVE.settings.patterns) drawPattern(g, code, -ox + s / 2, -oy + s / 2, s, TILE_HEX[code - 1]);
+    if (code <= 6 && pm !== 'off') drawPattern(g, code, -ox + s / 2, -oy + s / 2, s, TILE_HEX[code - 1], pm);
     sp = { c, ox, oy, D };
     spriteCache.set(key, sp);
   }
@@ -5543,6 +5655,7 @@ function newGame(opts = {}) {
     g = Object.assign(freshGame(mode), JSON.parse(JSON.stringify(kept)), { undoStack: [] });
     if (!DIFFICULTIES.includes(g.diff)) g.diff = 'standard';
     if (!Number.isInteger(g.undosUsed) || g.undosUsed < 0) g.undosUsed = 0;
+    g.undoSpent = !!g.undoSpent;
     if (!Number.isInteger(g.hintsUsed) || g.hintsUsed < 0) g.hintsUsed = 0;
     if (!Number.isInteger(g.clearRun) || g.clearRun < 0) g.clearRun = 0;
     if (!Number.isInteger(g.boilHold) || g.boilHold < 0) g.boilHold = 0;
@@ -5634,7 +5747,7 @@ function doPlace(slot, r, c) {
   S.undoStack.push(snap);
   UI.hint = null;
   if (S.undoStack.length > (S.mode === 'trail' ? 60 : 3)) S.undoStack.shift();
-  if (res.newRound && S.mode !== 'trail' && S.round > (S.refilledRound || 1)) { S.undoLeft = S.mode === 'daily' ? 1 : SAVE.settings.undo; S.refilledRound = S.round; }
+  if (res.newRound && S.mode !== 'trail' && S.round > (S.refilledRound || 1)) { S.undoLeft = S.mode === 'daily' ? 1 : SAVE.settings.undo; S.refilledRound = S.round; S.undoSpent = false; }
   UI.sel = -1; UI.ghost = null; UI.ghostCleared = false; UI.cur = null; UI.inviteSlot = -1; UI.touchTapCount = 0;
   const b = LAY.board, cell = b.cell;
   const cx = b.gx + (c + PIECES[res.id].wd / 2) * cell, cy = b.gy + (r + PIECES[res.id].h / 2) * cell;
@@ -5752,8 +5865,11 @@ function findHint(g) {
       if (!canPlace(g.board, p.id, r, c)) continue;
       const b = nb(g.board, p.cells, r, c), groups = findClears(b), gone = new Set();
       for (const gr of groups) for (const x of gr.cells) gone.add(x);
-      let special = 0; gone.forEach(x => { if (g.board[x] === 7 || g.board[x] === 8) special++; });
+      let vents = 0, stones = 0;
+      gone.forEach(x => { if (g.board[x] === 8) vents++; else if (g.board[x] === 7) stones++; });
       const after = b.map((v, i) => (gone.has(i) ? 0 : v));
+      const G = groups.length;
+      const wins = g.mode === 'springs' && (g.springs || 0) + vents >= 47;
       let snug = 0, holes = 0;
       for (const [dr, dc] of p.cells) for (const [a, d] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const rr = r + dr + a, cc = c + dc + d;
@@ -5763,8 +5879,14 @@ function findHint(g) {
         const rr = Math.floor(i / 9), cc = i % 9;
         if ([[1, 0], [-1, 0], [0, 1], [0, -1]].every(([a, d]) => { const x = rr + a, y = cc + d; return x < 0 || x > 8 || y < 0 || y > 8 || after[x * 9 + y]; })) holes++;
       }
-      const score = (rest.length && !jointlyPlaceable(after, rest) ? 0 : 1000) + groups.length * 100 + gone.size + special * 20 + snug * 3 - holes * 25;
-      if (!best || score > best.score) best = { slot: k, id: p.id, r, c, score };
+      const winBonus = wins ? 50000 : 0;
+      const surviveBonus = (wins || !rest.length || jointlyPlaceable(after, rest)) ? 1000 : 0;
+      const ventW = g.mode === 'springs' ? 140 : 40;
+      const stoneW = g.mode === 'daily' ? 60 : 30;
+      const clearSpring = G > 0 && after.every(v => !v) ? 400 : 0;
+      const tufaSweep = g.mode === 'daily' && stones > 0 && !g.tufaSwept && count(after, 7) === 0 ? 150 : 0;
+      const score = winBonus + surviveBonus + G * G * 120 + gone.size + vents * ventW + stones * stoneW + clearSpring + tufaSweep + snug * 3 - holes * 25;
+      if (!best || score > best.score) best = { slot: k, id: p.id, r, c, score, wins };
     }
   });
   return best;
@@ -5775,14 +5897,14 @@ function useHint() {
   if (S.mode === 'trail' || S.scene !== 'game' || S.over) return { ok: false };
   cancelDrag({ animate: false });
   if (!hintAvail()) { sfx('invalid', { src: 'hint' }); announce(currentHintRound() >= S.round ? 'You have used the hint for this tray.' : 'No piece has room for a hint.'); return { ok: false }; }
-  if (trayDoomed() && undoAvail()) {
+  const h = findHint(S);
+  if (trayDoomed() && undoAvail() && !(h && h.wins)) {
     sfx('warn');
     toast('Try Undo', 'These pieces won’t all fit — undo your last move to rethink.', 4200);
     announce('Not all of these pieces will fit. Use Undo to rethink your last move.');
     updateHud(); dirty = true;
     return { ok: false, adviseUndo: true };
   }
-  const h = findHint(S);
   if (!h) { sfx('invalid', { src: 'hint' }); return { ok: false }; }
   h.t0 = performance.now();
   UI.hint = h; UI.inviteSlot = -1; S.hintRound = Math.max(currentHintRound(), S.round); S.hintsUsed = (S.hintsUsed | 0) + 1; UI.hintRound = S.hintRound; UI.sel = -1; UI.ghost = null; UI.ghostCleared = false; UI.lastInput = h.t0;
@@ -5831,7 +5953,7 @@ function doUndo() {
   if (wasOver) showScene('game');
   clearGoalToasts();
   S.undosUsed = used + 1;
-  if (S.mode !== 'trail') { S.undoLeft = left - 1; if (hintOnce('undo')) toast('Undo used', 'Undo refills with each new tray.', 3500); }
+  if (S.mode !== 'trail') { S.undoLeft = left - 1; S.undoSpent = true; if (hintOnce('undo')) toast('Undo used', 'Undo refills with each new tray.', 3500); }
   else {
     const was = trailStars(used), now = trailStars(used + 1);
     if (now < was) toast('Undo used', 'This puzzle is now worth ' + now + (now === 1 ? ' star.' : ' stars.'), 2500);
@@ -6074,13 +6196,14 @@ function endGame(res) {
     st.bestCombo = Math.max(st.bestCombo, S.bestG || 0);
     st.longest = Math.max(st.longest, S.placed);
     if (S.bestHeat >= 12 && !L.boiled) { L.boiled = 1; boiledNow = true; }
-    if (st.recent[S.mode]) {
+    const rSlot = recentSlot(S.mode, S.diff);
+    if (rSlot && rSlot[S.mode]) {
       if (L.recentIdx < 0) {
-        st.recent[S.mode] = [...st.recent[S.mode], S.score].slice(-10);
-        L.recentIdx = st.recent[S.mode].length - 1;
+        rSlot[S.mode] = [...rSlot[S.mode], S.score].slice(-10);
+        L.recentIdx = rSlot[S.mode].length - 1;
         L.recentScore = S.score;
       } else {
-        replaceRecent = { mode: S.mode, from: L.recentScore, to: S.score };
+        replaceRecent = { mode: S.mode, diff: S.diff, from: L.recentScore, to: S.score };
       }
     }
   }
@@ -6126,13 +6249,14 @@ function endGame(res) {
   UI.newCards = newlyEarnedWater.map(c => c.title);
   const persistOk = persist(S.mode === 'classic' || hadLegacySpringsSave ? 'clear' : 'none', replaceRecent ? { replaceRecent } : null);
   if (replaceRecent) {
-    if (!persistOk && SAVE.stats.recent[S.mode]) {
-      const list = SAVE.stats.recent[S.mode], idx = list.lastIndexOf(replaceRecent.from);
+    const rSlotNow = recentSlot(S.mode, S.diff);
+    if (!persistOk && rSlotNow && rSlotNow[S.mode]) {
+      const list = rSlotNow[S.mode], idx = list.lastIndexOf(replaceRecent.from);
       if (idx >= 0) list[idx] = replaceRecent.to;
       else if (list.length) list[list.length - 1] = replaceRecent.to;
     }
     L.recentScore = S.score;
-    if (SAVE.stats.recent[S.mode]) L.recentIdx = SAVE.stats.recent[S.mode].lastIndexOf(S.score);
+    if (rSlotNow && rSlotNow[S.mode]) L.recentIdx = rSlotNow[S.mode].lastIndexOf(S.score);
   }
   if (wroteBest) {
     const prevRemote = LAST_PERSIST_PREV_BEST ? readBestFromObj(LAST_PERSIST_PREV_BEST, wroteBest.mode, wroteBest.diff, wroteBest.daily) : wroteBest.restore;
@@ -7052,15 +7176,24 @@ function diffBestRows() {
 }
 function fillRecent() {
   const box = $('rec-recent'); box.innerHTML = '';
-  for (const [mode, name] of [['classic', 'Classic'], ['springs', 'Springs'], ['daily', 'Daily Soak']]) {
-    const list = SAVE.stats.recent[mode], li = document.createElement('li');
-    const b = document.createElement('b'); b.textContent = name;
+  const appendRow = (title, list) => {
+    const li = document.createElement('li');
+    const b = document.createElement('b'); b.textContent = title;
     const sp = document.createElement('span');
     if (list.length) {
       const avg = Math.round(list.reduce((a, n) => a + n, 0) / list.length);
       sp.textContent = 'Average ' + avg.toLocaleString('en-US') + ' over the last ' + (list.length === 1 ? 'game' : list.length + ' games') + '. Newest first: ' + list.slice().reverse().map(n => n.toLocaleString('en-US')).join(', ') + '.';
     } else { li.className = 'empty'; sp.textContent = 'No finished games yet.'; }
     li.append(b, sp); box.appendChild(li);
+  };
+  for (const [mode, name] of [['classic', 'Classic'], ['springs', 'Springs'], ['daily', 'Daily Soak']]) {
+    appendRow(name, SAVE.stats.recent[mode] || []);
+    if ((mode === 'classic' || mode === 'springs') && SAVE.stats.recentDiff) {
+      for (const [dk, dl] of [['relaxed', 'Relaxed'], ['master', 'Master']]) {
+        const dlist = SAVE.stats.recentDiff[dk] && SAVE.stats.recentDiff[dk][mode];
+        if (Array.isArray(dlist) && dlist.length) appendRow(name + ' · ' + dl, dlist);
+      }
+    }
   }
 }
 function calDetailText(dayIso, today) {
@@ -7172,7 +7305,7 @@ function fillSettings() {
   for (const id of ['b-tips', 'b-tips-help']) $(id).textContent = tipsLbl;
   const s = SAVE.settings;
   $('s-sound').checked = s.sound; $('s-volume').value = Math.round(s.volume * 100); $('s-motion').value = s.motion;
-  $('s-patterns').checked = s.patterns; $('s-undo').value = String(s.undo); $('s-difficulty').value = DIFFICULTIES.includes(s.difficulty) ? s.difficulty : 'standard'; $('s-big').checked = s.bigText; $('s-theme').value = s.theme; $('s-effects').value = s.effects; $('s-tray').value = s.traySide === 'left' ? 'left' : 'right';
+  $('s-patterns').value = patternMode(); $('s-undo').value = String(s.undo); $('s-difficulty').value = DIFFICULTIES.includes(s.difficulty) ? s.difficulty : 'standard'; $('s-big').checked = s.bigText; $('s-theme').value = s.theme; $('s-effects').value = s.effects; $('s-tray').value = s.traySide === 'left' ? 'left' : 'right';
   $('s-tapplace').checked = s.tapPlace; $('s-haptics').checked = s.haptics; $('row-haptics').style.display = canVibrate() ? '' : 'none';
   $('s-sfx').checked = s.sfx; $('s-music').checked = s.music; $('s-musicvol').value = Math.round(s.musicVol * 100);
   $('s-ambience').checked = s.ambience; $('s-ambvol').value = Math.round(s.ambVol * 100);
@@ -7239,8 +7372,9 @@ function applySettings(changedKey = null) {
   applyVolume(); WATER.refresh(); resize(); updateHud();
 }
 function setSetting(k, v) {
+  if (k === 'patterns') v = v === true || v === 'relief' ? 'relief' : v === 'high' ? 'high' : (v === false || v === 'off') ? 'off' : 'relief';
   SAVE.settings[k] = v; persist();
-  if (k === 'undo' && S.mode !== 'trail' && S.mode !== 'daily' && S.placed === 0 && S.undoStack.length === 0) S.undoLeft = v;
+  if (k === 'undo' && S.mode !== 'trail' && S.mode !== 'daily' && !S.undoSpent && S.placed === 0 && S.undoStack.length === 0) S.undoLeft = v;
   applySettings(k);
   return SAVE.settings;
 }
@@ -7321,7 +7455,7 @@ function wireDom() {
   $('s-ambvol').addEventListener('input', e => { audioInit(); setSetting('ambVol', e.target.value / 100); auditionPauseAudio(); if (AU.kit && !AU.kit.held) AU.kit.music.duck(6, 600); });
   $('s-ambvol').addEventListener('change', () => { audioInit(); sfx('click'); });
   $('s-motion').addEventListener('change', e => { audioInit(); setSetting('motion', e.target.value); sfx('click', { dir: 1 }); });
-  $('s-patterns').addEventListener('change', e => { audioInit(); setSetting('patterns', e.target.checked); sfx('click', { dir: e.target.checked ? 1 : -1 }); });
+  $('s-patterns').addEventListener('change', e => { audioInit(); setSetting('patterns', e.target.value); sfx('click', { dir: e.target.value === 'off' ? -1 : 1 }); });
   $('s-undo').addEventListener('change', e => { audioInit(); setSetting('undo', +e.target.value); sfx('click', { dir: 1 }); });
   $('s-difficulty').addEventListener('change', e => { audioInit(); setSetting('difficulty', e.target.value); sfx('click', { dir: 1 }); });
   $('s-tapplace').addEventListener('change', e => { audioInit(); setSetting('tapPlace', e.target.checked); sfx('click', { dir: e.target.checked ? 1 : -1 }); });
@@ -7404,7 +7538,11 @@ function resumeGame() {
 }
 function restart() {
   if (S.mode === 'trail') newGame({ mode: 'trail', level: S.level });
-  else if (S.mode === 'daily') newGame({ mode: 'daily', date: S.daily });
+  else if (S.mode === 'daily') {
+    const today = todayStr();
+    if (S.daily && S.daily !== today) clearRun('daily', S.daily);
+    newGame({ mode: 'daily', date: today });
+  }
   else newGame({ mode: S.mode });
 }
 function resumeSaved(preferredMode = null) {
@@ -7431,6 +7569,7 @@ function resumeSaved(preferredMode = null) {
   S = Object.assign(freshGame(r.mode), JSON.parse(JSON.stringify(r)), { scene: 'game', undoStack: [] });
   if (!DIFFICULTIES.includes(S.diff)) S.diff = 'standard';
   if (!Number.isInteger(S.undosUsed) || S.undosUsed < 0) S.undosUsed = 0;
+  S.undoSpent = !!S.undoSpent;
   if (!Number.isInteger(S.hintsUsed) || S.hintsUsed < 0) S.hintsUsed = 0;
   if (!Number.isInteger(S.clearRun) || S.clearRun < 0) S.clearRun = 0;
   if (!Number.isInteger(S.boilHold) || S.boilHold < 0) S.boilHold = 0;
