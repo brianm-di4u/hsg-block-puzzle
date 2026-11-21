@@ -126,11 +126,13 @@ export const tests = [
       t.expect(L.info.h >= 56, 'the info strip has room for its three rows');
       t.equal(await t.game('act', 'infoLine'), 'Classic · Lines 0', 'the strip names the mode the HUD hides on a phone');
       await t.game('newGame', { mode: 'springs' });
-      t.expect((await t.game('act', 'infoLine')).startsWith('Springs opened 0 / 47'), 'Springs already says its name');
+      const spInfo = await t.game('act', 'infoLine');
+      t.expect(spInfo.startsWith('Springs · Act I') && !/\/ 47/.test(spInfo), 'Springs portrait strip names Springs + Act without duplicating HUD Vents 0/47 (OQ-WF5-01): ' + spInfo);
       await t.game('newGame', { mode: 'daily' });
       t.expect((await t.game('act', 'infoLine')).startsWith('Daily Soak · '), 'Daily Soak too');
       await t.game('newGame', { mode: 'trail', level: 'hale-bathhouse' });
-      t.expect((await t.game('act', 'infoLine')).startsWith('Spring Trail · '), 'a Trail puzzle names Spring Trail: ' + await t.game('act', 'infoLine'));
+      const trInfo = await t.game('act', 'infoLine');
+      t.expect(trInfo.startsWith('Spring Trail · Hale Bathhouse · ') && /pieces? left/.test(trInfo), 'a Trail puzzle names Spring Trail, landmark & pieces left without duplicating HUD goal (OQ-WF5-01): ' + trInfo);
       await calm(t);
       await t.game('newGame', { mode: 'trail', level: 'quapaw-bathhouse' });
       await t.shot('S2-05-phone-trail');

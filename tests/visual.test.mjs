@@ -980,4 +980,309 @@ export const tests = [
       t.equal(starStagger.delays, ['0ms', '120ms', '240ms'], '#win-stars staggers earned stars by 120ms');
     },
   },
+  {
+    name: 'W6-S5-06 multi-viewport layout solver (568x320, 844x390 Row 7-8 dragLift taper, 820x800 :root.lay-land, Tray-Left, 1180px HUD, 768x1024 iPad, 320x568 :root.big 0px overflow & >=12px captions)',
+    viewports: ['desktop'],
+    async run(t) {
+      const hit = (a, b) => a.width > 0 && b.width > 0 && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+
+      // 0. Zero legacy @media (orientation:...) CSS rules remain (authoritative :root.lay-land sync, CD-WF2-07).
+      const src = fs.readFileSync(path.join(GAME, 'index.html'), 'utf8');
+      t.equal(/@media[^{]*orientation\s*:/.test(src), false, 'zero @media (orientation:...) rules in index.html (bound to :root.lay-land)');
+
+      // 1. 568x320 narrow landscape: 0px tray clip (Right & Left), thermometer inside [I.y, I.y+I.h] below #hud, >=12px caption inside capsule, #toast/#tip clear of board.
+      await t.page.setViewportSize({ width: 568, height: 320 });
+      await t.game('act', 'setting', 'tipsSeen', false);
+      await t.game('act', 'setting', 'traySide', 'right');
+      await t.game('newGame', { mode: 'springs', seed: 5 });
+      await t.game('setState', { heat: 12, springs: 15 });
+      await t.waitFrames(2);
+      const nar568 = await t.page.evaluate(() => {
+        toast('Springs', 'Open all 47 vents.', 4000);
+        tipShow('goal');
+        const c = window.__game.act('canvasText');
+        const L = window.__game.layout();
+        const hudB = document.getElementById('hud').getBoundingClientRect().bottom;
+        const tr = document.getElementById('toast').getBoundingClientRect().toJSON();
+        const tipR = document.getElementById('tip').getBoundingClientRect().toJSON();
+        const bRect = { left: L.board.x, top: L.board.y, right: L.board.x + L.board.size, bottom: L.board.y + L.board.size, width: L.board.size, height: L.board.size };
+        const heatTxt = c.texts.find(x => x.text === 'HEAT');
+        const capTxt = c.texts.find(x => Math.abs(x.y - (c.cap.y + c.cap.h / 2)) <= 2);
+        const minFont = Math.min(...c.texts.map(x => x.size));
+        return {
+          land: L.land,
+          layLandClass: document.documentElement.classList.contains('lay-land'),
+          slotLeftMin: Math.min(...L.slots.map(s => s.x)),
+          slotRightMax: Math.max(...L.slots.map(s => s.x + s.w)),
+          hudB,
+          infoY: L.info.y,
+          heatTop: heatTxt ? heatTxt.y - heatTxt.size / 2 : -1,
+          minFont,
+          capFit: capTxt ? (capTxt.width + 24 <= 568 - 24 && capTxt.size >= 12) : false,
+          capText: capTxt ? capTxt.text : '',
+          toastRect: tr,
+          tipRect: tipR,
+          bRect,
+          scrollW: document.documentElement.scrollWidth,
+        };
+      });
+      t.equal(nar568.land && nar568.layLandClass, true, '568x320 is landscape with :root.lay-land synced');
+      t.expect(nar568.slotLeftMin >= 6 && nar568.slotRightMax <= 568 - 6, '568x320 right tray slots strictly inside [6, 562] (' + nar568.slotLeftMin.toFixed(1) + '..' + nar568.slotRightMax.toFixed(1) + ')');
+      t.expect(nar568.infoY >= nar568.hudB - 1 && nar568.heatTop >= nar568.infoY, '568x320 HEAT thermometer header stays strictly inside [I.y, I.y+I.h] below #hud');
+      t.expect(nar568.minFont >= 12 && nar568.capFit, '568x320 canvas text >= 12px & caption fits capsule (' + nar568.capText + ')');
+      t.equal(hit(nar568.toastRect, nar568.bRect), false, '568x320 landscape #toast does not overlap 9x9 board');
+      t.equal(hit(nar568.tipRect, nar568.bRect), false, '568x320 landscape #tip does not overlap 9x9 board');
+      t.expect(nar568.scrollW <= 568, '568x320 zero horizontal overflow (' + nar568.scrollW + ')');
+
+      // 568x320 Left-Handed (:root.tray-left): slots stay >=6px inside left edge, notifications mirror cleanly to right with 0 overlap over left tray slots.
+      await t.game('act', 'setting', 'traySide', 'left');
+      await t.waitFrames(2);
+      const narLeft = await t.page.evaluate(() => {
+        toast('Left-hand', 'Mirrored right rail.', 4000);
+        tipShow('goal');
+        const L = window.__game.layout();
+        const tr = document.getElementById('toast').getBoundingClientRect().toJSON();
+        const tipR = document.getElementById('tip').getBoundingClientRect().toJSON();
+        return {
+          hasClass: document.documentElement.classList.contains('tray-left'),
+          slotLeftMin: Math.min(...L.slots.map(s => s.x)),
+          slotRightMax: Math.max(...L.slots.map(s => s.x + s.w)),
+          slots: L.slots.map(s => ({ left: s.x, top: s.y, right: s.x + s.w, bottom: s.y + s.h, width: s.w, height: s.h })),
+          tr, tipR,
+        };
+      });
+      t.equal(narLeft.hasClass, true, ':root.tray-left toggled in applySettings()');
+      t.expect(narLeft.slotLeftMin >= 6, '568x320 left-tray slots >= 6px inside left edge (' + narLeft.slotLeftMin.toFixed(1) + ')');
+      t.equal(narLeft.slots.some(s => hit(s, narLeft.tr) || hit(s, narLeft.tipR)), false, 'tray-left notifications mirror to right side with 0 overlap on left tray slots');
+      await t.game('act', 'setting', 'traySide', 'right');
+
+      // 2. 844x390 LAY.short: Classic caption omits era years at >=12px; dragLift() preserves >=40px across Rows 0-6 and tapers smoothly strictly at d.y > VH - 48 (Rows 7-8).
+      await t.page.setViewportSize({ width: 844, height: 390 });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('newGame', { mode: 'classic', seed: 7 });
+      await t.waitFrames(2);
+      const short844 = await t.page.evaluate(() => {
+        const c = window.__game.act('canvasText');
+        const capTxt = c.texts.find(x => Math.abs(x.y - (c.cap.y + c.cap.h / 2)) <= 2);
+        const L = window.__game.layout(), b = L.board, p = PIECES.o1;
+        const liftRow6 = dragLift({ touch: true, x: b.gx + 4.5 * b.cell, y: b.gy + 6 * b.cell }, p, b.cell) - p.h * b.cell / 2;
+        const liftAtBezel = dragLift({ touch: true, x: b.gx + 4.5 * b.cell, y: VH - 48 }, p, b.cell) - p.h * b.cell / 2;
+        const touchAboveBarY = VH - 28; // 7px clear above 21px OS home bar (369..390)
+        const liftRow8 = dragLift({ touch: true, x: b.gx + 4.5 * b.cell, y: touchAboveBarY }, p, b.cell) - p.h * b.cell / 2;
+        const row8Snap = dragGhost({ slot: 0, touch: true, x: b.gx + 4.5 * b.cell, y: touchAboveBarY });
+        return {
+          capText: capTxt ? capTxt.text : '',
+          capSize: capTxt ? capTxt.size : 0,
+          capWidth: capTxt ? capTxt.width : 9999,
+          liftRow6, liftAtBezel, liftRow8,
+          row8R: row8Snap ? row8Snap.r : -1,
+        };
+      });
+      t.expect(short844.capSize >= 12 && !/before 1804/.test(short844.capText) && short844.capWidth + 24 <= 844 - 24, '844x390 Classic caption omits era years & fits at >=12px (' + short844.capText + ')');
+      t.expect(short844.liftRow6 >= 39.9 && short844.liftAtBezel >= 39.9, '844x390 dragLift preserves full >=40px lift through Row 6 & bezel threshold (' + short844.liftRow6.toFixed(1) + ')');
+      t.expect(short844.liftRow8 < short844.liftRow6 && short844.liftRow8 >= 13.5, '844x390 dragLift tapers smoothly strictly below VH-48 (' + short844.liftRow8.toFixed(1) + ')');
+      t.equal(short844.row8R, 8, '844x390 touch 7px above 21px OS home bar reaches Row 8 cleanly');
+
+      // 3. 820x800 square viewport: JS LAY.land === false and CSS :root.lay-land === false (zero orientation crash).
+      await t.page.setViewportSize({ width: 820, height: 800 });
+      await t.waitFrames(2);
+      const sq820 = await t.page.evaluate(() => ({ land: LAY.land, cls: document.documentElement.classList.contains('lay-land'), sw: document.documentElement.scrollWidth }));
+      t.equal(sq820, { land: false, cls: false, sw: 820 }, '820x800 square viewport syncs JS LAY.land=false & CSS :root.lay-land=false');
+
+      // 4. 768x1024 portrait tablet: reclaimed tipRoom recovers generous iPad trayScale >= 48px.
+      await t.page.setViewportSize({ width: 768, height: 1024 });
+      await t.waitFrames(2);
+      const ipad = await t.page.evaluate(() => ({ land: LAY.land, trayScale: LAY.trayScale, cell: LAY.board.cell }));
+      t.expect(!ipad.land && ipad.trayScale >= 48 && ipad.trayScale >= ipad.cell * 0.75, '768x1024 portrait iPad recovers piece scale >=48px (' + ipad.trayScale.toFixed(1) + 'px)');
+
+      // 5. 1920x1080 wide desktop: #hud capped <=1180px centered, Undo-vs-Sound gap >=6px, #h-mult & #snd-slash live.
+      await t.page.setViewportSize({ width: 1920, height: 1080 });
+      await t.game('setState', { heat: 12, score: 500 });
+      await t.waitFrames(2);
+      const wideHud = await t.page.evaluate(() => {
+        const hr = document.getElementById('hud').getBoundingClientRect();
+        const uR = document.getElementById('b-undo').getBoundingClientRect();
+        const sR = document.getElementById('b-sound').getBoundingClientRect();
+        const mult = document.getElementById('h-mult');
+        setSetting('sound', false);
+        const slashOff = getComputedStyle(document.getElementById('snd-slash')).display;
+        setSetting('sound', true);
+        const slashOn = getComputedStyle(document.getElementById('snd-slash')).display;
+        return { hudW: Math.round(hr.width), hudCenterDelta: Math.abs((hr.left + hr.right) / 2 - 960), undoSoundGap: sR.left - uR.right, multHidden: mult.hidden, multText: mult.textContent, slashOff, slashOn };
+      });
+      t.expect(wideHud.hudW <= 1180 && wideHud.hudCenterDelta <= 2, '1920x1080 #hud capped <=1180px and centered (' + wideHud.hudW + 'px)');
+      t.expect(wideHud.undoSoundGap >= 6, 'Undo-to-Sound separation >= 6px (' + wideHud.undoSoundGap.toFixed(1) + 'px)');
+      t.equal(wideHud.multHidden, false, 'heated wide HUD shows multiplier badge');
+      t.equal(wideHud.multText, '×4', 'Boiling HUD multiplier badge reads ×4');
+      t.expect(wideHud.slashOff !== 'none' && wideHud.slashOn === 'none', '#snd-slash toggles cleanly opposite #snd-wave');
+
+      // 6. 320x568 :root.big (mandatory WF-6 regression): 0px horizontal overflow across ALL screens + ~1.18x canvas scaling + warning pill clearance on tall i5v.
+      await t.page.setViewportSize({ width: 320, height: 568 });
+      await t.game('act', 'setting', 'bigText', false);
+      await t.game('newGame', { mode: 'classic', seed: 3 });
+      await t.waitFrames(2);
+      const normHeatSz = await t.page.evaluate(() => window.__game.act('canvasText').texts.find(x => /^Heat/.test(x.text)).size);
+      await t.game('act', 'setting', 'bigText', true);
+      await t.waitFrames(2);
+      const bigCheck = await t.page.evaluate(() => {
+        const c = window.__game.act('canvasText');
+        const heatSz = c.texts.find(x => /^Heat/.test(x.text)).size;
+        const minSz = Math.min(...c.texts.map(x => x.size));
+        // Tall i5v in narrow portrait slot with !fits -> warning pill must sit strictly below piece bottom (0px overlap).
+        const full = new Array(81).fill(1); full[0] = 0;
+        S.board = full; S.tray = [{ id: 'i5v' }, { id: 'o1' }, null];
+        draw(performance.now());
+        const sl0 = LAY.slots[0], pillH = 23;
+        const gm = slotPieceGeom(0, pillH + 4);
+        const pieceBottom = gm.y + PIECES.i5v.h * gm.s;
+        const pillTop = sl0.y + sl0.h - pillH - 4;
+        const uR = document.getElementById('b-undo').getBoundingClientRect();
+        const sR = document.getElementById('b-sound').getBoundingClientRect();
+        return { heatSz, minSz, pieceBottom, pillTop, undoSoundGap320: sR.left - uR.right, gameSw: document.documentElement.scrollWidth };
+      });
+      t.expect(bigCheck.heatSz >= Math.round(normHeatSz * 1.12) && bigCheck.minSz >= 12, 'bigText scales canvas labels ~1.18x while keeping >=12px (' + normHeatSz + ' -> ' + bigCheck.heatSz + ')');
+      t.expect(bigCheck.pieceBottom <= bigCheck.pillTop + 0.5, 'tall i5v clears warning pill cleanly (' + bigCheck.pieceBottom.toFixed(1) + ' <= ' + bigCheck.pillTop.toFixed(1) + ')');
+      t.expect(bigCheck.undoSoundGap320 >= 6, '320px HUD preserves >=6px Undo-vs-Sound gap (' + bigCheck.undoSoundGap320.toFixed(1) + 'px)');
+      t.expect(bigCheck.gameSw <= 320, '320x568 :root.big gameplay 0px horizontal overflow (' + bigCheck.gameSw + ')');
+
+      for (const sc of ['title', 'settings', 'help', 'trail', 'cards', 'records', 'pause', 'over']) {
+        await t.game('scene', sc);
+        await t.waitFrames(2);
+        const ov = await t.page.evaluate(id => {
+          const panel = document.querySelector('#' + id + ' .panel');
+          const pr = panel ? panel.getBoundingClientRect() : null;
+          return {
+            sw: document.documentElement.scrollWidth,
+            panelRight: pr ? Math.round(pr.right) : 0,
+          };
+        }, 'sc-' + sc);
+        t.expect(ov.sw <= 320 && ov.panelRight <= 321, '320x568 :root.big ' + sc + ' 0px horizontal overflow (sw=' + ov.sw + ', right=' + ov.panelRight + ')');
+      }
+
+      // 844x390 Title with :root.big fits cleanly without vertical clipping.
+      await t.page.setViewportSize({ width: 844, height: 390 });
+      await t.game('scene', 'title');
+      await t.waitFrames(2);
+      const titleBig844 = await t.page.evaluate(() => {
+        const p = document.querySelector('#sc-title .panel'), r = p.getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom, scrolls: p.scrollHeight > p.clientHeight + 2 };
+      });
+      t.expect(titleBig844.top >= 0 && titleBig844.bottom <= 390.5 && !titleBig844.scrolls, '844x390 :root.big Title fits without overflow (' + JSON.stringify(titleBig844) + ')');
+
+      await t.game('act', 'setting', 'bigText', false);
+      await t.page.setViewportSize({ width: 1280, height: 800 });
+    },
+  },
+  {
+    name: 'W6-S5-05 sticky flex modals (.panel-head, backdrop scrim), Pillar-5 CSS motion tokens, :active travel, :root.motion-full override & paused-modal toast suspension',
+    viewports: ['desktop'],
+    async run(t) {
+      // 1. Sticky .panel-head + 45x45 Close button + 4 intact outer corner diamonds + scrollTop reset + backdrop scrim dismissal.
+      for (const sc of ['trail', 'cards', 'records', 'help', 'settings']) {
+        await t.game('scene', sc);
+        const m = await t.page.evaluate(id => {
+          const root = document.getElementById(id);
+          const panel = root.querySelector('.panel');
+          const head = root.querySelector('.panel-head');
+          const btn = root.querySelector('.panel-head .btn-close');
+          const body = root.querySelector('.panel-body');
+          body.scrollTop = 120;
+          const r = btn.getBoundingClientRect();
+          return {
+            hasHead: !!head,
+            btnW: r.width,
+            btnH: r.height,
+            diamonds: (getComputedStyle(panel).backgroundImage.match(/data:image\/svg\+xml/g) || []).length,
+            outerOverflow: getComputedStyle(panel).overflowY,
+            bodyOverflow: getComputedStyle(body).overflowY,
+            focusInHead: head.contains(document.activeElement),
+          };
+        }, 'sc-' + sc);
+        t.equal(m.hasHead && m.diamonds === 4 && m.outerOverflow === 'hidden' && m.bodyOverflow === 'auto', true, sc + ': sticky flex modal shell keeps 4 outer corner diamonds');
+        t.expect(m.btnW >= 44 && m.btnH >= 44, sc + ': sticky Close button >= 44x44 (' + m.btnW.toFixed(1) + 'x' + m.btnH.toFixed(1) + ')');
+        t.equal(m.focusInHead, true, sc + ': focusFirst() lands on sticky Close button');
+        // Re-opening resets scrollTop to 0; clicking scrim outside .panel dismisses modal.
+        await t.game('scene', 'title');
+        await t.game('scene', sc);
+        t.equal(await t.page.evaluate(id => document.querySelector('#' + id + ' .panel-body').scrollTop, 'sc-' + sc), 0, sc + ': scrollTop resets to 0 on open');
+        await t.page.mouse.click(4, 4);
+        t.equal((await t.state()).scene, 'title', sc + ': backdrop scrim click dismisses non-confirm overlay');
+      }
+
+      // Confirm overlay must NOT dismiss on backdrop scrim click.
+      await t.page.evaluate(() => askConfirm('Test', 'Confirm stays modal.', 'Yes', 'No', () => {}));
+      await t.page.mouse.click(4, 4);
+      t.equal(await t.page.evaluate(() => document.getElementById('sc-confirm').classList.contains('on')), true, '#sc-confirm ignores backdrop scrim clicks');
+      await t.page.evaluate(() => closeConfirm(false));
+
+      // 2. Pillar-5 CSS motion tokens, :active bevel travel, zero backdrop-filter animations & :root.motion-full override under OS reduced motion.
+      const cssCheck = await t.page.evaluate(() => {
+        const cs = getComputedStyle(document.documentElement);
+        const tokens = {
+          easeSettle: cs.getPropertyValue('--ease-settle').trim(),
+          easePress: cs.getPropertyValue('--ease-press').trim(),
+          durTap: cs.getPropertyValue('--dur-tap').trim(),
+          durControl: cs.getPropertyValue('--dur-control').trim(),
+          durPanel: cs.getPropertyValue('--dur-panel').trim(),
+          durScrim: cs.getPropertyValue('--dur-scrim').trim(),
+          durToast: cs.getPropertyValue('--dur-toast').trim(),
+        };
+        const styleText = [...document.querySelectorAll('style')].map(s => s.textContent).join('\n');
+        const animatesBackdrop = /@keyframes[^{]*\{[^}]*backdrop-filter|transition:[^;]*backdrop-filter/i.test(styleText);
+        const hasActiveRules = /\.play:active:not\(:disabled\)/.test(styleText) && /#hud button:active:not\(:disabled\)/.test(styleText) && /button\.primary:active:not\(:disabled\)/.test(styleText);
+        // Check reduced motion collapses tokens to 0ms
+        setSetting('motion', 'reduced');
+        const redPanel = getComputedStyle(document.documentElement).getPropertyValue('--dur-panel').trim();
+        setSetting('motion', 'system');
+        return { tokens, animatesBackdrop, hasActiveRules, redPanel };
+      });
+      t.equal(cssCheck.tokens.durTap, '90ms', '--dur-tap is 90ms');
+      t.equal(cssCheck.tokens.durPanel, '180ms', '--dur-panel is 180ms');
+      t.equal(cssCheck.tokens.durScrim, '160ms', '--dur-scrim is 160ms');
+      t.equal(cssCheck.tokens.durToast, '200ms', '--dur-toast is 200ms');
+      t.equal(cssCheck.animatesBackdrop, false, 'zero backdrop-filter animations (GPU-only opacity/transform, CD-WF5-06)');
+      t.equal(cssCheck.hasActiveRules, true, ':active bevel/scale press rules wired on .play, button.primary & #hud button');
+      t.equal(cssCheck.redPanel, '0ms', ':root.motion-reduced collapses --dur-panel to 0ms');
+
+      // OS prefers-reduced-motion: reduce + Motion: Full -> :root.motion-full restores non-zero --dur-panel & animations!
+      await t.page.emulateMedia({ reducedMotion: 'reduce' });
+      const osRed = await t.page.evaluate(() => {
+        setSetting('motion', 'system');
+        const sysDur = getComputedStyle(document.documentElement).getPropertyValue('--dur-panel').trim();
+        setSetting('motion', 'full');
+        const hasFull = document.documentElement.classList.contains('motion-full');
+        const fullDur = getComputedStyle(document.documentElement).getPropertyValue('--dur-panel').trim();
+        setSetting('motion', 'system');
+        return { sysDur, hasFull, fullDur };
+      });
+      await t.page.emulateMedia({ reducedMotion: 'no-preference' });
+      t.equal(osRed.sysDur, '0ms', 'OS prefers-reduced-motion collapses Motion: Follow system to 0ms');
+      t.equal(osRed.hasFull && osRed.fullDur === '180ms', true, 'Motion: Full (:root.motion-full) overrides OS prefers-reduced-motion CSS rules (CD-WF5-06)');
+
+      // 3. Paused-modal toast & tip timer suspension: notice hides cleanly behind Pause without expiring, then resumes on returning to game.
+      await t.game('act', 'setting', 'tipsSeen', false);
+      await t.game('newGame', { mode: 'classic', seed: 11 });
+      await t.page.evaluate(() => {
+        toast('Era preview', 'Hold across pause.', 600);
+        showScene('pause');
+      });
+      const whilePaused = await t.page.evaluate(() => ({
+        toastOn: document.getElementById('toast').classList.contains('on'),
+        tipTimer: UI.tip ? UI.tip.timer : -1,
+        tipPausedRem: UI.tip ? UI.tip.pausedRem : 0,
+      }));
+      t.equal(whilePaused.toastOn, false, 'Channel 1 #toast hides cleanly behind Pause');
+      t.expect(whilePaused.tipTimer === 0 && whilePaused.tipPausedRem > 0, '#tip timer suspends cleanly behind Pause');
+      await t.page.waitForTimeout(750); // longer than original 600ms toast duration!
+      await t.game('act', 'resume');
+      const afterResume = await t.page.evaluate(() => ({
+        toastOn: document.getElementById('toast').classList.contains('on'),
+        toastText: document.getElementById('toast').textContent,
+        tipTimerActive: !!(UI.tip && UI.tip.timer),
+      }));
+      t.expect(afterResume.toastOn && /Hold across pause/.test(afterResume.toastText), 'paused Channel 1 toast survived 750ms Pause and resumed cleanly');
+      t.equal(afterResume.tipTimerActive, true, 'paused #tip timer resumed on returning to game');
+      await t.game('act', 'hideToast');
+    },
+  },
 ];
