@@ -171,4 +171,48 @@ export const tests = [
       }
     },
   },
+  {
+    name: 'W6-S4-05 Ring 2 architectural/geological silhouettes (<=2 glazes, real vents on Springs puzzles, stones+vents compound goal)',
+    viewports: ['desktop'],
+    async run(t) {
+      const ring2 = RULES.LEVELS.slice(12);
+      t.equal(ring2.length, 12, 'twelve Ring 2 puzzles');
+      for (const L of ring2) {
+        const b = RULES.parseLevel(L);
+        const glazes = new Set(b.filter(v => v >= 1 && v <= 6));
+        t.expect(glazes.size <= 2, L.id + ': uses <= 2 glaze colors (got ' + glazes.size + ')');
+        if (/springs/i.test(L.name)) {
+          t.expect(RULES.count(b, 8) > 0, L.id + ' ("' + L.name + '"): contains real Spring Vents');
+        }
+      }
+      // Verify stones+vents compound goal requires BOTH stones and vents cleared, and HUD/label render cleanly.
+      const compound = ring2.filter(L => L.goal === 'stones+vents');
+      t.expect(compound.length >= 4, 'Ring 2 uses compound stones+vents goals (' + compound.length + ')');
+      const lv = compound[0];
+      await t.game('newGame', { mode: 'trail', level: lv.id });
+      const hudCheck = await t.page.evaluate((lvId) => {
+        const L = LEVELS.find(x => x.id === lvId);
+        const g1 = { mode: 'trail', goal: 'stones+vents', board: new Array(81).fill(0) };
+        g1.board[0] = 7;
+        const metOnlyStone = goalMet(g1);
+        g1.board[0] = 0; g1.board[1] = 8;
+        const metOnlyVent = goalMet(g1);
+        g1.board[1] = 0;
+        const metClear = goalMet(g1);
+        return {
+          metOnlyStone, metOnlyVent, metClear,
+          goalLabelText: goalLabel('stones+vents'),
+          hudGoalPair: hudGoal(),
+          goalTextStr: goalText(),
+          levelName: L.name,
+        };
+      }, lv.id);
+      t.equal(hudCheck.metOnlyStone, false, 'stones+vents not met while tufa stone remains');
+      t.equal(hudCheck.metOnlyVent, false, 'stones+vents not met while spring vent remains');
+      t.equal(hudCheck.metClear, true, 'stones+vents met once both tufa and vents are cleared');
+      t.expect(/tufa/i.test(hudCheck.goalLabelText) && /vent/i.test(hudCheck.goalLabelText), 'goalLabel names tufa & vents: ' + hudCheck.goalLabelText);
+      t.expect(Array.isArray(hudCheck.hudGoalPair) && hudCheck.hudGoalPair[1] > 0, 'hudGoal reports remaining count: ' + JSON.stringify(hudCheck.hudGoalPair));
+      t.expect(/tufa/i.test(hudCheck.goalTextStr) && /vent/i.test(hudCheck.goalTextStr), 'goalText names tufa & vents: ' + hudCheck.goalTextStr);
+    },
+  },
 ];
