@@ -329,7 +329,7 @@ button.big{width:100%;font-size:1.1em;padding:12px}
 /* Inline-SVG Bathhouse Row skyline: single-row scrollable strip on wide screens, 4-col >=44px grid on phones (CD-WF5-05, S4-06, W6-S2-02) */
 .rowstrip{display:flex;flex-wrap:nowrap;align-items:stretch;gap:5px;max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;margin:0 0 12px;padding:8px;border-radius:var(--radius-lg);background:rgba(120,100,60,.12)}
 .rowstrip .end{flex:none;display:flex;align-items:center;font-family:var(--font-display);font-weight:900;color:var(--color-primary);padding:0 4px}
-.rowstrip button{position:relative;flex:1 0 68px;min-width:68px;min-height:62px;scroll-snap-align:start;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;padding:15px 5px 6px;font-size:.78em;text-align:center;line-height:1.15;overflow-wrap:break-word}
+.rowstrip button{position:relative;flex:1 0 68px;min-width:68px;min-height:62px;scroll-snap-align:start;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:3px;padding:19px 5px 6px;font-size:.78em;text-align:center;line-height:1.15;overflow-wrap:break-word}
 .rowstrip button::before{content:attr(data-num);position:absolute;top:3px;left:5px;font-size:.78em;font-weight:700;color:var(--color-muted);font-variant-numeric:tabular-nums}
 .rowstrip button:disabled::before{color:var(--color-disabled-text)}
 .rowstrip .row-svg{width:44px;height:22px;flex:none;display:block;color:var(--color-primary)}
@@ -340,7 +340,7 @@ button.big{width:100%;font-size:1.1em;padding:12px}
   .rowstrip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;overflow-x:visible;padding:6px}
   .rowstrip .end{grid-column:1/-1;justify-content:flex-start;font-size:.8em;padding:0 2px;line-height:1.1}
   .rowstrip .end:last-child{justify-content:flex-end}
-  .rowstrip button{min-width:0;width:100%;min-height:60px;padding:14px 3px 5px;font-size:.72em}
+  .rowstrip button{min-width:0;width:100%;min-height:60px;padding:18px 3px 5px;font-size:.72em}
   .rowstrip .row-svg{width:40px;height:20px}
 }
 @keyframes brassLit{0%{transform:scale(.94);box-shadow:0 0 0 0 rgba(201,162,63,.7)}60%{transform:scale(1.04);box-shadow:0 0 16px rgba(201,162,63,.75)}100%{transform:none;box-shadow:inset 0 0 0 1px rgba(201,162,63,.45)}}
@@ -2226,9 +2226,9 @@ function playCue(name, o, t) {
       const m = Math.max(1, Math.min(9, o.n || 4)), mass = (m - 1) / 8;
       const f = 380 * (1 + (6 - m) * 0.035);
       const rel = 0.1 + mass * 0.05;
-      tone(f, t, rel, 'sine', 0.245, f * 0.62, { a: 0.0015, d: 0.024, s: 0.36, r: rel - 0.0255 });
+      tone(f, t, rel, 'sine', 0.266, f * 0.62, { a: 0.0015, d: 0.024, s: 0.36, r: rel - 0.0255 });
       tone(f * 2.45, t, 0.044, 'triangle', 0.115, f * 2.1, { a: 0.0015, d: 0.014, s: 0.22, r: 0.028 });
-      hiss(t, 0.038 + mass * 0.02, 0.132, 3900, 1750, 1.25, 'bandpass', 0.0015);
+      hiss(t, 0.038 + mass * 0.02, 0.105, 3900, 1750, 1.25, 'bandpass', 0.0015);
       hiss(t + 0.012, 0.05 + mass * 0.03, 0.052 + mass * 0.02, 1600, 950, 1.0, 'bandpass', 0.006);
       tone(108 - mass * 16, t, 0.075 + mass * 0.035, 'sine', 0.058 + mass * 0.032, 62, 0.002);
       break;
@@ -2241,7 +2241,7 @@ function playCue(name, o, t) {
     }
     case 'undo': tone(500, t, 0.14, 'triangle', 0.31, 280); tone(250, t + 0.02, 0.12, 'sine', 0.12, 170); hiss(t, 0.12, 0.08, 1800, 600, 0.8); break;
     case 'clear': {    // a water rush, then glass-bell notes that climb with the heat and the chain (key-locked via activeHarmony)
-      const G = o.G || 1, h = o.heat || 0, n = G + 2, v = Math.min(0.205, 0.42 / Math.sqrt(n));
+      const G = o.G || 1, h = o.heat || 0, n = G + 2, v = Math.min(0.224, 0.42 / Math.sqrt(n));
       const first = Math.min(8, Math.floor(h / 2) + Math.min(CLEAR_LIFT, Math.max(0, (o.run || 1) - 1)));
       const hrm = activeHarmony(), root = hrm ? hrm.tonicNear(69) : 440;
       hiss(t, 0.7 + G * 0.15, 0.21, 900, 5200, 0.7);
@@ -2337,7 +2337,7 @@ function playCue(name, o, t) {
     }
     case 'win': {
       const hrm = activeHarmony(SCORES.win), root = hrm ? hrm.tonicNear(60) : 392, tailBase = hrm ? hrm.tonicNear(60) : MOTIF_BASE;
-      [0, 4, 7, 12, 16, 19, 24].forEach((st, k) => tone(semi(root, st), t + k * 0.08, 0.5, 'sine', 0.265));
+      [0, 4, 7, 12, 16, 19, 24].forEach((st, k) => tone(semi(root, st), t + k * 0.08, 0.5, 'sine', 0.274));
       tone(root / 2, t, 1.2, 'sine', 0.135); hiss(t, 1.2, 0.105, 800, 4000); motif(t + 0.8, tailBase, 0.09);
       break;   // ends on the game's motif, softly
     }
@@ -8484,7 +8484,7 @@ window.__game = {
         waterSize: WATER.size || 0,
         canvasReallocs: PERF.canvasReallocs,
       };
-      case 'canvasHash': { const d = cv.toDataURL(); let h = 0; for (let i = 0; i < d.length; i += 7) h = (h * 31 + d.charCodeAt(i)) >>> 0; return h; }
+      case 'canvasHash': { if (dirty) { draw(performance.now()); dirty = false; } const d = cv.toDataURL(); let h = 0; for (let i = 0; i < d.length; i += 7) h = (h * 31 + d.charCodeAt(i)) >>> 0; return h; }
       case 'pause': pauseGame(); return S.scene;
       case 'resume': showScene('game'); return S.scene;
       case 'toast': toast(a[0], a[1], a[2], a[3]); return true;

@@ -132,12 +132,12 @@ Pause and hidden-tab events ramp smoothly and hold/suspend audio without glitche
 
 ```js
 { v:1,
-  settings:{ sound:true, volume:0.7, sfx:true, music:true, musicVol:0.55, ambience:true, ambVol:0.5,
-             motion:'system', patterns:true, undo:1, difficulty:'standard', tapPlace:false,
-             haptics:true, bigText:false, theme:'system', effects:'auto', traySide:'right', tipsSeen:false },
+  settings:{ sound:true, volume:0.7, sfx:true, music:true, musicVol:0.5, ambience:true, ambVol:0.5,
+             motion:'system', patterns:'relief', undo:1, difficulty:'standard', tapPlace:false,
+             haptics:true, bigText:false, theme:'system', effects:'full', traySide:'right', tipsSeen:false },
   best:{ classic:0, springs:0, daily:{ '2026-10-28': 812 }, diff:{ relaxed:{classic:0,springs:0}, master:{classic:0,springs:0} } },
   trail:{ done:['display-spring', ...], stars:{ 'display-spring': 3 } },
-  stats:{ games:0, lines:0, bestHeat:0, springs:0, bestCombo:0, longest:0, recent:{ classic:[], springs:[], daily:[] } },
+  stats:{ games:0, lines:0, bestHeat:0, springs:0, bestCombo:0, longest:0, recent:{ classic:[], springs:[], daily:[] }, recentDiff:{ relaxed:{classic:[],springs:[]}, master:{classic:[],springs:[]} } },
   eraMax: 0, ach:{}, played:[], goals:{ boiled:0 }, hints:{},
   resume: null | S }    // Classic active run (monotonic generation/revision guarded)
 ```

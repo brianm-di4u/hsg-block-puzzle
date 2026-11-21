@@ -79,6 +79,7 @@ export const tests = [
       await t.shot('62-patterns');
       const h1 = await t.game('act', 'canvasHash');
       await t.game('act', 'setting', 'patterns', 'high');
+      await t.waitFrames(2);
       const hHigh = await t.game('act', 'canvasHash');
       t.expect(h1 !== hHigh, 'high-contrast marks differ from default glaze relief');
       await t.game('act', 'setting', 'patterns', false);
