@@ -230,7 +230,7 @@ table.keys{border-collapse:collapse;width:100%}
 table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertical-align:top}
 
 /* Active-play notifications: two non-overlapping dark bathhouse-glass channels + protected z-index:40 .above critical rail (CD-WF2-03, CD-WF5-02, PREC-04) */
-#toast,#achtoast{position:fixed;left:50%;top:calc(var(--hud-h) + env(safe-area-inset-top) + 4px);bottom:auto;transform:translateX(-50%);width:min(460px,calc(100% - 24px - env(safe-area-inset-left) - env(safe-area-inset-right)));max-width:min(460px,calc(100% - 24px - env(safe-area-inset-left) - env(safe-area-inset-right)));min-height:58px;box-sizing:border-box;background:rgba(8,24,28,.96);color:#F4F2EC;border:1.5px solid rgba(240,207,117,.6);border-radius:12px;padding:9px 14px;z-index:9;display:none;box-shadow:0 8px 24px rgba(0,0,0,.48);text-align:center;font-size:.88em;line-height:1.3;pointer-events:none}
+#toast,#achtoast{position:fixed;left:50%;top:var(--info-y,calc(var(--hud-h) + env(safe-area-inset-top) + 4px));bottom:auto;transform:translateX(-50%);width:var(--info-w,min(460px,calc(100% - 24px - env(safe-area-inset-left) - env(safe-area-inset-right))));max-width:var(--info-w,min(460px,calc(100% - 24px - env(safe-area-inset-left) - env(safe-area-inset-right))));min-height:var(--info-h,58px);box-sizing:border-box;background:rgba(8,24,28,.98);color:#F4F2EC;border:1.5px solid rgba(240,207,117,.6);border-radius:12px;padding:9px 14px;z-index:9;display:none;box-shadow:0 8px 24px rgba(0,0,0,.48);text-align:center;font-size:.88em;line-height:1.3;pointer-events:none}
 #toast.on,#achtoast.on{display:block}
 #toast b,#achtoast b{font-family:var(--font-serif-victorian);color:#F7CF62;display:block;font-size:1.06em}
 #achtoast span{display:block;font-size:.88em;color:#DCE6E3}
@@ -2429,12 +2429,22 @@ function resize(force = false) {
   const nextLay = computeLayout();
   document.documentElement.classList.toggle('lay-land', !!nextLay.land); // authoritative JS orientation sync (CD-WF2-07)
   const laySig = [VW, VH, DPR, INS.l, INS.r, INS.b, nextLay.hud, nextLay.land ? 1 : 0, nextLay.board.x, nextLay.board.y, nextLay.board.size,
-    nextLay.slots[0].x, nextLay.slots[0].y, nextLay.slots[0].w, nextLay.slots[0].h, nextLay.info.x, nextLay.info.w, nextLay.trayScale.toFixed(2)].join('|');
+    nextLay.slots[0].x, nextLay.slots[0].y, nextLay.slots[0].w, nextLay.slots[0].h, nextLay.info.x, nextLay.info.y, nextLay.info.w, nextLay.info.h, nextLay.trayScale.toFixed(2)].join('|');
   if (!force && laySig === lastLaySig && LAY) return;
   lastLaySig = laySig;
   const cw = Math.round(VW * DPR), ch = Math.round(VH * DPR);
   if (cv.width !== cw || cv.height !== ch) { cv.width = cw; cv.height = ch; PERF.canvasReallocs++; }
   LAY = nextLay;
+  const rootStyle = document.documentElement.style;
+  if (!LAY.land && LAY.info) {
+    rootStyle.setProperty('--info-y', LAY.info.y + 'px');
+    rootStyle.setProperty('--info-h', LAY.info.h + 'px');
+    rootStyle.setProperty('--info-w', LAY.info.w + 'px');
+  } else {
+    rootStyle.removeProperty('--info-y');
+    rootStyle.removeProperty('--info-h');
+    rootStyle.removeProperty('--info-w');
+  }
   clearGradCache();
   const spriteSig = LAY.board.cell.toFixed(2) + '|' + LAY.trayScale.toFixed(2) + '|' + DPR;
   if (spriteSig !== lastSpriteSig) { lastSpriteSig = spriteSig; spriteCache.clear(); }

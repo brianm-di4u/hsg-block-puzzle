@@ -586,6 +586,59 @@ export const tests = [
       t.equal(check.tipBeforeContent, 'none', '#tip has no static CSS ::before arrow');
       t.equal(check.ch1Ch2Overlap, false, 'Channel 1 and Channel 2 have 0 px² overlap');
       t.equal(check.slotsOverlapTip, false, '#tip never overlaps tray slots');
+
+      // Portrait Channel 1 alignment regression (W6-S4-03): #toast and #achtoast track dynamic LAY.info.y/h/w
+      // both when tipRoom=88 (#tip active) and when tipRoom=20 (tipsSeen=true Classic and all 24 Spring Trail levels),
+      // so Channel 1 cleanly covers LAY.info with zero sliced text; landscape clears --info-* custom properties.
+      if (t.viewport === 'mobile') {
+        const align = await t.page.evaluate(() => {
+          const measure = id => {
+            const r = document.getElementById(id).getBoundingClientRect();
+            return {
+              on: document.getElementById(id).classList.contains('on'),
+              top: r.top, bottom: r.bottom, left: r.left, width: r.width,
+              infoY: LAY.info.y, infoH: LAY.info.h, infoX: LAY.info.x, infoW: LAY.info.w,
+              boardY: LAY.board.y,
+            };
+          };
+          // 1) tipsSeen=false (#tip active, tipRoom=88)
+          SAVE.settings.tipsSeen = false;
+          newGame({ mode: 'classic' });
+          toast('Arrival', 'Short cue over active tip layout.', 4000);
+          const withTipToast = measure('toast');
+
+          // 2) tipsSeen=true (Classic post-onboarding, tipRoom=20) — check both #toast and #achtoast
+          SAVE.settings.tipsSeen = true;
+          newGame({ mode: 'classic' });
+          toast('Roaring Spa Town · 1921–1946', 'Central Avenue glows under bathhouse marquees.', 4000);
+          const postOnboardToast = measure('toast');
+          delete SAVE.ach['first-soak'];
+          earn('first-soak');
+          const postOnboardAch = measure('achtoast');
+          clearGoalToasts();
+
+          // 3) Spring Trail (quapaw-bathhouse, tipRoom=20) — auto-fired level hint #toast
+          newGame({ mode: 'trail', level: 'quapaw-bathhouse' });
+          const trailToast = measure('toast');
+          return { withTipToast, postOnboardToast, postOnboardAch, trailToast };
+        });
+        for (const [label, m] of Object.entries(align)) {
+          t.equal(m.on, true, `${label}: Channel 1 element is visible`);
+          t.expect(Math.abs(m.top - m.infoY) <= 2, `${label}: top (${m.top.toFixed(1)}) tracks LAY.info.y (${m.infoY}) within 2px`);
+          t.expect(m.bottom >= m.infoY + m.infoH - 1, `${label}: bottom (${m.bottom.toFixed(1)}) covers LAY.info bottom (${m.infoY + m.infoH}) with 0 sliced text`);
+          t.expect(Math.abs(m.left - m.infoX) <= 2, `${label}: left (${m.left.toFixed(1)}) aligns with LAY.info.x (${m.infoX})`);
+          t.expect(Math.abs(m.width - m.infoW) <= 2, `${label}: width (${m.width.toFixed(1)}) matches LAY.info.w (${m.infoW})`);
+          t.expect(m.bottom <= m.boardY + 1, `${label}: 2-line toast (${m.bottom.toFixed(1)}) stays cleanly above board (${m.boardY})`);
+        }
+        t.expect(align.postOnboardToast.infoY > align.withTipToast.infoY + 10, `Classic tipsSeen=true shifts LAY.info.y down (${align.withTipToast.infoY} -> ${align.postOnboardToast.infoY}) and Channel 1 tracks it`);
+        t.expect(align.trailToast.infoY > align.withTipToast.infoY + 10, `Spring Trail shifts LAY.info.y down (${align.withTipToast.infoY} -> ${align.trailToast.infoY}) and Channel 1 tracks it`);
+      } else {
+        const landVars = await t.page.evaluate(() => {
+          const rs = document.documentElement.style;
+          return { y: rs.getPropertyValue('--info-y'), h: rs.getPropertyValue('--info-h'), w: rs.getPropertyValue('--info-w') };
+        });
+        t.equal(landVars, { y: '', h: '', w: '' }, 'landscape clears portrait --info-y/--info-h/--info-w custom properties');
+      }
     },
   },
   {
