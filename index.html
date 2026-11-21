@@ -74,6 +74,7 @@ button,select,input{font:inherit;color:inherit}
 button{cursor:pointer;min-height:44px;min-width:44px;border-radius:var(--radius-md);border:2px solid var(--color-border);background:var(--color-bg);color:var(--color-text);padding:8px 14px;line-height:1.2}
 button:hover{border-color:var(--color-primary)}
 button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(--color-highlight);outline-offset:2px}
+#hud button:focus-visible,#tip button:focus-visible{outline-color:#7ADCC9}
 button:disabled{opacity:1;background:var(--color-disabled-bg);color:var(--color-disabled-text);border-color:var(--color-disabled-border);border-style:dashed;cursor:not-allowed}
 button.primary{background:var(--color-primary) linear-gradient(rgba(255,255,255,.16),rgba(0,0,0,.14));color:var(--color-on-primary);border-color:var(--color-primary);font-weight:700;box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 3px 0 rgba(0,0,0,.28)}
 #cf-yes{border-color:var(--color-danger);color:var(--color-danger);font-weight:700}
@@ -346,8 +347,8 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
       <div class="newbest" id="ov-new"></div>
       <p class="muted" id="ov-tip" style="margin:8px 0 0"></p>
       <dl class="grid2" id="ov-stats"></dl>
-      <div class="row"><button class="primary" id="b-again">Play again</button><button id="b-ovundo" style="display:none">Undo last move</button><button id="b-menu1">Menu</button></div>
     </div>
+    <div class="row panel-foot"><button class="primary" id="b-again">Play again</button><button id="b-ovundo" style="display:none">Undo last move</button><button id="b-menu1">Menu</button></div>
   </div>
 </section>
 
@@ -358,8 +359,8 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
       <div id="win-stars" class="winstars"></div>
       <p class="muted" id="win-sub" style="margin:0 0 8px"></p>
       <div id="win-card"></div>
-      <div class="row"><button class="primary" id="b-next">Next puzzle</button><button id="b-trail2">Spring Trail</button><button id="b-menu2">Menu</button></div>
     </div>
+    <div class="row panel-foot"><button class="primary" id="b-next">Next puzzle</button><button id="b-trail2">Spring Trail</button><button id="b-menu2">Menu</button></div>
   </div>
 </section>
 
@@ -420,7 +421,7 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
       <ul>
         <li>+1 for each tile you place.</li>
         <li>Clearing 1 group scores 18, 2 at once 72, 3 at once 162 (18 × groups²), times the heat multiplier.</li>
-        <li>Every clear heats the water (back-to-back clears warm cool water faster; each opened vent adds +1 heat; dissolving a tufa stone scores +20 × multiplier). Below 102°F cool water takes two dry placements in a row to lose a step. Heat multiplies clear points up to ×4 at 143°F, the springs' average temperature (NPS). Reaching 143°F ("Boiling", after William Dunbar's 1804 name: "the boiling springs") grants one dry-placement Boil-Hold grace before cooling begins.</li>
+        <li>Every clear heats the water (back-to-back clears warm cool water faster; each opened vent adds +1 heat; dissolving a tufa stone scores +20 × multiplier). Below 102°F cool water takes two dry placements in a row to lose a step in Classic and Daily Soak (Springs cools faster on dry moves — dropping 2 steps from 102°F up — to balance +1 heat per opened vent). Heat multiplies clear points up to ×4 at 143°F, the springs' average temperature (NPS). Reaching 143°F ("Boiling", after William Dunbar's 1804 name: "the boiling springs") grants one dry-placement Boil-Hold grace before cooling begins.</li>
         <li>Empty the whole floor with a clear for a +300 × heat multiplier clear-spring bonus.</li>
       </ul>
       <h3>Modes</h3>
@@ -610,9 +611,9 @@ const LEVELS = [
     fact:'Tufa is the white-to-tan rock left where spring water evaporates.',
     board:['sss......','sss......','.s.......','......sss','......s.s','.........','........s','......sss','......sss'],
     pieces:['i3h','o1','o1','r6h','s4v','j4b','x5'] },
-  { id:'boltwoods-waters', name:'Boltwood’s Waters', era:5, ring:2, goal:'vents', hint:'Four ringed corner springs surround the core. Save the right corner shapes for each ring.',
+  { id:'boltwoods-waters', name:'Boltwood’s Waters', era:5, ring:2, goal:'stones+vents', hint:'Four tufa-rimmed corner springs surround the core. Match the right corner shapes to clear both tufa and vents.',
     fact:'In 1904 Bertram Boltwood found the waters slightly radioactive, mostly from dissolved radon.',
-    board:['42.....24','2v.....v2','4.......4','...4.4...','....2....','...4.4...','4.......4','2v.....v2','42.....24'],
+    board:['s2.....2s','2v.....v2','s.......s','...4.4...','....2....','...4.4...','s.......s','2v.....v2','s2.....2s'],
     pieces:['j4a','i2v','l4c','c3a','i2h','o1'] },
   { id:'gallons-a-day', name:'Gallons a Day', era:5, ring:2, goal:'lines:5', hint:'Five groups to clear: channel the center cross and outer corner aqueducts.',
     fact:'The springs give over 700,000 gallons a day; other sources say up to about a million.',
@@ -2267,19 +2268,28 @@ const FONT_SANS = 'system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif';
 const ART_FILES = ['tile-1', 'tile-2', 'tile-3', 'tile-4', 'tile-5', 'tile-6', 'tile-7', 'tile-8',
   'era-ancient', 'era-frontier', 'era-gilded-spa', 'era-roaring', 'era-midcentury', 'era-revival', 'era-modern', 'title-hero'];
 const BACKDROP_LRU_MAX = 2; // <=2 decoded 1600x1000 backdrops resident in VRAM (~12.2 MB vs 48.8 MB, CD-WF3-01 / W6-S6-01)
-const ART = { on: !/[?&]art=0/.test(location.search), img: {}, decoded: new Set(), lru: [], activeBackdrop: '', lastEraPainted: '', loading: 0, failed: [] };
+const ART = { on: !/[?&]art=0/.test(location.search), img: {}, decoded: new Set(), lru: [], activeBackdrop: '', lastEraPainted: '', loading: 0, failed: [], fallbackDraws: 0 };
 function isTileArt(name) { return /^tile-/.test(name); }
 function touchBackdrop(name) {
   const i = ART.lru.indexOf(name);
   if (i >= 0) ART.lru.splice(i, 1);
   ART.lru.push(name);
 }
-function evictBackdrops(keepA = '', keepB = '') {
+function holdBackdrop() {
+  if (!ART.on) return '';
+  if (ART.lastEraPainted && artReady(ART.lastEraPainted)) return ART.lastEraPainted;
+  for (let i = ART.lru.length - 1; i >= 0; i--) {
+    const n = ART.lru[i];
+    if (n !== 'title-hero' && artReady(n)) return n;
+  }
+  return artReady('title-hero') ? 'title-hero' : '';
+}
+function evictBackdrops(keepA = '', keepB = '', keepC = '') {
   while (ART.lru.length > BACKDROP_LRU_MAX) {
     let idx = -1;
     for (let i = 0; i < ART.lru.length; i++) {
       const n = ART.lru[i];
-      if (n === keepA || n === keepB) continue;
+      if (n === keepA || n === keepB || n === keepC) continue;
       const im = ART.img[n];
       if (!im || im.done) { idx = i; break; }
     }
@@ -2301,10 +2311,10 @@ function loadArt(name, critical = true) {
   const old = ART.img[name];
   if (old) {
     if (critical && !old.critical && !old.done) { old.critical = true; ART.loading++; }
-    if (!tile) evictBackdrops(name, ART.activeBackdrop);
+    if (!tile) evictBackdrops(name, ART.activeBackdrop, holdBackdrop());
     return;
   }
-  if (!tile) evictBackdrops(name, ART.activeBackdrop);
+  if (!tile) evictBackdrops(name, ART.activeBackdrop, holdBackdrop());
   const im = new Image(); ART.img[name] = im; im.ok = false; im.done = false; im.critical = critical; if (critical) ART.loading++;
   im.src = 'assets/' + name + '.webp';
   im.decode().then(() => { im.ok = true; ART.decoded.add(name); }, () => { if (!ART.failed.includes(name)) ART.failed.push(name); })
@@ -2314,7 +2324,8 @@ function loadArt(name, critical = true) {
       if (tile) {
         invalidateTileCode(name.slice(5)); // per-code invalidation eliminates 8x boot thrash (CD-WF3-02)
       } else {
-        evictBackdrops(ART.activeBackdrop, name);
+        if (im.ok && name === ART.activeBackdrop && name !== 'title-hero') ART.lastEraPainted = name;
+        evictBackdrops(ART.activeBackdrop, holdBackdrop());
         bgKey = '';
       }
       if (ART.loading === 0 && spriteCache.size < 19) setTimeout(warmSprites, 0);
@@ -2731,7 +2742,7 @@ function ensureBg(id) {
   if (art) touchBackdrop(name);
   else loadArt(name);
   // Hold the previously painted era backdrop while the incoming era WebP decodes (zero Monopoly-box flash)
-  const holdPrev = !art && ART.on && id !== 'title' && ART.lastEraPainted && artReady(ART.lastEraPainted) ? ART.lastEraPainted : '';
+  const holdPrev = !art ? holdBackdrop() : '';
   const drawName = art ? name : holdPrev;
   const land = LAY ? !!LAY.land : (VW > VH * 1.05);
   const side = SAVE.settings.traySide === 'left' ? 'left' : 'right';
@@ -2748,8 +2759,8 @@ function ensureBg(id) {
     const cropId = drawName === 'title-hero' ? 'title' : drawName.replace(/^era-/, '');
     const cr = (ERA_CROP[cropId] || ERA_CROP.ancient)[land ? 'land' : 'port'];
     drawPainted(g, ART.img[drawName], VW, VH, cr[0], cr[1], cr[2], cr[3], cr[4]);
-    if (id !== 'title') ART.lastEraPainted = drawName;
-  } else drawEraBg(g, id, VW, VH);
+    if (id !== 'title' && drawName !== 'title-hero') ART.lastEraPainted = drawName;
+  } else { ART.fallbackDraws++; drawEraBg(g, id, VW, VH); }
   if (id === 'title') {
     if (!land) { // soft top-edge sky scrim on portrait Title so the logo reads crisply over winter clouds (wf-2:25)
       const ts = g.createLinearGradient(0, 0, 0, VH * 0.22);
@@ -5632,7 +5643,7 @@ window.__game = {
       case 'clearFx': return FX.filter(f => f.type === 'ripple' || f.type === 'beam' || f.type === 'shard').map(f => ({ type: f.type, tint: f.tint || '', flicker: !!f.flicker, plank: !!f.plank }));
       case 'shakes': return FX.filter(f => f.type === 'shake').map(f => ({ dur: f.dur, amp: f.amp }));
       case 'fxList': return FX.filter(f => f.type === 'popup' || f.type === 'banner').map(f => ({ type: f.type, text: f.text, sub: f.sub || '', x: f.x || 0, size: f.size || 0, level: f.level || 0 }));
-      case 'art': return { on: ART.on, files: ART_FILES, loaded: [...ART.decoded], residentBackdrops: Object.keys(ART.img).filter(k => !isTileArt(k) && ART.img[k] && ART.img[k].ok), residentBackdropCount: Object.keys(ART.img).filter(k => !isTileArt(k)).length, failed: ART.failed, loading: ART.loading, water: WATER.on, gl: !!WATER.gl, software: !!WATER.software, autoLite: PERF.autoLite, ripples: WATER.ripples.length };
+      case 'art': return { on: ART.on, files: ART_FILES, loaded: [...ART.decoded], residentBackdrops: Object.keys(ART.img).filter(k => !isTileArt(k) && ART.img[k] && ART.img[k].ok), residentBackdropCount: Object.keys(ART.img).filter(k => !isTileArt(k)).length, fallbackDraws: ART.fallbackDraws, failed: ART.failed, loading: ART.loading, water: WATER.on, gl: !!WATER.gl, software: !!WATER.software, autoLite: PERF.autoLite, ripples: WATER.ripples.length };
       case 'loadAllArt': ART_FILES.forEach(n => loadArt(n)); return ART.loading;
       case 'perf': return {
         draws: PERF.draws,

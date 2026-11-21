@@ -187,7 +187,7 @@ export const tests = [
       }
       // Verify stones+vents compound goal requires BOTH stones and vents cleared, and HUD/label render cleanly.
       const compound = ring2.filter(L => L.goal === 'stones+vents');
-      t.expect(compound.length >= 4, 'Ring 2 uses compound stones+vents goals (' + compound.length + ')');
+      t.expect(compound.length >= 6, 'Ring 2 uses >= 6 compound stones+vents goals (' + compound.length + ')');
       const lv = compound[0];
       await t.game('newGame', { mode: 'trail', level: lv.id });
       const hudCheck = await t.page.evaluate((lvId) => {

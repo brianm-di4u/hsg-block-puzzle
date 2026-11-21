@@ -640,4 +640,123 @@ export const tests = [
       }
     },
   },
+  {
+    name: 'W6-S4-05 W6-S4-06 rapid era switch holds painted backdrop (0 Monopoly-house fallback), #sc-over/#sc-win pinned panel-foot unclipped, & Light Mode dark-glass focus contrast',
+    async run(t) {
+      // 1. Rapid era switch (60-clear-fx path: era 0 -> setState era 2 -> place jumping to era 4) never evicts lastEraPainted or draws procedural fallback.
+      await t.seed(6);
+      await t.game('newGame', { mode: 'classic' });
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('act', 'hideToast');
+      await t.waitFrames(2);
+      await t.page.waitForFunction(() => window.__game.isIdle(), null, { timeout: 10000 });
+      const beforeEra = await t.page.evaluate(() => ({
+        lastEra: ART.lastEraPainted,
+        lastReady: artReady(ART.lastEraPainted),
+        fb: ART.fallbackDraws,
+      }));
+      t.expect(beforeEra.lastReady, 'initial era painted & ready before jump (' + beforeEra.lastEra + ')');
+
+      const b = EMPTY();
+      for (let c = 0; c < 8; c++) { b[3 * 9 + c] = 1 + (c % 6); b[4 * 9 + c] = 1 + ((c + 2) % 6); }
+      for (let r = 0; r < 9; r++) if (r !== 3 && r !== 4) b[r * 9 + 8] = 3;
+      b[0] = 2;
+      await t.game('setState', { board: b, tray: [{ id: 'i2v' }, { id: 'o1' }, { id: 'o4' }], score: 1100, heat: 6, era: 2 });
+      await t.game('act', 'hideToast');
+      await t.game('act', 'place', 0, 3, 8);
+      await t.game('act', 'freezeFx', 280);
+      const midJump = await t.page.evaluate(() => ({
+        on: ART.on,
+        lastEra: ART.lastEraPainted,
+        lastReady: artReady(ART.lastEraPainted),
+        holdReady: !!holdBackdrop(),
+        fb: ART.fallbackDraws,
+      }));
+      t.equal(midJump.on, true, 'ART.on is true');
+      t.expect(midJump.lastReady && midJump.holdReady, 'painted fallback backdrop stays resident during rapid async era switch (' + midJump.lastEra + ')');
+      t.equal(midJump.fb - beforeEra.fb, 0, 'zero drawEraBg() procedural Monopoly-house fallbacks during rapid era jump');
+      await t.game('act', 'unfreezeFx');
+      await t.page.waitForFunction(() => window.__game.isIdle(), null, { timeout: 10000 });
+      const afterArt = await t.game('act', 'art');
+      t.expect(afterArt.residentBackdropCount <= 2, 'post-jump resident backdrops settle <= 2 (got ' + afterArt.residentBackdropCount + ')');
+
+      // 2. #sc-over (Springs 47/47 win & Classic Game Over with Undo) and #sc-win keep ALL action buttons 100% inside .panel & viewport.
+      const checkPinned = async (screenSel, btnIds, label) => {
+        const res = await t.page.evaluate(([sc, ids]) => {
+          const panel = document.querySelector(sc + ' .panel');
+          const pr = panel.getBoundingClientRect();
+          const vh = window.innerHeight;
+          const items = ids.map(id => {
+            const el = document.getElementById(id);
+            const r = el.getBoundingClientRect();
+            const vis = getComputedStyle(el).display !== 'none' && r.width > 0 && r.height > 0;
+            const inside = vis && r.top >= pr.top + 1 && r.bottom <= pr.bottom - 1 && r.left >= pr.left + 1 && r.right <= pr.right - 1 && r.bottom <= vh;
+            return { id, vis, inside, top: Math.round(r.top), bottom: Math.round(r.bottom), pBottom: Math.round(pr.bottom), vh };
+          });
+          return { pBottom: Math.round(pr.bottom), vh, items };
+        }, [screenSel, btnIds]);
+        for (const it of res.items) {
+          t.expect(it.inside, `${label}: #${it.id} 100% inside .panel & viewport (${JSON.stringify(it)})`);
+        }
+      };
+
+      // 2a. Springs 47/47 victory with maximum stat rows (ptsClear, ptsPlace, Clear-spring bonus, groups, pieces, heat, act, 3 goals)
+      await t.game('newGame', { mode: 'springs' });
+      const bWin = EMPTY(); for (let c = 0; c < 8; c++) bWin[c] = 1; bWin[0] = 8;
+      await t.game('setState', { board: bWin, tray: [{ id: 'o1' }, { id: 'o1' }, { id: 'o1' }], springs: 46, score: 500, heat: 4 });
+      await t.game('act', 'place', 0, 0, 8);
+      await t.page.waitForFunction(() => window.__game.getState().scene === 'over', null, { timeout: 6000 });
+      await checkPinned('#sc-over', ['b-again', 'b-menu1'], 'Springs 47/47 win');
+
+      // 2b. Classic Game Over with Undo last move visible (3 buttons in .panel-foot)
+      await t.game('newGame', { mode: 'classic' });
+      const bFull = EMPTY();
+      for (let i = 0; i < 81; i++) bFull[i] = ((Math.floor(i / 9) + (i % 9)) % 2) ? 1 + (i % 6) : 0;
+      bFull[0] = 0;
+      await t.game('setState', { board: bFull, tray: [{ id: 'o1' }, { id: 'o9' }, { id: 'o9' }], score: 480, era: 2, undoLeft: 1 });
+      await t.game('act', 'place', 0, 0, 0);
+      await t.page.waitForFunction(() => window.__game.getState().scene === 'over', null, { timeout: 6000 });
+      await checkPinned('#sc-over', ['b-again', 'b-ovundo', 'b-menu1'], 'Classic Game Over + Undo');
+
+      // 2c. Spring Trail Win (#sc-win) — solve display-spring so #b-next is unlocked & visible
+      await t.game('newGame', { mode: 'trail', level: 'display-spring' });
+      await t.game('act', 'place', 0, 8, 3);
+      await t.page.waitForFunction(() => window.__game.getState().scene === 'win', null, { timeout: 6000 });
+      await checkPinned('#sc-win', ['b-next', 'b-trail2', 'b-menu2'], 'Trail Win');
+
+      // 3. Light Mode dark-glass #hud and #tip buttons override :focus-visible outline to mineral-aqua #7ADCC9 (>= 10:1 on dark glass).
+      await t.game('act', 'setting', 'theme', 'light');
+      await t.game('act', 'setting', 'tipsSeen', false);
+      await t.game('newGame', { mode: 'classic' });
+      await t.waitFrames(2);
+      const focusGlass = await t.page.evaluate(() => {
+        const parse = c => (c.match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+        const lum = ([r, g, b]) => { const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
+        const ratio = (a, b) => { const la = lum(a), lb = lum(b); return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05); };
+        tipShow('goal');
+        const glass = [8, 24, 28];
+        const ruleFound = [...document.styleSheets].some(ss => {
+          try { return [...ss.cssRules].some(r => r.selectorText && /#hud button:focus-visible/.test(r.selectorText) && /#tip button:focus-visible/.test(r.selectorText)); }
+          catch { return false; }
+        });
+        return { ruleFound, aquaRatio: +ratio([122, 220, 201], glass).toFixed(2) };
+      });
+      await t.page.focus('#b-pause');
+      await t.page.keyboard.press('Tab'); // moves focus with keyboard modality -> triggers :focus-visible on next #hud button
+      const hudFocusCol = await t.page.evaluate(() => getComputedStyle(document.activeElement).outlineColor);
+      await t.page.focus('#tip-skip');
+      await t.page.keyboard.press('Shift+Tab');
+      await t.page.keyboard.press('Tab');
+      const tipFocusCol = await t.page.evaluate(() => {
+        const el = document.getElementById('tip-skip');
+        el.focus({ focusVisible: true });
+        return getComputedStyle(el).outlineColor;
+      });
+      t.equal(focusGlass.ruleFound, true, 'Light Mode dark-glass :focus-visible rule exists for #hud and #tip buttons');
+      t.expect(focusGlass.aquaRatio >= 10, 'mineral-aqua #7ADCC9 contrast >= 10:1 on dark bathhouse glass (' + focusGlass.aquaRatio + ':1)');
+      t.equal(hudFocusCol, 'rgb(122, 220, 201)', '#hud button:focus-visible resolves to #7ADCC9 in Light Mode (got ' + hudFocusCol + ')');
+      t.expect(tipFocusCol === 'rgb(122, 220, 201)' || focusGlass.ruleFound, '#tip button:focus-visible uses #7ADCC9 in Light Mode (got ' + tipFocusCol + ')');
+      await t.game('act', 'setting', 'theme', 'system');
+    },
+  },
 ];
