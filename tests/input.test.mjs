@@ -614,4 +614,232 @@ export const tests = [
       t.equal((await t.state()).scene, 'trail', 'Level-24 #sc-win Gamepad START activates visible #b-trail2');
     },
   },
+  {
+    name: 'W6-S2-17 shape-rich tray narration, coalesced live announcements, moveCursor/V/R shortcuts, Trail score suppression & #b-tips markup',
+    viewports: ['desktop'],
+    async run(t) {
+      // 1. All 40 PIECES expose concise geometric shape names/dimensions & #b-tips is not wrapped in <label>.
+      const meta = await t.page.evaluate(() => {
+        const all = Object.values(PIECES);
+        const missing = all.filter(p => !p.name || p.name.length < 6).map(p => p.id);
+        const tipsBtn = document.getElementById('b-tips');
+        return {
+          count: all.length,
+          missing,
+          samples: { o1: PIECES.o1.name, i3h: PIECES.i3h.name, o4: PIECES.o4.name, t4a: PIECES.t4a.name, v5a: PIECES.v5a.name },
+          tipsInLabel: !!(tipsBtn && tipsBtn.closest('label')),
+          tipsParentTag: tipsBtn && tipsBtn.parentElement && tipsBtn.parentElement.tagName,
+        };
+      });
+      t.equal(meta.count, 40, 'all 40 pieces inspected');
+      t.equal(meta.missing.length, 0, 'all 40 pieces have geometric shape names');
+      t.expect(/square/i.test(meta.samples.o4) && /horizontal bar/i.test(meta.samples.i3h) && /T-shape/i.test(meta.samples.t4a), 'concise geometric names: ' + JSON.stringify(meta.samples));
+      t.equal(meta.tipsInLabel, false, '#b-tips is unwrapped from <label class="set"> (W6-S2-17)');
+      t.equal(meta.tipsParentTag, 'DIV', '#b-tips lives inside <div class="set">');
+
+      // 2. trayDesc(), selectSlot() nearest-valid snap on blocked center, moveCursor() live narration & coalescing.
+      const board = EMPTY();
+      for (let c = 1; c < 9; c++) board[c] = 1; // row 0 ready to clear at (0,0)
+      board[0 * 9 + 5] = 8; // vent in row 0 so placing o1 at (0,0) clears 1 group & opens 1 vent
+      board[4 * 9 + 4] = 2; // block center (4,4) to test nearest-valid snap on selectSlot
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await setup(t, [{ id: 'o1' }, { id: 'i3h' }, { id: 'o4' }]);
+      await t.game('setState', { board, tray: [{ id: 'o1' }, { id: 'i3h' }, { id: 'o4' }], score: 0, heat: 0 });
+      await t.page.focus('#cv');
+
+      const tDesc = await t.page.evaluate(() => trayDesc());
+      t.expect(tDesc.includes('single tile') && tDesc.includes('3-wide horizontal bar') && tDesc.includes('2 by 2 square'), 'trayDesc() narrates geometric shapes: ' + tDesc);
+
+      await t.page.keyboard.press('1');
+      const snapCur = await t.state();
+      t.expect(snapCur.ghost && snapCur.ghost.valid && !(snapCur.ghost.r === 4 && snapCur.ghost.c === 4), 'selectSlot() snaps past blocked center (4,4) to nearest valid spot: ' + JSON.stringify(snapCur.ghost));
+      await t.page.waitForFunction(() => /single tile/.test(document.getElementById('live').textContent) && /Row \d+, column \d+/.test(document.getElementById('live').textContent), null, { timeout: 3000 });
+
+      // Rapid moveCursor burst coalesces cleanly via clearTimeout to the final cell (0,0) and reports predicted clear + vent!
+      await t.page.evaluate(() => {
+        UI.cur = { r: 0, c: 3 };
+        moveCursor(0, -1); // (0,2) blocked
+        moveCursor(0, -1); // (0,1) blocked
+        moveCursor(0, -1); // (0,0) valid, clears 1 group, opens 1 vent
+      });
+      await t.page.waitForFunction(() => /Row 1, column 1, valid, clears 1 group, opens 1 vent/.test(document.getElementById('live').textContent), null, { timeout: 3000 });
+      t.expect(true, 'coalesced moveCursor() announces 1-indexed Row 1, column 1 + valid + predicted clear + vent');
+
+      // Moving onto blocked (0,1) announces blocked state.
+      await t.page.keyboard.press('ArrowRight');
+      await t.page.waitForFunction(() => /Row 1, column 2, blocked/.test(document.getElementById('live').textContent), null, { timeout: 3000 });
+
+      // 3. V jumps to next valid spot; R reads board summary; Ctrl+V and Ctrl+R still pass through to browser.
+      await t.page.keyboard.press('v');
+      const afterV = await t.state();
+      t.expect(afterV.ghost && afterV.ghost.valid, 'V jumped from blocked (0,1) to a valid spot: ' + JSON.stringify(afterV.ghost));
+      await t.page.waitForFunction(() => /Valid spot \d+ of \d+/.test(document.getElementById('live').textContent), null, { timeout: 3000 });
+
+      await t.page.keyboard.press('r');
+      await t.page.waitForFunction(() => /of 81 cells filled/.test(document.getElementById('live').textContent) && /row 1 \(8 of 9\)/.test(document.getElementById('live').textContent), null, { timeout: 3000 });
+
+      const modVR = await t.page.evaluate(() => ['v', 'r'].map(key => {
+        const ev = new KeyboardEvent('keydown', { key, ctrlKey: true, bubbles: true, cancelable: true });
+        window.dispatchEvent(ev);
+        return { key, prevented: ev.defaultPrevented };
+      }));
+      t.equal(modVR.every(x => !x.prevented), true, 'Ctrl+V and Ctrl+R pass cleanly to browser (CD-WF5-07)');
+
+      // 4. Spring Trail suppresses inert Score/Heat speech in R summary, placement, and announce() itself.
+      await t.game('newGame', { mode: 'trail', level: 'display-spring' });
+      await t.page.keyboard.press('r');
+      await t.page.waitForFunction(() => /Display Spring/.test(document.getElementById('live').textContent), null, { timeout: 3000 });
+      const trailLive = await t.page.textContent('#live');
+      t.expect(!/Score|Heat|degrees/i.test(trailLive), 'Spring Trail board summary suppresses Score/Heat: ' + trailLive);
+    },
+  },
+  {
+    name: 'W6-S5-08 own-slot calm cancel, off-board hover clear, desktop hoverSlot/grab, clearLock <=0.04 & radial gamepad steering',
+    viewports: ['desktop'],
+    async run(t) {
+      await t.game('act', 'setting', 'tipsSeen', true);
+      await t.game('act', 'setting', 'undo', 3);
+      const bClr = EMPTY();
+      for (let c = 1; c < 9; c++) bClr[c] = 1;
+      const L = await setup(t, [{ id: 'o1' }, { id: 'o4' }, { id: 'i2h' }]);
+      await t.game('setState', { board: bClr, tray: [{ id: 'o1' }, { id: 'o4' }, { id: 'i2h' }], undoLeft: 3 });
+
+      // 1. Desktop tray hover sets UI.hoverSlot & grab cursor; pointerleave clears hoverSlot, cursor & off-board hover ghost.
+      const [s0x, s0y] = slotCenter(L, 0);
+      await t.page.mouse.move(s0x, s0y);
+      const hov = await t.page.evaluate(() => ({ hoverSlot: UI.hoverSlot, cursor: cv.style.cursor }));
+      t.equal(hov.hoverSlot, 0, 'hovering occupied slot 0 sets UI.hoverSlot = 0');
+      t.equal(hov.cursor, 'grab', 'hovering occupied slot 0 sets grab cursor');
+
+      // Click-select slot 0, hover valid board cell -> ghost appears, then move off board -> ghost clears!
+      await t.page.mouse.click(s0x, s0y);
+      const [c22x, c22y] = cellCenter(L, 2, 2);
+      await t.page.mouse.move(c22x, c22y);
+      t.expect((await t.state()).ghost && (await t.state()).ghost.valid, 'mouse hover over board shows valid ghost');
+      await t.page.mouse.move(4, 4);
+      t.equal((await t.state()).ghost, null, 'moving mouse off board clears sticky hover ghost');
+
+      // Hover slot 1 then fire mouse pointerleave -> clears hoverSlot & cursor.
+      const [s1x, s1y] = slotCenter(L, 1);
+      await t.page.mouse.move(s1x, s1y);
+      await t.page.evaluate(() => cv.dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse', bubbles: false })));
+      const afterLeave = await t.page.evaluate(() => ({ hoverSlot: UI.hoverSlot, cursor: cv.style.cursor }));
+      t.equal(afterLeave.hoverSlot, -1, 'pointerleave clears UI.hoverSlot');
+      t.equal(afterLeave.cursor, '', 'pointerleave resets canvas cursor');
+
+      // 2. Own-slot drag release cancels calmly (zero invalid buzz or off-board announcement) AND clearLock fires once <=0.04 peak.
+      await t.game('act', 'clearCues');
+      await t.page.evaluate(() => { document.getElementById('live').textContent = ''; });
+      const [c00x, c00y] = cellCenter(L, 0, 0);
+      await t.page.mouse.move(s0x, s0y);
+      await t.page.mouse.down();
+      await t.page.mouse.move(c00x, c00y, { steps: 6 }); // enters would-clear cell (0,0) -> clearLock fires once
+      const dragCursor = await t.page.evaluate(() => cv.style.cursor);
+      t.equal(dragCursor, 'grabbing', 'active mouse drag sets grabbing cursor');
+      await t.page.mouse.move(s0x, s0y, { steps: 6 }); // drag back onto own slot 0 and release
+      await t.page.mouse.up();
+      const ownDrop = await t.page.evaluate(() => ({
+        cues: window.__game.act('cues'),
+        live: document.getElementById('live').textContent,
+        kept: !!(S.tray[0] && S.tray[0].id === 'o1'),
+      }));
+      t.equal(ownDrop.kept, true, 'own-slot drop returns piece to slot 0');
+      t.equal(ownDrop.cues.includes('clearLock'), true, 'entering 0 -> >=1 would-clear fires clearLock once');
+      t.equal(ownDrop.cues.includes('invalid'), false, 'own-slot drop produces zero invalid error buzz');
+      t.expect(!/Drop the piece on the board/.test(ownDrop.live), 'own-slot drop does not fire off-board error announcement');
+      const clPeak = await t.page.evaluate(async () => (await window.__game.audioRender('cue:clearLock', 0.5, false, {})).peak);
+      t.expect(clPeak > 0 && clPeak <= 0.04, 'clearLock peak stays whisper-quiet <= 0.04 (' + clPeak + ')');
+
+      // 3. Gamepad radial deadzone (>0.35), dominant-axis diagonal steering, Board B cancel-before-Undo & padStep scrollIntoView.
+      const padCheck = await t.page.evaluate(() => {
+        const fake = { id: 'W4B04 pad', index: 0, connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) };
+        const origGet = navigator.getGamepads;
+        navigator.getGamepads = () => [fake, null, null, null];
+        PAD.connected = true; PAD.dir = ''; PAD.next = 0; PAD.prev = [];
+        try {
+          selectSlot(0);
+          UI.cur = { r: 4, c: 4 }; UI.ghost = ghostAt(0, 4, 4);
+          // Inside radial deadzone (0.20, 0.20 => r=0.283 <= 0.35): must not move.
+          fake.axes[0] = 0.20; fake.axes[1] = 0.20;
+          pollPad(1000);
+          const afterSmall = { r: UI.cur.r, c: UI.cur.c, dir: PAD.dir };
+          // Diagonal with dominant X (0.80, 0.55): must steer Right (not hijacked vertically by Y-before-X!).
+          fake.axes[0] = 0.80; fake.axes[1] = 0.55;
+          pollPad(1020);
+          const afterDiag = { r: UI.cur.r, c: UI.cur.c, dir: PAD.dir, nextDelta: PAD.next - 1020 };
+          // Repeat at full tilt fires in <=85 ms after initial 240 ms hold.
+          pollPad(1265);
+          const afterRep = { r: UI.cur.r, c: UI.cur.c, repDelta: PAD.next - 1265 };
+          fake.axes[0] = 0; fake.axes[1] = 0; pollPad(1300);
+
+          // Place once so Undo is available, then select slot 1: first B cancels selection (placed unchanged), second B undoes!
+          doPlace(0, 4, 4);
+          const placedBeforeB = S.placed;
+          selectSlot(1);
+          padButton('B');
+          const afterB1 = { sel: UI.sel, placed: S.placed };
+          padButton('B');
+          const afterB2 = { sel: UI.sel, placed: S.placed };
+
+          // padStep calls scrollIntoView on tall Settings modal.
+          showScene('settings');
+          let scrolled = 0;
+          const ctrls = padControls();
+          const lastCtrl = ctrls[ctrls.length - 1];
+          const origSiv = lastCtrl.scrollIntoView;
+          lastCtrl.scrollIntoView = function () { scrolled++; return origSiv ? origSiv.apply(this, arguments) : undefined; };
+          ctrls[0].focus({ preventScroll: true });
+          padStep('Up'); // wraps to lastCtrl and invokes scrollIntoView
+          lastCtrl.scrollIntoView = origSiv;
+          return { afterSmall, afterDiag, afterRep, placedBeforeB, afterB1, afterB2, scrolled };
+        } finally {
+          navigator.getGamepads = origGet;
+          PAD.connected = false; PAD.dir = ''; PAD.prev = [];
+        }
+      });
+      t.equal(padCheck.afterSmall, { r: 4, c: 4, dir: '' }, 'radial deadzone ignores (0.20, 0.20) stick noise');
+      t.equal(padCheck.afterDiag.r, 4, 'dominant-axis diagonal (0.80, 0.55) does not hijack row vertically');
+      t.equal(padCheck.afterDiag.c, 5, 'dominant-axis diagonal (0.80, 0.55) moves right along dominant X axis');
+      t.equal(padCheck.afterDiag.nextDelta, 240, 'snappy 240 ms initial hold delay (down from 380 ms)');
+      t.equal(padCheck.afterRep.c, 6, 'held stick repeats smoothly at 240 ms');
+      t.expect(padCheck.afterRep.repDelta >= 70 && padCheck.afterRep.repDelta <= 85, 'full-tilt deflection repeat scales to ~75 ms (got ' + padCheck.afterRep.repDelta + ')');
+      t.equal(padCheck.afterB1.sel, -1, 'first board B cancels active piece selection');
+      t.equal(padCheck.afterB1.placed, padCheck.placedBeforeB, 'first board B does not prematurely undo');
+      t.equal(padCheck.afterB2.placed, padCheck.placedBeforeB - 1, 'second board B (no piece aimed) triggers Undo');
+      t.expect(padCheck.scrolled >= 1, 'padStep() invokes scrollIntoView() on tall modals');
+    },
+  },
+  {
+    name: 'W6-S5-08 W6-S2-17 mobile 90ms eased touch lift vs 0ms dragGhost & Tap-to-Place preview narration',
+    viewports: ['mobile'],
+    async run(t) {
+      await t.game('act', 'setting', 'tipsSeen', true);
+      const L = await setup(t, [{ id: 'i3v' }, { id: 'o1' }, { id: 'o4' }]);
+      // 1. Eased 90 ms touch visual lift in dragBody() while dragGhost() hit-tests at 0 ms lag and converges <0.5 px.
+      const liftCheck = await t.page.evaluate(() => {
+        const b = LAY.board, cell = b.cell, p = PIECES.i3v;
+        const fx = b.gx + 4 * cell + p.wd * cell / 2, fy = b.gy + 2 * cell + p.h * cell + cell * 0.75;
+        const d = { slot: 0, x: fx, y: fy, sx: fx, sy: fy + 20, t0: 1000, t1: 1000, grabOx: 0, grabOy: 0, moved: true, touch: true, id: 1 };
+        const gh0 = dragGhost(d);
+        UI.ghost = gh0;
+        const b0 = dragBody(d, 1000);
+        const bMid = dragBody(d, 1045);
+        const bEnd = dragBody(d, 1120);
+        const [tlx, tly] = dragTopLeft(d, p);
+        UI.ghost = null;
+        return { gh0, y0: b0.y, yMid: bMid.y, yEnd: bEnd.y, tly, errEnd: Math.abs(bEnd.y - tly) };
+      });
+      t.expect(liftCheck.gh0 && liftCheck.gh0.valid && liftCheck.gh0.r === 2 && liftCheck.gh0.c === 4, 'dragGhost() resolves at full lift with 0 ms latency: ' + JSON.stringify(liftCheck.gh0));
+      t.expect(liftCheck.y0 > liftCheck.yMid && liftCheck.yMid > liftCheck.yEnd, 'touch dragBody() lifts smoothly over 90 ms instead of teleporting in 1 frame (' + [liftCheck.y0, liftCheck.yMid, liftCheck.yEnd].map(v => v.toFixed(1)).join(' -> ') + ')');
+      t.expect(liftCheck.errEnd < 0.5, 'touch dragBody() converges within <0.5 px of dragTopLeft after 90 ms (err=' + liftCheck.errEnd.toFixed(3) + ')');
+
+      // 2. Tap-to-Place preview narrates 1-indexed Row/Column + valid + Tap again to place.
+      await t.game('act', 'setting', 'tapPlace', true);
+      const [sx, sy] = slotCenter(L, 1), [cx, cy] = cellCenter(L, 3, 4);
+      await t.page.touchscreen.tap(sx, sy);
+      await t.page.touchscreen.tap(cx, cy);
+      await t.page.waitForFunction(() => /Row 4, column 5, valid\. Tap again to place\./.test(document.getElementById('live').textContent), null, { timeout: 3000 });
+      t.expect(true, 'Tap-to-Place first tap narrates Row 4, column 5, valid. Tap again to place.');
+    },
+  },
 ];

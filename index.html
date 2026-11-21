@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Thermal Blocks · Hot Springs Games</title>
 <meta name="description" content="Thermal Blocks: a 9×9 block-placement puzzle on a Hot Springs bathhouse tile floor. MIT licensed, part of Hot Springs Games.">
-<meta name="theme-color" content="#131C1E">
+<meta name="theme-color" id="meta-theme-dark" content="#131C1E" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" id="meta-theme-light" content="#F2EFE8" media="(prefers-color-scheme: light)">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2212%22%20fill%3D%22%23174A54%22%2F%3E%3Crect%20x%3D%228%22%20y%3D%228%22%20width%3D%2222%22%20height%3D%2222%22%20rx%3D%224%22%20fill%3D%22%238E3622%22%2F%3E%3Crect%20x%3D%2234%22%20y%3D%228%22%20width%3D%2222%22%20height%3D%2222%22%20rx%3D%224%22%20fill%3D%22%23C9A23F%22%2F%3E%3Crect%20x%3D%228%22%20y%3D%2234%22%20width%3D%2222%22%20height%3D%2222%22%20rx%3D%224%22%20fill%3D%22%232F8F5B%22%2F%3E%3Crect%20x%3D%2234%22%20y%3D%2234%22%20width%3D%2222%22%20height%3D%2222%22%20rx%3D%224%22%20fill%3D%22%23E6D7B5%22%2F%3E%3C%2Fsvg%3E">
 <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22Thermal%20Blocks%22%2C%22short_name%22%3A%22Thermal%20Blocks%22%2C%22description%22%3A%22A%209x9%20block-placement%20puzzle%20on%20a%20Hot%20Springs%20bathhouse%20tile%20floor.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23131C1E%22%2C%22theme_color%22%3A%22%23131C1E%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%2C%253Csvg%2520xmlns%253D%2522http%253A%252F%252Fwww.w3.org%252F2000%252Fsvg%2522%2520viewBox%253D%25220%25200%252064%252064%2522%253E%253Crect%2520width%253D%252264%2522%2520height%253D%252264%2522%2520rx%253D%252212%2522%2520fill%253D%2522%2523174A54%2522%252F%253E%253Crect%2520x%253D%25228%2522%2520y%253D%25228%2522%2520width%253D%252222%2522%2520height%253D%252222%2522%2520rx%253D%25224%2522%2520fill%253D%2522%25238E3622%2522%252F%253E%253Crect%2520x%253D%252234%2522%2520y%253D%25228%2522%2520width%253D%252222%2522%2520height%253D%252222%2522%2520rx%253D%25224%2522%2520fill%253D%2522%2523C9A23F%2522%252F%253E%253Crect%2520x%253D%25228%2522%2520y%253D%252234%2522%2520width%253D%252222%2522%2520height%253D%252222%2522%2520rx%253D%25224%2522%2520fill%253D%2522%25232F8F5B%2522%252F%253E%253Crect%2520x%253D%252234%2522%2520y%253D%252234%2522%2520width%253D%252222%2522%2520height%253D%252222%2522%2520rx%253D%25224%2522%2520fill%253D%2522%2523E6D7B5%2522%252F%253E%253C%252Fsvg%253E%22%2C%22sizes%22%3A%22any%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%2C%22purpose%22%3A%22any%22%7D%5D%7D">
 <!--
@@ -701,8 +702,8 @@ table.keys td{padding:4px 6px;border-bottom:1px solid var(--color-border);vertic
       <table class="keys">
         <tr><td>Mouse</td><td>Drag a piece and drop it. Or click a piece, then click the board.</td></tr>
         <tr><td>Touch</td><td>Drag a piece onto the board (it floats above your finger and snaps to the nearest open spot). Prefer tapping? Turn on <b>Tap to place</b> in Settings: tap a piece, tap the board to preview, and tap the preview to place.</td></tr>
-        <tr><td>Keyboard</td><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd>, <kbd>Q</kbd>/<kbd>E</kbd>, or <kbd>Tab</kbd> pick a piece · arrows move · <kbd>Enter</kbd>/<kbd>Space</kbd> place · <kbd>U</kbd> or <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>H</kbd> hint · <kbd>M</kbd> mute · <kbd>P</kbd> pause · <kbd>Esc</kbd> cancel or pause</td></tr>
-        <tr><td>Gamepad</td><td>D-pad or left stick moves · <b>A</b> places · <b>B</b> undoes (or goes back) · <b>LB</b>/<b>RB</b> pick a piece · <b>Y</b> hint · <b>Start</b> pauses</td></tr>
+        <tr><td>Keyboard</td><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd>, <kbd>Q</kbd>/<kbd>E</kbd>, or <kbd>Tab</kbd> pick a piece · arrows move · <kbd>Enter</kbd>/<kbd>Space</kbd> place · <kbd>V</kbd> next valid spot · <kbd>R</kbd> board summary · <kbd>U</kbd> or <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>H</kbd> hint · <kbd>M</kbd> mute · <kbd>P</kbd> pause · <kbd>Esc</kbd> cancel or pause</td></tr>
+        <tr><td>Gamepad</td><td>D-pad or left stick moves · <kbd>A</kbd> places · <kbd>B</kbd> cancels piece or undoes (back in menus) · <kbd>LB</kbd>/<kbd>RB</kbd> pick a piece · <kbd>Y</kbd> hint · <kbd>Start</kbd> pauses</td></tr>
       </table>
       <p class="muted">Undo: one per round by default in Classic and Springs (change it in Settings), fixed at one per round in Daily Soak. Stuck? The lightbulb button (or <kbd>H</kbd>) shows one good move, once for each tray, in Classic, Daily Soak and Springs.</p>
       <div class="row"><button id="b-tips-help" type="button">Show tips again</button></div>
@@ -794,11 +795,35 @@ const PIECE_DEFS = [
   ['x5',0.6,1,['.#.','###','.#.']],
   ['u5a',0.6,4,['#.#','###']], ['u5b',0.6,4,['###','#.#']],
 ];
+const PIECE_NAMES = {
+  o1:'single tile, 1 by 1',
+  i2h:'2-wide horizontal bar', i2v:'2-tall vertical bar',
+  i3h:'3-wide horizontal bar', i3v:'3-tall vertical bar',
+  c3a:'3-tile top-left corner, 2 by 2', c3b:'3-tile top-right corner, 2 by 2',
+  c3c:'3-tile bottom-left corner, 2 by 2', c3d:'3-tile bottom-right corner, 2 by 2',
+  i4h:'4-wide horizontal bar', i4v:'4-tall vertical bar',
+  o4:'2 by 2 square, 4 tiles',
+  l4a:'4-tile L-shape, 2 wide by 3 tall', l4b:'4-tile L-shape, 3 wide by 2 tall',
+  l4c:'4-tile inverted L-shape, 2 wide by 3 tall', l4d:'4-tile reverse L-shape, 3 wide by 2 tall',
+  j4a:'4-tile J-shape, 2 wide by 3 tall', j4b:'4-tile J-shape, 3 wide by 2 tall',
+  j4c:'4-tile inverted J-shape, 2 wide by 3 tall', j4d:'4-tile reverse J-shape, 3 wide by 2 tall',
+  t4a:'4-tile T-shape pointing down, 3 by 2', t4b:'4-tile T-shape pointing up, 3 by 2',
+  t4c:'4-tile T-shape pointing right, 2 by 3', t4d:'4-tile T-shape pointing left, 2 by 3',
+  s4h:'4-tile S-shape, 3 wide by 2 tall', s4v:'4-tile S-shape, 2 wide by 3 tall',
+  z4h:'4-tile Z-shape, 3 wide by 2 tall', z4v:'4-tile Z-shape, 2 wide by 3 tall',
+  i5h:'5-wide horizontal bar', i5v:'5-tall vertical bar',
+  v5a:'5-tile large top-left corner, 3 by 3', v5b:'5-tile large top-right corner, 3 by 3',
+  v5c:'5-tile large bottom-left corner, 3 by 3', v5d:'5-tile large bottom-right corner, 3 by 3',
+  r6h:'3 by 2 rectangle, 6 tiles', r6v:'2 by 3 rectangle, 6 tiles',
+  o9:'3 by 3 square, 9 tiles',
+  x5:'5-tile plus shape, 3 by 3',
+  u5a:'5-tile U-shape opening up, 3 by 2', u5b:'5-tile U-shape opening down, 3 by 2',
+};
 const PIECES = {};
 for (const [id, w, color, rows] of PIECE_DEFS) {
   const cells = [];
   rows.forEach((row, r) => [...row].forEach((ch, c) => { if (ch === '#') cells.push([r, c]); }));
-  PIECES[id] = { id, w, color, cells, h: rows.length, wd: rows[0].length, n: cells.length };
+  PIECES[id] = { id, w, color, cells, h: rows.length, wd: rows[0].length, n: cells.length, name: PIECE_NAMES[id] || (cells.length + '-tile piece') };
 }
 const PIECE_IDS = PIECE_DEFS.map(d => d[0]);
 const WEIGHT_SUM = PIECE_DEFS.reduce((a, d) => a + d[1], 0);
@@ -1812,7 +1837,7 @@ function persist(intent = 'none', opts = null) {
 let S = freshGame('classic');
 S.scene = 'title';
 let SEED_PENDING = null;
-const UI = { sel: -1, cur: null, ghost: null, ghostCleared: false, drag: null, hover: null, kbd: false, returnTo: 'title', returnFocus: { title: null, pause: null, trail: null }, overAt: 0, skipEnd: false, fxFrozen: null, pausedAt: null, countRaf: 0, countUntil: 0, uiSettleUntil: 0, auditionAudio: false, dispHeat: 0, heatAnim: null, heatPulseAt: 0, dispScore: 0, scoreAnim: null, bestGleamed: false, lastTipRoom: false, ambSteamAlpha: 1, inviteSlot: -1, touchTapCount: 0, endTimers: [], turnTimers: [], lastTap: null, lastInput: performance.now(), input: (window.matchMedia && matchMedia('(pointer:coarse)').matches) ? 'touch' : 'mouse', tip: null, earned: [], newEras: [], lightbox: null, cardsCat: 'all', freshCards: new Set(), seenCards: -1, seenGoals: -1, justLitLevel: '', calSelected: '', tickerPaused: false };
+const UI = { sel: -1, cur: null, ghost: null, ghostCleared: false, ghostRecoilAt: 0, drag: null, hoverSlot: -1, hoverAt: 0, kbd: false, returnTo: 'title', returnFocus: { title: null, pause: null, trail: null }, overAt: 0, skipEnd: false, fxFrozen: null, pausedAt: null, countRaf: 0, countUntil: 0, uiSettleUntil: 0, auditionAudio: false, dispHeat: 0, heatAnim: null, heatPulseAt: 0, dispScore: 0, scoreAnim: null, bestGleamed: false, lastTipRoom: false, ambSteamAlpha: 1, inviteSlot: -1, touchTapCount: 0, endTimers: [], turnTimers: [], lastTap: null, lastInput: performance.now(), input: (window.matchMedia && matchMedia('(pointer:coarse)').matches) ? 'touch' : 'mouse', tip: null, earned: [], newEras: [], lightbox: null, cardsCat: 'all', freshCards: new Set(), seenCards: -1, seenGoals: -1, justLitLevel: '', calSelected: '', tickerPaused: false };
 function bumpUiSettle(ms) {
   if (reducedMotion()) return;
   const until = performance.now() + ms;
@@ -3051,14 +3076,27 @@ function loadArt(name, critical = true) {
       if (im.critical) ART.loading = Math.max(0, ART.loading - 1);
       if (tile) {
         invalidateTileCode(name.slice(5)); // per-code invalidation eliminates 8x boot thrash (CD-WF3-02)
+        if (!tileArtPending() && spriteCache.size < 19) scheduleWarmSprites();
       } else {
         if (im.ok && name === ART.activeBackdrop && name !== 'title-hero') ART.lastEraPainted = name;
         evictBackdrops(ART.activeBackdrop, holdBackdrop());
         bgKey = '';
       }
-      if (ART.loading === 0 && spriteCache.size < 19) setTimeout(warmSprites, 0);
       dirty = true;
     });
+}
+let warmTimer = 0;
+function tileArtPending() {
+  if (!ART.on) return false;
+  for (let k = 1; k <= 8; k++) {
+    const im = ART.img['tile-' + k];
+    if (!im || !im.done) return true;
+  }
+  return false;
+}
+function scheduleWarmSprites() {
+  if (warmTimer || tileArtPending()) return;
+  warmTimer = setTimeout(() => { warmTimer = 0; warmSprites(); }, 0);
 }
 function artReady(name) { const im = ART.img[name]; return !!(im && im.ok); }
 function loadArtFor(scene) { // tiles first, then only the visible backdrop (demand-driven <=2 LRU streaming, CD-WF3-01)
@@ -3078,7 +3116,11 @@ function reducedMotion() {
 function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
 function mix(a, b, t) { const A = hexRgb(a), B = hexRgb(b); return 'rgb(' + A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(',') + ')'; }
 function lum(h) { const [r, g, b] = hexRgb(h); return (0.299 * r + 0.587 * g + 0.114 * b) / 255; }
-function addRRPath(g, x, y, w, h, r) { g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+function addRRPath(g, x, y, w, h, r) {
+  if (!(w > 0 && h > 0)) return;
+  const cr = Math.max(0, Math.min(r || 0, w / 2, h / 2));
+  g.moveTo(x + cr, y); g.arcTo(x + w, y, x + w, y + h, cr); g.arcTo(x + w, y + h, x, y + h, cr); g.arcTo(x, y + h, x, y, cr); g.arcTo(x, y, x + w, y, cr); g.closePath();
+}
 function rr(g, x, y, w, h, r) { g.beginPath(); addRRPath(g, x, y, w, h, r); }
 
 // Layout. No side panels: a big score in the HUD, a slim thermometer beside the board (landscape) or a heat strip
@@ -3207,11 +3249,12 @@ function resize(force = false) {
   bgKey = '';
   WATER.resize();
   dirty = true;
-  if (spriteCache.size < 16) setTimeout(warmSprites, 0);
+  if (spriteCache.size < 19 && !tileArtPending()) scheduleWarmSprites();
+  if (typeof syncTickerTimer === 'function') syncTickerTimer();
 }
-function warmSprites() { // build strictly 2 canonical mip tiers + 3 un-rotated Tufa overlays (<=19/22 permanent sprites, W3-P-N04)
+function warmSprites() { // build strictly 2 canonical mip tiers + 3 un-rotated Tufa overlays (<=19/22 permanent sprites, W3-P-N04 / W6-S6-06)
   if (!LAY) return;
-  if (ART.on && ART.loading > 0) return;
+  if (tileArtPending()) return;
   for (let k = 1; k <= 8; k++) { tileSprite(k, LAY.board.cell); tileSprite(k, LAY.trayScale); }
   for (let v = 1; v <= 3; v++) tileSprite(7, LAY.board.cell, v);
   ensurePieceScratch(Math.ceil(LAY.board.cell * 5.6 * DPR), Math.ceil(LAY.board.cell * 5.6 * DPR));
@@ -3616,7 +3659,7 @@ function ensureBg(id) {
 }
 
 // ---------- board: marble rim with a brass bead and a glazed tile border; nine pools of thermal water
-const BOARD_PAD = 34; // expanded from 16 -> 34 px so 32 px drop shadow feathers cleanly to alpha 0 (W6-S4-02)
+const BOARD_PAD = 42; // expanded from 16 -> 42 px (>= 34 px contract) so 32+ px Gaussian drop shadow feathers strictly to alpha 0 (W6-S4-02 / W6-S6-06)
 // Restrained era/act-keyed frame patinas (keeping all 6 ceramic tile glazes 100% invariant, CD-WF2-02)
 const ERA_FRAME = {
   ancient:      { mould: ['#CFAF6B', '#8E6A32', '#64471F', '#3B2811'], band: ['#EAE0C8', '#CBBDA0'], grout: 'rgba(92,72,44,.18)',  bead: ['#E4C16B', '#A37B2B', '#6A4E16'] },
@@ -4222,6 +4265,9 @@ function drawTray(now) {
       rr(ctx, wx, wy, ww, wh, wr); ctx.stroke();
       ctx.strokeStyle = 'rgba(255,244,204,' + (p * 0.45).toFixed(3) + ')'; ctx.lineWidth = 1.2;
       rr(ctx, wx - 2.5, wy - 2.5, ww + 5, wh + 5, wr + 2); ctx.stroke();
+    } else if (UI.hoverSlot === k && t && !UI.drag && fits) {
+      ctx.strokeStyle = 'rgba(240,207,117,.62)'; ctx.lineWidth = 1.8;
+      rr(ctx, wx, wy, ww, wh, wr); ctx.stroke();
     } else {
       ctx.strokeStyle = 'rgba(240,207,117,.30)'; ctx.lineWidth = 1.2;
       rr(ctx, wx, wy, ww, wh, wr); ctx.stroke();
@@ -4267,13 +4313,16 @@ function drawTray(now) {
       dealAlpha = clamp01(dq / 0.25);
       dy += (1 - easeOut(dq)) * 10;
     }
-    // 65 ms eased press swell pivoted around piece visual center
+    // 65 ms eased press swell pivoted around piece visual center; +2.5 px eased desktop hover lift (W6-S5-08)
     if (pressed) {
       const pq = red ? 1 : easeOut(clamp01((tNow - (UI.drag.t0 || tNow)) / 65));
       const psc = 1 + 0.08 * pq;
       sx *= psc; sy *= psc; dy -= 4 * pq;
     } else if (selected) {
       dy -= 3;
+    } else if (UI.hoverSlot === k && !UI.drag && fits) {
+      const hq = red ? 1 : easeOut(clamp01((tNow - (UI.hoverAt || tNow)) / 120));
+      if (!red) { sx *= 1 + 0.025 * hq; sy *= 1 + 0.025 * hq; dy -= 2.5 * hq; }
     }
     // 340 ms key-posed touch nudge: crouch (sy=0.92) -> stretch hop (sy=1.06) -> impact squash settle (wf-4 §1E)
     const nu = TRAY_NUD[k];
@@ -4501,14 +4550,20 @@ function drawGhost(now) {
     ctx.stroke();
     ctx.restore();
   } else {
-    // Reserved Coral-Crimson #FF6B5B + dashed border for blocked placements (CD-WF2-05)
+    // Reserved Coral-Crimson #FF6B5B + dashed border for blocked placements (CD-WF2-05),
+    // with 160 ms damped horizontal recoil (+/-4 px; static flash under reducedMotion(), wf-4 §2C)
+    const red = reducedMotion();
+    const recEl = UI.ghostRecoilAt ? Math.max(0, fxNow(now) - UI.ghostRecoilAt) : 999;
+    const recQ = recEl < 160 ? recEl / 160 : 1;
+    const recDx = (!red && recQ < 1) ? Math.sin(recQ * Math.PI * 3) * 4 * (1 - recQ) : 0;
+    const recBoost = recQ < 1 ? (1 - recQ) * 0.22 : 0;
     ctx.save();
-    ctx.fillStyle = 'rgba(255,107,91,.18)';
-    ctx.strokeStyle = 'rgba(255,107,91,.95)'; ctx.lineWidth = 2.2; ctx.setLineDash([5, 4]);
+    ctx.fillStyle = 'rgba(255,107,91,' + (0.18 + recBoost).toFixed(3) + ')';
+    ctx.strokeStyle = 'rgba(255,107,91,.95)'; ctx.lineWidth = recQ < 1 ? 2.8 : 2.2; ctx.setLineDash([5, 4]);
     for (const [dr, dc] of p.cells) {
       const r = gh.r + dr, c = gh.c + dc;
       if (r < 0 || r > 8 || c < 0 || c > 8) continue;
-      rr(ctx, b.gx + c * cell + 3, b.gy + r * cell + 3, cell - 6, cell - 6, cell * 0.14);
+      rr(ctx, b.gx + c * cell + 3 + recDx, b.gy + r * cell + 3, cell - 6, cell - 6, cell * 0.14);
       ctx.fill(); ctx.stroke();
     }
     ctx.setLineDash([]);
@@ -5272,7 +5327,9 @@ function needsAnim(now = performance.now()) {
   if (S.scene === 'title') return !reducedMotion() && (now - UI.lastInput < 30000);
   if (S.scene !== 'game') return false; // 0 GPU/2D redraws behind Pause, Settings, Help, Cards, Records, Trail, Over, Win (CD-WF3-04)
   if (FX.length > 0 || (UI.drag && UI.drag.moved) || UI.heatAnim || UI.scoreAnim || UI.heatPulseAt) return true;
+  if (UI.ghostRecoilAt && now - UI.ghostRecoilAt < 180) return true;
   if (reducedMotion()) return false;
+  if (UI.hoverSlot >= 0 && now - UI.hoverAt < 140) return true;
   if (now - UI.lastInput >= 30000) return false; // uniform 30s idle sleep across Springs vents, Boiling, and live water (W3-P-N02)
   return S.board.includes(8) || S.heat >= 4 || WATER.on || !!UI.ghost || !!UI.hint || UI.inviteSlot >= 0 || !!(UI.tip && UI.tip.cur);
 }
@@ -5498,7 +5555,39 @@ void main(){
 
 // ===================================================================== GAME FLOW
 const $ = id => document.getElementById(id);
-function announce(msg) { const el = $('live'); el.textContent = ''; setTimeout(() => { el.textContent = msg; }, 30); }
+let liveTimer = 0, liveWriteTimer = 0, liveQueue = [];
+function announce(msg, opts = null) {
+  const el = $('live');
+  if (!el || !msg) return;
+  let text = String(msg).trim();
+  if (!text) return;
+  if (S && S.mode === 'trail') { // never narrate inert Score/Heat in Spring Trail (CD-WF1-03 / W6-S2-17)
+    text = text.replace(/\bScore\s+[\d,]+\.\s*/g, '').replace(/\bHeat\s+\d+\s+degrees\.\s*/g, '').trim();
+    if (!text) return;
+  }
+  const replace = !!(opts && opts.replace);
+  clearTimeout(liveTimer); liveTimer = 0;
+  clearTimeout(liveWriteTimer); liveWriteTimer = 0;
+  if (replace) {
+    liveQueue = [text];
+  } else {
+    if (!liveQueue.some(m => m === text || m.includes(text))) {
+      liveQueue = liveQueue.filter(m => !text.includes(m));
+      liveQueue.push(text);
+    }
+  }
+  liveTimer = setTimeout(() => {
+    liveTimer = 0;
+    const out = liveQueue.join(' ').trim();
+    liveQueue = [];
+    if (!out) return;
+    el.textContent = '';
+    liveWriteTimer = setTimeout(() => {
+      liveWriteTimer = 0;
+      el.textContent = out;
+    }, 20);
+  }, 35);
+}
 let toastTimer = 0, toastEndsAt = 0, pausedToast = null, pausedAboveRem = 0;
 // Channel 1 notification serializer (CD-WF5-02, PREC-04): #toast (non-.above) and #achtoast share Channel 1 and never overlap;
 // #achtoast (lifetime goal celebration) has Channel 1 priority and defers any active non-.above #toast to replay immediately after.
@@ -5728,7 +5817,65 @@ function modeLabel() {
 function trayDoomed() { return trayFitState().doomed; }
 function trayDesc() {
   const doomMsg = trayDoomed() ? (undoAvail() ? 'Not all of these pieces will fit — undo to rethink. ' : 'Not all of these pieces will fit. ') : '';
-  return doomMsg + 'Tray: ' + S.tray.map((t, k) => (t ? (k + 1) + ' ' + PIECES[t.id].n + '-tile piece' + (fitsAnywhere(S.board, t.id) ? '' : ' (no room)') : (k + 1) + ' empty')).join(', ') + '.';
+  return doomMsg + 'Tray: ' + S.tray.map((t, k) => (t ? (k + 1) + ' ' + PIECES[t.id].name + (fitsAnywhere(S.board, t.id) ? '' : ' (no room)') : (k + 1) + ' empty')).join('; ') + '.';
+}
+function ghostDesc(gh) {
+  if (!gh) return '';
+  const t = S.tray[gh.slot];
+  const base = 'Row ' + (gh.r + 1) + ', column ' + (gh.c + 1);
+  if (!t || !gh.valid) return base + ', blocked.';
+  const groups = ghostClearGroups(t.id, gh.r, gh.c);
+  if (!groups.length) return base + ', valid.';
+  const gone = new Set();
+  for (const gr of groups) for (const idx of gr.cells) gone.add(idx);
+  let vents = 0, stones = 0;
+  gone.forEach(idx => { if (S.board[idx] === 8) vents++; else if (S.board[idx] === 7) stones++; });
+  let out = base + ', valid, clears ' + groups.length + (groups.length === 1 ? ' group' : ' groups');
+  if (vents) out += ', opens ' + vents + (vents === 1 ? ' vent' : ' vents');
+  if (stones) out += ', clears ' + stones + (stones === 1 ? ' tufa stone' : ' tufa stones');
+  return out + '.';
+}
+function boardSummary() {
+  let filled = 0;
+  const vents = [], stones = [];
+  for (let i = 0; i < 81; i++) {
+    const v = S.board[i];
+    if (!v) continue;
+    filled++;
+    if (v === 8) vents.push([Math.floor(i / 9) + 1, (i % 9) + 1]);
+    else if (v === 7) stones.push([Math.floor(i / 9) + 1, (i % 9) + 1]);
+  }
+  const near = [];
+  for (let i = 0; i < 9; i++) {
+    let rc = 0, cc = 0, bc = 0;
+    for (let j = 0; j < 9; j++) {
+      if (S.board[i * 9 + j]) rc++;
+      if (S.board[j * 9 + i]) cc++;
+      const br = Math.floor(i / 3) * 3 + Math.floor(j / 3), bc0 = (i % 3) * 3 + (j % 3);
+      if (S.board[br * 9 + bc0]) bc++;
+    }
+    if (rc >= 7 && rc < 9) near.push('row ' + (i + 1) + ' (' + rc + ' of 9)');
+    if (cc >= 7 && cc < 9) near.push('column ' + (i + 1) + ' (' + cc + ' of 9)');
+    if (bc >= 7 && bc < 9) near.push('pool ' + (i + 1) + ' (' + bc + ' of 9)');
+  }
+  let head = '';
+  if (S.mode === 'trail') {
+    const L = LEVELS.find(l => l.id === S.level);
+    head = (L ? L.name + '. ' : 'Spring Trail. ') + goalText() + '. Worth ' + trailStars(S.undosUsed) + ' stars.';
+    if (S.queue && S.queue.length) head += ' ' + S.queue.length + (S.queue.length === 1 ? ' piece' : ' pieces') + ' up next.';
+  } else if (S.mode === 'springs') {
+    head = 'Springs: ' + S.springs + ' of 47 vents opened. Score ' + S.score + '. Heat ' + tempF(S.heat) + ' degrees.';
+  } else if (S.mode === 'daily') {
+    head = 'Daily Soak: score ' + S.score + '. Heat ' + tempF(S.heat) + ' degrees.';
+  } else {
+    head = 'Classic, ' + ERAS[S.era].name + ': score ' + S.score + '. Heat ' + tempF(S.heat) + ' degrees.';
+  }
+  const parts = [head, filled + ' of 81 cells filled, ' + (81 - filled) + ' open.'];
+  if (vents.length) parts.push((vents.length === 1 ? '1 vent at ' : vents.length + ' vents' + (vents.length <= 4 ? ' at ' : '')) + (vents.length <= 4 ? vents.map(([r, c]) => 'row ' + r + ' column ' + c).join(', ') : '') + '.');
+  if (stones.length) parts.push(stones.length + (stones.length === 1 ? ' tufa stone' : ' tufa stones') + ' on board.');
+  if (near.length) parts.push('Nearly full: ' + near.slice(0, 4).join(', ') + '.');
+  parts.push(trayDesc());
+  return parts.join(' ');
 }
 function snapshot() {
   const { scene, undoStack, provBest, ...rest } = S;
@@ -5909,7 +6056,7 @@ function useHint() {
   h.t0 = performance.now();
   UI.hint = h; UI.inviteSlot = -1; S.hintRound = Math.max(currentHintRound(), S.round); S.hintsUsed = (S.hintsUsed | 0) + 1; UI.hintRound = S.hintRound; UI.sel = -1; UI.ghost = null; UI.ghostCleared = false; UI.lastInput = h.t0;
   if (S.placed > 0) saveResume();
-  sfx('hint'); announce('Hint: piece ' + (h.slot + 1) + ' goes at row ' + (h.r + 1) + ', column ' + (h.c + 1) + '.');
+  sfx('hint'); announce('Hint: piece ' + (h.slot + 1) + ', ' + PIECES[h.id].name + ', goes at ' + ghostDesc({ slot: h.slot, r: h.r, c: h.c, valid: true }));
   updateHud(); dirty = true;
   return { ok: true, ...h };
 }
@@ -6295,7 +6442,9 @@ function showEnd() {
   if (S.won && S.mode === 'trail') showWinTrail();
   else {
     showScene('over'); // single fillOver() invocation inside showScene('over') (W6-S5-01 / CD-WF5-06)
-    announce($('ov-title').textContent.replace(/[.!]$/, '') + '. Score ' + S.score.toLocaleString('en-US') + (UI.newBest ? '. New best!' : '. ' + $('ov-new').textContent));
+    const ovTitle = $('ov-title').textContent.replace(/[.!]$/, '');
+    if (S.mode === 'trail') announce(ovTitle + '. ' + goalText() + '. Undo a move or try again.');
+    else announce(ovTitle + '. Score ' + S.score.toLocaleString('en-US') + (UI.newBest ? '. New best!' : '. ' + $('ov-new').textContent));
   }
 }
 function fillOver() {
@@ -6607,6 +6756,7 @@ function openLightbox(eraIdx, fromEl = null) {
   sc.classList.add('on');
   const pb = sc.querySelector('.panel-body'); if (pb) pb.scrollTop = 0;
   syncInertness();
+  syncTickerTimer();
   bumpUiSettle(200);
   $('lb-close').focus({ preventScroll: true });
   announce(ERAS[list[pos]].name + ' postcard opened.');
@@ -6623,6 +6773,7 @@ function closeLightbox(restore = true) {
   UI.lightbox = null;
   $('sc-lightbox').classList.remove('on');
   syncInertness();
+  syncTickerTimer();
   if (restore) {
     if (lb.from && lb.from.focus && document.contains(lb.from) && isVisibleControl(lb.from)) lb.from.focus({ preventScroll: true });
     else if (SCREENS[S.scene]) focusFirst(SCREENS[S.scene]);
@@ -6698,6 +6849,8 @@ function showScene(name, restoreEl = null) {
   if (name === 'game' && !S.tray) name = 'title';
   if (UI.lightbox) closeLightbox(false);
   if (name !== 'game' && UI.drag) cancelDrag({ animate: false });
+  if (name !== 'game') { UI.hoverSlot = -1; cv.style.cursor = ''; }
+  if (name !== 'title' && tickerSwapTimer) { clearTimeout(tickerSwapTimer); tickerSwapTimer = 0; }
   if (name !== 'over') cancelCountUp();
   if (name !== 'settings') UI.auditionAudio = false;
   UI.lastInput = performance.now();
@@ -6762,6 +6915,7 @@ function showScene(name, restoreEl = null) {
   if (name === 'settings') fillSettings();
   if (name === 'over') fillOver();
   syncInertness();
+  syncTickerTimer();
   resize();
   updateHud();
   const applyFocus = () => {
@@ -6889,6 +7043,7 @@ function advanceTicker(manual = false) {
   if (!el) return;
   tickerI = (tickerI + 1) % TICKER.length;
   clearTimeout(tickerSwapTimer);
+  if (manual && tickerInterval) { clearInterval(tickerInterval); tickerInterval = 0; syncTickerTimer(); }
   if (reducedMotion()) {
     el.classList.remove('swap');
     el.textContent = TICKER[tickerI];
@@ -6945,11 +7100,30 @@ function fillTitle() {
   $('ticker').classList.remove('swap');
   $('ticker').textContent = TICKER[tickerI % TICKER.length];
 }
-let tickerSwapTimer = 0;
-setInterval(() => {
-  if (S.scene !== 'title' || UI.tickerPaused || UI.confirm || UI.lightbox || reducedMotion()) return;
-  advanceTicker(false);
-}, 8000);
+let tickerSwapTimer = 0, tickerInterval = 0;
+function tickerShouldRun() {
+  const el = $('ticker');
+  return S.scene === 'title' && !document.hidden && !UI.tickerPaused && !UI.confirm && !UI.lightbox && !reducedMotion() && !!(el && el.getClientRects().length > 0);
+}
+function syncTickerTimer() {
+  // Lifecycle-managed Title ticker (W6-S6-06): zero background interval off-Title, hidden, reducedMotion, hovered/focused, or modal-covered.
+  const want = tickerShouldRun();
+  if (want && !tickerInterval) {
+    tickerInterval = setInterval(() => {
+      if (!tickerShouldRun()) { syncTickerTimer(); return; }
+      advanceTicker(false);
+    }, 8000);
+  } else if (!want && tickerInterval) {
+    clearInterval(tickerInterval);
+    tickerInterval = 0;
+  }
+  if (!want && tickerSwapTimer) {
+    clearTimeout(tickerSwapTimer);
+    tickerSwapTimer = 0;
+    const el = $('ticker');
+    if (el) el.classList.remove('swap');
+  }
+}
 function trailStarTotal() { return Object.values(SAVE.trail.stars).reduce((a, n) => a + n, 0); }
 function starText(n) { return '★'.repeat(n) + '☆'.repeat(3 - n); }
 function starsEl(n) { const el = document.createElement('span'); el.className = 'stars'; el.setAttribute('role', 'img'); el.setAttribute('aria-label', n + ' of 3 stars'); el.textContent = starText(n); return el; }
@@ -7312,6 +7486,30 @@ function fillSettings() {
   syncAudioControlDim();
   syncDiffNote();
 }
+function syncThemeMeta(theme) {
+  // Sync PWA <meta name="theme-color"> & inline manifest background_color/theme_color to warm cream (#F2EFE8) / night travertine (#131C1E) (W6-S6-06 / CD-WF2-05).
+  const mDark = $('meta-theme-dark'), mLight = $('meta-theme-light');
+  const man = document.querySelector('link[rel=manifest]');
+  const DARK_HEX = '#131C1E', LIGHT_HEX = '#F2EFE8';
+  if (theme === 'light') {
+    if (mDark) { mDark.content = LIGHT_HEX; mDark.removeAttribute('media'); }
+    if (mLight) { mLight.content = LIGHT_HEX; mLight.setAttribute('media', '(prefers-color-scheme: light)'); }
+  } else if (theme === 'dark') {
+    if (mDark) { mDark.content = DARK_HEX; mDark.removeAttribute('media'); }
+    if (mLight) { mLight.content = DARK_HEX; mLight.setAttribute('media', '(prefers-color-scheme: light)'); }
+  } else {
+    if (mDark) { mDark.content = DARK_HEX; mDark.setAttribute('media', '(prefers-color-scheme: dark)'); }
+    if (mLight) { mLight.content = LIGHT_HEX; mLight.setAttribute('media', '(prefers-color-scheme: light)'); }
+  }
+  if (man && man.href && man.href.startsWith('data:application/manifest+json,')) {
+    const col = theme === 'light' ? LIGHT_HEX : DARK_HEX;
+    if (!man._baseHref) man._baseHref = man.getAttribute('href');
+    const nextHref = man._baseHref
+      .replace(/(background_color%22%3A%22)%23[0-9A-Fa-f]{6}/, '$1' + encodeURIComponent(col))
+      .replace(/(theme_color%22%3A%22)%23[0-9A-Fa-f]{6}/, '$1' + encodeURIComponent(col));
+    if (man.getAttribute('href') !== nextHref) man.setAttribute('href', nextHref);
+  }
+}
 const AUDIO_SETTINGS = new Set(['sound', 'volume', 'sfx', 'music', 'musicVol', 'ambience', 'ambVol']);
 const CONTROL_SETTINGS = new Set(['undo', 'difficulty', 'tapPlace', 'haptics', 'tipsSeen']);
 function applySettings(changedKey = null) {
@@ -7331,6 +7529,7 @@ function applySettings(changedKey = null) {
   if (changedKey === 'theme') {
     root.classList.toggle('theme-dark', s.theme === 'dark');
     root.classList.toggle('theme-light', s.theme === 'light');
+    syncThemeMeta(s.theme);
     return;
   }
   if (changedKey === 'patterns') {
@@ -7348,6 +7547,8 @@ function applySettings(changedKey = null) {
   if (changedKey === 'motion') {
     root.classList.toggle('motion-reduced', s.motion === 'reduced');
     root.classList.toggle('motion-full', s.motion === 'full');
+    if (reducedMotion()) UI.uiSettleUntil = 0;
+    syncTickerTimer();
     WATER.refresh();
     dirty = true;
     return;
@@ -7362,9 +7563,11 @@ function applySettings(changedKey = null) {
   root.classList.toggle('big', !!s.bigText);
   root.classList.toggle('theme-dark', s.theme === 'dark');
   root.classList.toggle('theme-light', s.theme === 'light');
+  syncThemeMeta(s.theme);
   root.classList.toggle('motion-reduced', s.motion === 'reduced');
   root.classList.toggle('motion-full', s.motion === 'full');
   if (reducedMotion()) UI.uiSettleUntil = 0;
+  syncTickerTimer();
   root.classList.toggle('tray-left', s.traySide === 'left');
   $('s-sound').checked = s.sound;   // M and the speaker button change Sound while the Settings card may be open
   syncAudioControlDim();
@@ -7416,12 +7619,16 @@ function wireDom() {
   $('b-ovundo').addEventListener('click', () => { doUndo(); });
   $('b-rec-daily').addEventListener('click', () => { audioInit(); sfx('click', { dir: 1 }); startMode('daily'); });
   let tickerHover = false, tickerFocus = false;
-  const syncTickerPause = () => { UI.tickerPaused = tickerHover || tickerFocus; };
+  const syncTickerPause = () => { UI.tickerPaused = tickerHover || tickerFocus; syncTickerTimer(); };
   $('ticker').addEventListener('click', () => { audioInit(); sfx('click', { dir: 1, soft: 0.5 }); advanceTicker(true); });
   $('ticker').addEventListener('mouseenter', () => { tickerHover = true; syncTickerPause(); });
   $('ticker').addEventListener('mouseleave', () => { tickerHover = false; syncTickerPause(); });
   $('ticker').addEventListener('focus', () => { tickerFocus = true; syncTickerPause(); });
   $('ticker').addEventListener('blur', () => { tickerFocus = false; syncTickerPause(); });
+  if (window.matchMedia) {
+    const mqRed = matchMedia('(prefers-reduced-motion: reduce)');
+    if (mqRed && mqRed.addEventListener) mqRed.addEventListener('change', () => { syncTickerTimer(); WATER.refresh(); dirty = true; });
+  }
   $('h-mode').addEventListener('click', () => {
     if (S.scene !== 'game' || S.mode !== 'trail' || S.over) return;
     const L = LEVELS.find(l => l.id === S.level);
@@ -7479,6 +7686,7 @@ function askConfirm(title, body, yes, no, onYes) {
   $('sc-confirm').classList.add('on');
   bumpUiSettle(220);
   syncInertness();
+  syncTickerTimer();
   $('cf-no').focus({ preventScroll: true });
   announce(title + ' ' + body);
 }
@@ -7486,6 +7694,7 @@ function closeConfirm(yes) {
   const c = UI.confirm; if (!c) return;
   UI.confirm = null; $('sc-confirm').classList.remove('on');
   syncInertness();
+  syncTickerTimer();
   if (yes) c.onYes();
   else {
     resumeNotices();
@@ -7587,7 +7796,7 @@ function resumeSaved(preferredMode = null) {
   syncGauges(true);
   FX.length = 0; WATER.clear(); bgKey = '';
   showScene('game');
-  announce('Game resumed. Score ' + S.score + '. ' + trayDesc());
+  announce('Game resumed. ' + (S.mode === 'trail' ? goalText() + '. Worth ' + trailStars(S.undosUsed) + ' stars. ' : 'Score ' + S.score + '. ') + trayDesc());
 }
 
 // ===================================================================== INPUT
@@ -7628,6 +7837,8 @@ function cancelDrag(opts = null) {
   UI.drag = null;
   UI.ghost = null;
   UI.ghostCleared = false;
+  UI.hoverSlot = -1;
+  cv.style.cursor = '';
   if (d) {
     if (release && d.id != null) { try { cv.releasePointerCapture(d.id); } catch (_) {} }
     const t = S.tray && S.tray[d.slot];
@@ -7692,10 +7903,24 @@ function selectSlot(k, withCursor = true) {
   UI.sel = k; sfx('pick', { k, pan: (k - 1) * 0.25 }); tipPicked();
   const p = PIECES[S.tray[k].id];
   const fit = fitsAnywhere(S.board, p.id) ? '' : ', no room on the board';
-  if (!withCursor) { UI.ghost = null; UI.cur = null; announce('Piece ' + (k + 1) + ' selected, ' + p.n + ' tiles' + fit + '. Tap the board to place it.'); dirty = true; return; }
-  UI.cur = UI.cur ? { r: Math.min(UI.cur.r, 9 - p.h), c: Math.min(UI.cur.c, 9 - p.wd) } : { r: Math.floor((9 - p.h) / 2), c: Math.floor((9 - p.wd) / 2) };
+  if (!withCursor) { UI.ghost = null; UI.cur = null; announce('Piece ' + (k + 1) + ' selected: ' + p.name + fit + '. Tap the board to place it.'); dirty = true; return; }
+  const cr = Math.floor((9 - p.h) / 2), cc = Math.floor((9 - p.wd) / 2);
+  if (UI.cur) {
+    UI.cur = { r: Math.min(UI.cur.r, 9 - p.h), c: Math.min(UI.cur.c, 9 - p.wd) };
+  } else if (canPlace(S.board, p.id, cr, cc)) {
+    UI.cur = { r: cr, c: cc };
+  } else {
+    // When board center is blocked, snap initial keyboard/gamepad cursor to the nearest valid placement (wf-4 §2D)
+    let best = null, bestD = Infinity;
+    for (let r = 0; r <= 9 - p.h; r++) for (let c = 0; c <= 9 - p.wd; c++) {
+      if (!canPlace(S.board, p.id, r, c)) continue;
+      const dist = Math.hypot(r - cr, c - cc);
+      if (dist < bestD) { bestD = dist; best = { r, c }; }
+    }
+    UI.cur = best || { r: cr, c: cc };
+  }
   UI.ghost = ghostAt(k, UI.cur.r, UI.cur.c);
-  announce('Piece ' + (k + 1) + ' selected, ' + p.n + ' tiles' + fit + '. Ghost at row ' + (UI.cur.r + 1) + ', column ' + (UI.cur.c + 1) + (UI.ghost.valid ? '.' : ', blocked.'));
+  announce('Piece ' + (k + 1) + ' selected: ' + p.name + fit + '. ' + ghostDesc(UI.ghost));
   dirty = true;
 }
 for (const ev of ['pointerdown', 'pointermove', 'keydown']) window.addEventListener(ev, e => {
@@ -7713,11 +7938,13 @@ cv.addEventListener('pointerdown', e => {
   if (e.button === 2) return;
   if (k >= 0 && S.tray[k]) {
     UI.inviteSlot = -1;
+    UI.hoverSlot = -1;
     clearSlotFx(k); // Frame-1 pickup interrupts any active deal/return/nudge on this slot (CD-WF4-01 / W6-S5-01)
     const gm0 = slotPieceGeom(k), pc0 = PIECES[S.tray[k].id];
     const grabOx = gm0 ? p.x - (gm0.x + pc0.wd * gm0.s / 2) : 0;
     const grabOy = gm0 ? p.y - (gm0.y + pc0.h * gm0.s / 2) : 0;
     UI.drag = { slot: k, x: p.x, y: p.y, sx: p.x, sy: p.y, t0: performance.now(), grabOx, grabOy, moved: false, touch: e.pointerType !== 'mouse', id: e.pointerId };
+    if (e.pointerType === 'mouse') cv.style.cursor = 'grabbing';
     try { cv.setPointerCapture(e.pointerId); } catch (_) {}
     dirty = true; e.preventDefault(); return;
   }
@@ -7737,13 +7964,16 @@ cv.addEventListener('pointerdown', e => {
         UI.ghost = pos;
         const pan = (pos.c + pc.wd / 2 - 4.5) / 4.5 * 0.55;
         sfx(pos.valid ? 'pick' : 'invalid', { src: 'drag', pan });
+        if (!pos.valid) UI.ghostRecoilAt = performance.now();
         checkClearLock(UI.ghost, pan);
+        announce(ghostDesc(pos) + (pos.valid ? ' Tap again to place.' : ''), { replace: true });
         dirty = true;
         return;
       }
       const tgt = touch ? gh : pos;
       UI.cur = { r: tgt.r, c: tgt.c };
-      if (tgt.valid) doPlace(UI.sel, tgt.r, tgt.c); else { sfx('invalid', { src: 'drag' }); UI.ghost = tgt; dirty = true; }
+      if (tgt.valid) doPlace(UI.sel, tgt.r, tgt.c);
+      else { UI.ghostRecoilAt = performance.now(); sfx('invalid', { src: 'drag' }); UI.ghost = tgt; announce(ghostDesc(tgt), { replace: true }); dirty = true; }
       return;
     }
   }
@@ -7754,7 +7984,7 @@ cv.addEventListener('pointermove', e => {
   if (d && e.pointerId === d.id) {
     if (!S.tray[d.slot]) { cancelDrag({ animate: false }); return; }
     d.x = p.x; d.y = p.y;
-    if (!d.moved && Math.hypot(p.x - d.sx, p.y - d.sy) > 8) { d.moved = true; d.t1 = performance.now(); UI.sel = -1; UI.kbd = false; UI.inviteSlot = -1; UI.touchTapCount = 0; UI.ghostCleared = false; sfx('pick', { k: d.slot, pan: (d.slot - 1) * 0.25 }); if (UI.tip && UI.tip.cur === 'goal') UI.tip.shown.add('verb'); }
+    if (!d.moved && Math.hypot(p.x - d.sx, p.y - d.sy) > 8) { d.moved = true; d.t1 = performance.now(); UI.sel = -1; UI.kbd = false; UI.inviteSlot = -1; UI.hoverSlot = -1; UI.touchTapCount = 0; UI.ghostCleared = false; if (!d.touch) cv.style.cursor = 'grabbing'; sfx('pick', { k: d.slot, pan: (d.slot - 1) * 0.25 }); if (UI.tip && UI.tip.cur === 'goal') UI.tip.shown.add('verb'); }
     if (d.moved) {
       UI.ghost = dragGhost(d);
       const tCur = UI.ghost && S.tray[UI.ghost.slot], pCur = tCur && PIECES[tCur.id];
@@ -7763,25 +7993,42 @@ cv.addEventListener('pointermove', e => {
     }
     dirty = true; return;
   }
-  if (S.scene === 'game' && e.pointerType === 'mouse' && UI.sel >= 0 && S.tray[UI.sel]) {
-    const g = pointerTarget(UI.sel, p);
-    if (g) {
-      UI.cur = { r: g.r, c: g.c };
-      if (!UI.ghost || g.slot !== UI.ghost.slot || g.r !== UI.ghost.r || g.c !== UI.ghost.c || g.valid !== UI.ghost.valid) {
-        UI.ghost = g;
-        const pc = PIECES[S.tray[UI.sel].id];
-        checkClearLock(UI.ghost, (g.c + pc.wd / 2 - 4.5) / 4.5 * 0.55);
-        dirty = true;
+  if (S.scene === 'game' && !S.over && e.pointerType === 'mouse') {
+    const hk = slotAt(p), nextHover = (hk >= 0 && S.tray[hk]) ? hk : -1;
+    if (nextHover !== UI.hoverSlot) { UI.hoverSlot = nextHover; UI.hoverAt = performance.now(); dirty = true; }
+    let g = null;
+    if (UI.sel >= 0 && S.tray[UI.sel]) {
+      g = pointerTarget(UI.sel, p);
+      if (g) {
+        UI.cur = { r: g.r, c: g.c };
+        if (!UI.ghost || g.slot !== UI.ghost.slot || g.r !== UI.ghost.r || g.c !== UI.ghost.c || g.valid !== UI.ghost.valid) {
+          UI.ghost = g;
+          const pc = PIECES[S.tray[UI.sel].id];
+          checkClearLock(UI.ghost, (g.c + pc.wd / 2 - 4.5) / 4.5 * 0.55);
+          dirty = true;
+        }
+      } else if (UI.ghost && !UI.kbd) {
+        UI.ghost = null; UI.ghostCleared = false; dirty = true;
       }
-    } else if (UI.ghost && !UI.kbd) {
-      UI.ghost = null; UI.ghostCleared = false; dirty = true;
     }
+    const nextCursor = nextHover >= 0 ? 'grab' : g ? 'pointer' : '';
+    if (cv.style.cursor !== nextCursor) cv.style.cursor = nextCursor;
   }
+});
+cv.addEventListener('pointerleave', e => {
+  if (e.pointerType !== 'mouse' || UI.drag) return;
+  let changed = false;
+  if (UI.hoverSlot >= 0) { UI.hoverSlot = -1; changed = true; }
+  if (UI.ghost && !UI.kbd) { UI.ghost = null; UI.ghostCleared = false; changed = true; }
+  if (cv.style.cursor) cv.style.cursor = '';
+  if (changed) dirty = true;
 });
 function endDrag(e, cancel) {
   const d = UI.drag; if (!d || (e && e.pointerId !== d.id)) return;
   UI.drag = null;
   UI.ghostCleared = false;
+  UI.hoverSlot = -1;
+  cv.style.cursor = '';
   if (d.id != null) { try { cv.releasePointerCapture(d.id); } catch (_) {} }
   const t = S.tray[d.slot];
   if (!t) { UI.ghost = null; dirty = true; return; }
@@ -7828,12 +8075,48 @@ function moveCursor(dr, dc) {
     const pan = (nc + p.wd / 2 - 4.5) / 4.5 * 0.5;
     sfx('step', { pan });
     checkClearLock(UI.ghost, pan);
+    announce(ghostDesc(UI.ghost), { replace: true });
+  } else {
+    announce('Edge. ' + ghostDesc(UI.ghost), { replace: true });
   }
   dirty = true;
 }
+function nextValidSpot() {
+  if (UI.sel < 0 || !S.tray[UI.sel]) {
+    const k = S.tray.findIndex(t => t && fitsAnywhere(S.board, t.id));
+    const fallback = S.tray.findIndex(Boolean);
+    if (k >= 0) selectSlot(k);
+    else if (fallback >= 0) selectSlot(fallback);
+    return false;
+  }
+  const t = S.tray[UI.sel], p = PIECES[t.id];
+  const spots = [];
+  for (let r = 0; r <= 9 - p.h; r++) for (let c = 0; c <= 9 - p.wd; c++) {
+    if (canPlace(S.board, p.id, r, c)) spots.push({ r, c });
+  }
+  if (!spots.length) {
+    sfx('invalid', { src: 'kbd' });
+    announce('No valid spot for piece ' + (UI.sel + 1) + ', ' + p.name + '.', { replace: true });
+    return false;
+  }
+  let idx = 0;
+  if (UI.cur) {
+    const found = spots.findIndex(s => s.r > UI.cur.r || (s.r === UI.cur.r && s.c > UI.cur.c));
+    idx = found >= 0 ? found : 0;
+  }
+  const pick = spots[idx];
+  UI.cur = { r: pick.r, c: pick.c };
+  UI.ghost = ghostAt(UI.sel, pick.r, pick.c);
+  const pan = (pick.c + p.wd / 2 - 4.5) / 4.5 * 0.5;
+  sfx('step', { pan });
+  checkClearLock(UI.ghost, pan);
+  announce(ghostDesc(UI.ghost) + ' Valid spot ' + (idx + 1) + ' of ' + spots.length + '.', { replace: true });
+  dirty = true;
+  return true;
+}
 function confirmPlace() {
   if (UI.sel < 0 || !UI.ghost) { const k = S.tray.findIndex(Boolean); if (k >= 0) selectSlot(k); return { ok: false }; }
-  if (!UI.ghost.valid) { sfx('invalid', { src: 'kbd', pan: (UI.ghost.c - 4) / 4.5 * 0.5 }); announce('Blocked. Move the piece.'); return { ok: false }; }
+  if (!UI.ghost.valid) { UI.ghostRecoilAt = performance.now(); sfx('invalid', { src: 'kbd', pan: (UI.ghost.c - 4) / 4.5 * 0.5 }); announce('Blocked. ' + ghostDesc(UI.ghost) + ' Move the piece.', { replace: true }); dirty = true; return { ok: false }; }
   return doPlace(UI.sel, UI.ghost.r, UI.ghost.c);
 }
 function cycleSel(dir) {
@@ -7945,6 +8228,8 @@ window.addEventListener('keydown', e => {
   else if (k === 'ArrowLeft') { markKbd(); moveCursor(0, -1); e.preventDefault(); }
   else if (k === 'ArrowRight') { markKbd(); moveCursor(0, 1); e.preventDefault(); }
   else if (k === 'Enter' || k === ' ') { markKbd(); confirmPlace(); e.preventDefault(); }
+  else if (k === 'v' || k === 'V') { markKbd(); nextValidSpot(); e.preventDefault(); }
+  else if (k === 'r' || k === 'R') { markKbd(); announce(boardSummary(), { replace: true }); e.preventDefault(); }
   else if (k === 'h' || k === 'H') { markKbd(); useHint(); e.preventDefault(); }
   else if (k === 'u' || k === 'U') { markKbd(); doUndo(); e.preventDefault(); }
 });
@@ -7973,11 +8258,44 @@ function padStep(dir) {
     el.value = String(Math.max(+el.min, Math.min(+el.max, +el.value + sign * (+el.step || 1)))); el.dispatchEvent(new Event('input', { bubbles: true })); return;
   }
   if (horizontal && el && el.tagName === 'SELECT') { padSelect(el, sign); return; }
+  const root = UI.confirm ? $('sc-confirm') : UI.lightbox ? $('sc-lightbox') : SCREENS[S.scene] ? $(SCREENS[S.scene]) : null;
+  const pb = root && root.querySelector('.panel-body');
   const list = padControls(); if (!list.length) return;
   const i = list.indexOf(el);
-  const nextEl = list[i < 0 ? 0 : (i + sign + list.length) % list.length];
+  let nextEl = null;
+  // 2D nearest-neighbor Up/Down navigation inside multi-column grids (.levels, .cal, .cards) while keeping Title linear (S1-12)
+  if (!horizontal && el && el.closest && el.closest('.levels, .cal, .cards')) {
+    const r0 = el.getBoundingClientRect(), cx0 = (r0.left + r0.right) / 2;
+    let bestScore = Infinity;
+    for (let j = 0; j < list.length; j++) {
+      const cand = list[j];
+      if (cand === el) continue;
+      const rc = cand.getBoundingClientRect();
+      const dy = sign > 0 ? rc.top - r0.bottom : r0.top - rc.bottom;
+      if (dy < -4) continue;
+      const dx = Math.abs((rc.left + rc.right) / 2 - cx0);
+      const sc = dy * 2.5 + dx;
+      if (sc < bestScore) { bestScore = sc; nextEl = cand; }
+    }
+  }
+  if (!nextEl) nextEl = list[i < 0 ? 0 : (i + sign + list.length) % list.length];
+  // Prose modals (#sc-help, #sc-cards, #sc-records): scroll smoothly through long text before jumping across off-screen controls (wf-5 §5A.3)
+  if (!horizontal && pb && pb.scrollHeight > pb.clientHeight + 4 && (S.scene === 'help' || S.scene === 'cards' || S.scene === 'records')) {
+    const pbRect = pb.getBoundingClientRect();
+    const nRect = nextEl.getBoundingClientRect();
+    const stepPx = Math.round(pb.clientHeight * 0.65);
+    if (sign > 0 && pb.scrollTop + pb.clientHeight < pb.scrollHeight - 2 && (!pb.contains(nextEl) || nRect.top > pbRect.bottom + pb.clientHeight * 0.25)) {
+      pb.scrollBy({ top: stepPx, behavior: reducedMotion() ? 'auto' : 'smooth' });
+      return;
+    }
+    if (sign < 0 && pb.scrollTop > 2 && (!pb.contains(nextEl) || nRect.bottom < pbRect.top - pb.clientHeight * 0.25)) {
+      pb.scrollBy({ top: -stepPx, behavior: reducedMotion() ? 'auto' : 'smooth' });
+      return;
+    }
+  }
   if (nextEl && nextEl !== el) sfx('step');
   nextEl.focus({ preventScroll: true });
+  if (nextEl.scrollIntoView) nextEl.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' });
 }
 function padSelect(el, sign) {
   const n = el.options.length; if (!n) return;
@@ -7999,7 +8317,11 @@ function padButton(name) {
   }
   if (S.over) { if (name === 'B') padKey('u'); else if (name === 'A' && UI.overAt) padKey('Enter'); return; }
   if (name === 'A') { cv.focus({ preventScroll: true }); padKey('Enter'); }
-  else if (name === 'B') padKey('u');
+  else if (name === 'B') {
+    // Board B cancels an active aimed piece first, triggering Undo only when no piece is aimed (W6-S5-08 / wf-4 §2D)
+    if (UI.sel >= 0) { UI.sel = -1; UI.ghost = null; UI.ghostCleared = false; sfx('click', { dir: -1, soft: 0.6 }); announce('Selection cleared.', { replace: true }); dirty = true; }
+    else padKey('u');
+  }
   else if (name === 'Y') padKey('h');
   else if (name === 'LB') padKey('q');
   else if (name === 'RB') padKey('e');
@@ -8015,9 +8337,22 @@ function pollPad(now) {
   if (pads) for (let i = 0; i < pads.length; i++) if (pads[i] && pads[i].connected) { pad = pads[i]; break; }
   if (!pad) { PAD.dir = ''; PAD.prev.length = 0; PAD.connected = false; return; }
   const down = i => !!(pad.buttons[i] && pad.buttons[i].pressed), ax = pad.axes[0] || 0, ay = pad.axes[1] || 0;
-  const dir = down(12) || ay < -0.5 ? 'Up' : down(13) || ay > 0.5 ? 'Down' : down(14) || ax < -0.5 ? 'Left' : down(15) || ax > 0.5 ? 'Right' : '';
-  if (dir !== PAD.dir) { PAD.dir = dir; PAD.next = now + 380; if (dir) { audioInit(); padDirection(dir); } }
-  else if (dir && now >= PAD.next) { PAD.next = now + 130; padDirection(dir); }
+  // Radial deadzone (>0.35) + dominant-axis steering (|ax|>=|ay|) with 240 ms initial / 115->75 ms deflection-scaled repeat (W6-S5-08 / wf-4 §2D)
+  let dir = '', mag = 1;
+  if (down(12)) dir = 'Up';
+  else if (down(13)) dir = 'Down';
+  else if (down(14)) dir = 'Left';
+  else if (down(15)) dir = 'Right';
+  else {
+    const r = Math.hypot(ax, ay);
+    if (r > 0.35) {
+      mag = Math.min(1, r);
+      dir = Math.abs(ax) >= Math.abs(ay) ? (ax < 0 ? 'Left' : 'Right') : (ay < 0 ? 'Up' : 'Down');
+    }
+  }
+  const repMs = Math.round(115 - 40 * clamp01((mag - 0.35) / 0.65));
+  if (dir !== PAD.dir) { PAD.dir = dir; PAD.next = now + 240; if (dir) { audioInit(); padDirection(dir); } }
+  else if (dir && now >= PAD.next) { PAD.next = now + repMs; padDirection(dir); }
   for (let b = 0; b < PAD_BTN_ENTRIES.length; b++) {
     const [name, i] = PAD_BTN_ENTRIES[b], on = down(i);
     if (on && !PAD.prev[i]) { audioInit(); padButton(name); }
@@ -8027,6 +8362,7 @@ function pollPad(now) {
 window.addEventListener('resize', () => { resize(); });
 window.addEventListener('blur', () => {
   if (UI.drag) cancelDrag({ animate: false });
+  if (UI.hoverSlot >= 0) { UI.hoverSlot = -1; cv.style.cursor = ''; dirty = true; }
   if (UI.sel >= 0 || UI.ghost) { UI.sel = -1; UI.ghost = null; dirty = true; }
 });
 function suspendAudioCleanly(immediate = false) {
@@ -8058,8 +8394,10 @@ function restoreAudioOnVisible() {
   }
 }
 document.addEventListener('visibilitychange', () => {
+  syncTickerTimer();
   if (document.hidden) {
     if (UI.drag) cancelDrag({ animate: false });
+    if (UI.hoverSlot >= 0) { UI.hoverSlot = -1; cv.style.cursor = ''; }
     if (UI.sel >= 0 || UI.ghost) { UI.sel = -1; UI.ghost = null; UI.ghostCleared = false; dirty = true; }
     suspendNotices(false);
     if (S.scene === 'game') saveResume();
@@ -8070,10 +8408,12 @@ document.addEventListener('visibilitychange', () => {
   restoreAudioOnVisible();
 });
 window.addEventListener('pagehide', () => {
+  if (tickerInterval) { clearInterval(tickerInterval); tickerInterval = 0; }
   if (S.scene === 'game') saveResume();
   suspendAudioCleanly(true);
 });
 window.addEventListener('pageshow', () => {
+  syncTickerTimer();
   resumeNotices();
   restoreAudioOnVisible();
 });
@@ -8184,11 +8524,11 @@ const discardedResume = dropBadResume();
 wireDom();
 checkPadConnected();
 if (document.fonts && document.fonts.load) Promise.all([document.fonts.load('700 20px Fraunces'), document.fonts.load('900 20px Fraunces')]).then(() => { dirty = true; }, () => {});
+loadArtFor('title');
 applySettings();
 showScene('title');
 if (discardedResume) badResumeToast();
 if (savesLocked()) saveNotice('newer');
-loadArtFor('title');
 requestAnimationFrame(loop);
 </script>
 </body>
