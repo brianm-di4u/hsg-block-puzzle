@@ -36,7 +36,7 @@ export const tests = [
       const list = await t.game('audioList');
       const med = {};
       for (const cue of list.cues) {
-        const r = await medianPeak(t, cue, {}, 11);   // eleven repeats keep the median steady enough to order clear and win
+        const r = await medianPeak(t, cue, {}, 61);   // each repeat is random; with 11 the medians moved by up to 0.03, enough to swap place and clear or push win over 0.45
         med[cue] = r.med;
         t.log(cue + ': median ' + r.med + ' (' + r.lo + ' to ' + r.hi + ')');
         if (cue !== 'click') {
@@ -45,7 +45,7 @@ export const tests = [
         }
       }
       // the ladder is for an ordinary clear (one group); a three-group clear is the big combo and may sit next to the win cue
-      const one = (await medianPeak(t, 'clear', { cue: { G: 1 } }, 11)).med;
+      const one = (await medianPeak(t, 'clear', { cue: { G: 1 } }, 61)).med;
       t.log('ordinary clear (one group) median ' + one);
       t.expect(med.click < med.pick && med.pick < med.place && med.place < one && one < med.win,
         'click ' + med.click + ' < pick ' + med.pick + ' < place ' + med.place + ' < clear ' + one + ' < win ' + med.win);
