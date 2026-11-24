@@ -249,6 +249,7 @@ export const tests = [
 
       await t.game('newGame', { mode: 'springs' });
       await t.game('setState', { board: b, heat: 12, tray: [{ id: 'o1' }, { id: 'o1' }, { id: 'o1' }] });
+      await t.page.waitForFunction(() => window.__game.isIdle(), null, { timeout: 10000 }); // the board's backdrop may still be loading, and draws once when it lands
       await t.page.evaluate(() => { UI.lastInput = performance.now() - 31000; });
       await t.waitFrames(3);
       const gi0 = await t.game('act', 'perf');

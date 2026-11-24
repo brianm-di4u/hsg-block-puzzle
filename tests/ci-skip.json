@@ -1,0 +1,6 @@
+[
+  {
+    "test": "W6-S6-01 4x-CPU mobile frame budget",
+    "why": "a 10 ms main-thread budget at 4x CPU throttle; on main run 45288686332 the runner took 13.6 to 14.4 ms with script time doubled too, against 7.0 ms locally; the same code passed on another runner in run 45286595534"
+  }
+]
